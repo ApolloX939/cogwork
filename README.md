@@ -165,8 +165,3 @@ stop when the server restarts), statements per tick.
   throwaway world in the `luanti` docker image (`minetest_game`, `mineclonia`,
   `mineclone2`, `hades_revisited`, `skyblock_zero`).
 - `python3 tools/gen_textures.py` redraws every texture and `src/icons.lua`.
-
-## Licence
-
-Code LGPL 2.1 or later, textures CC-BY-SA 4.0 (all drawn by
-`tools/gen_textures.py`).
