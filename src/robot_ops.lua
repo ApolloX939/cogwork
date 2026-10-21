@@ -225,7 +225,7 @@ function Bot:move (dir)
 	end
 
 	-- not higher above the floor than the upgrades allow
-	if not S.height_ok(to, S.height_limit(from), from) then
+	if not S.move_allowed(from, to, S.height_limit(from), from) then
 		return false, settings.action_delay
 	end
 

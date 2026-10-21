@@ -41,8 +41,30 @@ function S.list_packages ()
 	return names
 end
 
+-- the robot and the drone (a robot with a Flight Upgrade), each off or on
+local NODES = { ["cogwork:robot"] = true, ["cogwork:robot_on"] = true,
+	["cogwork:drone"] = true, ["cogwork:drone_on"] = true }
+S.ROBOT_NODES = { "cogwork:robot", "cogwork:robot_on", "cogwork:drone", "cogwork:drone_on" }
+
 function S.is_robot (name)
-	return name == "cogwork:robot" or name == "cogwork:robot_on"
+	return NODES[name] == true
+end
+
+-- the node name that suits a robot: a drone when it can fly, lit when running
+function S.variant_name (pos, on)
+	local fly = S.height_limit(pos) == nil
+	return (fly and "cogwork:drone" or "cogwork:robot") .. (on and "_on" or "")
+end
+
+-- make the node look like what it is: robot or drone
+function S.refresh_variant (pos, on)
+	local node = core.get_node_or_nil(pos)
+	if not node or not S.is_robot(node.name) then return end
+	if on == nil then on = node.name:sub(-3) == "_on" end
+	local want = S.variant_name(pos, on)
+	if node.name ~= want then
+		core.swap_node(pos, { name = want, param2 = node.param2 })
+	end
 end
 
 function S.get_program (pos)

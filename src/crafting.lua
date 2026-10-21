@@ -53,12 +53,19 @@ compat.register_recipes(function (c)
 					{ plate, circuit, plate },
 				},
 			})
+			-- Flight is the late-game one: four Hover Upgrades plus antimatter,
+			-- retaining and emittrium parts (cheaper stand-ins when a game lacks them)
+			local have = core.registered_items
+			local function part (name, fallback) return have[name] and name or fallback end
+			local anti = part("sbz_resources:antimatter_plate", dust)
+			local retaining = part("sbz_resources:retaining_circuit", processor)
+			local emittrium = part("sbz_resources:emittrium_circuit", emitter)
 			core.register_craft({
 				output = "cogwork:upgrade_flight",
 				recipe = {
-					{ "cogwork:upgrade_hover", processor, "cogwork:upgrade_hover" },
-					{ dust, emitter, dust },
-					{ plate, processor, plate },
+					{ "cogwork:upgrade_hover", anti, "cogwork:upgrade_hover" },
+					{ retaining, emittrium, retaining },
+					{ "cogwork:upgrade_hover", anti, "cogwork:upgrade_hover" },
 				},
 			})
 			return
@@ -87,13 +94,15 @@ compat.register_recipes(function (c)
 				{ glass, steel, glass },
 			},
 		})
-		if copper then
+		-- Flight: four Hover Upgrades around gold and diamonds
+		local gold, diamond = first("gold", "copper"), first("diamond", "gold", "steel")
+		if gold and diamond then
 			core.register_craft({
 				output = "cogwork:upgrade_flight",
 				recipe = {
-					{ "cogwork:upgrade_hover", copper, "cogwork:upgrade_hover" },
-					{ steel, coal, steel },
-					{ "cogwork:upgrade_hover", copper, "cogwork:upgrade_hover" },
+					{ "cogwork:upgrade_hover", gold, "cogwork:upgrade_hover" },
+					{ diamond, steel, diamond },
+					{ "cogwork:upgrade_hover", gold, "cogwork:upgrade_hover" },
 				},
 			})
 		end

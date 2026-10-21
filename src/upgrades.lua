@@ -3,7 +3,10 @@
 -- A robot may be 1 block above the floor (floor = the nearest block that is
 -- not free below it). Each Hover Upgrade lets it go one block higher, a
 -- Flight Upgrade removes the limit. The limit applies to every move and to
--- the pathfinder, so a robot cannot climb 100 blocks into the air.
+-- the pathfinder, so a robot cannot climb 100 blocks into the air - except along
+-- a wall: next to a solid block it may go on up (out of a shaft it dug).
+-- See S.move_allowed.
+-- A robot with a Flight Upgrade is a "drone" (its own model).
 
 local S = ...
 local T = S.S
@@ -64,9 +67,35 @@ function S.gap_below (cell, limit, ignore)
 	return limit + 1
 end
 
--- may the robot at pos (limit from S.height_limit) be in cell?
-function S.height_ok (cell, limit, ignore)
-	return limit == nil or S.gap_below(cell, limit, ignore) <= limit
+local SIDES = {
+	{ x = 1, y = 0, z = 0 }, { x = -1, y = 0, z = 0 },
+	{ x = 0, y = 0, z = 1 }, { x = 0, y = 0, z = -1 },
+}
+
+-- is there a solid block beside cell to hold on to? (a shaft wall, a tower)
+function S.clinging (cell, ignore)
+	for _, d in ipairs(SIDES) do
+		local side = vector.add(cell, d)
+		if not (ignore and vector.equals(side, ignore))
+			and not S.node_unknown(side) and not S.node_passable(side) then
+			return true
+		end
+	end
+	return false
+end
+
+-- May the robot (limit from S.height_limit) go from one cell to a neighbour?
+--   * down: always, that only brings it closer to the floor
+--   * within the limit above the floor at the new cell
+--   * the new cell is next to a block (it holds on: along a wall, up a tower)
+--   * up from a cell that is next to a block, so it can climb out of a shaft
+--     it dug and step onto the surface above it
+-- ignore: the robot's own block, which is no floor and no wall.
+function S.move_allowed (from, to, limit, ignore)
+	if limit == nil or to.y < from.y then return true end
+	if S.gap_below(to, limit, ignore) <= limit then return true end
+	if S.clinging(to, ignore) then return true end
+	return to.y > from.y and S.clinging(from, ignore)
 end
 
 -- a short sentence for the Storage tab

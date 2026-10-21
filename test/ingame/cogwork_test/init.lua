@@ -337,7 +337,7 @@ test("event robot message", function (done)
 	end)
 
 	wait_for(sender, 40, function (timeout)
-		local lifted_rx = core.get_node(P(5, 2, 0)).name:find("cogwork:robot") ~= nil
+		local lifted_rx = S.is_robot(core.get_node(P(5, 2, 0)).name)
 		report("event robot message", ok and started and not timeout and blocked == 0
 			and allowed and #allowed == 1 and allowed[1] == "other/Rx" and lifted_rx,
 			("blocked=%s allowed=%s lifted=%s timeout=%s"):format(tostring(blocked),
@@ -499,7 +499,7 @@ test("pathfind to unloaded terrain with forceload", function (done)
 	wait_for(pos, 90, function (timeout)
 		local p = vector.add(FAR, { x = 0, y = 1, z = 0 })
 		local good = S.is_robot(core.get_node(p).name)
-		local found = core.find_nodes_in_area(P(-3, -3, -3), P(3, 8, 80), { "cogwork:robot", "cogwork:robot_on" })
+		local found = core.find_nodes_in_area(P(-3, -3, -3), P(3, 8, 80), S.ROBOT_NODES)
 		local where = {}
 		for _, f in ipairs(found) do where[#where + 1] = core.pos_to_string(vector.subtract(f, ORIGIN)) .. " " .. err_of(f) end
 		report("pathfind to unloaded terrain with forceload", not timeout and good,
@@ -586,6 +586,86 @@ end, P(4, 5, 0), function (timeout)
 	-- the program's "move up" took it one block above the top step
 	local p = find_robot()
 	assert(vector.equals(p, P(4, 6, 0)), "ended at " .. core.pos_to_string(vector.subtract(p, ORIGIN)))
+end)
+
+-- a robot climbs along a wall, so it can leave a shaft it dug
+test("a robot climbs back out of its own shaft", function (done)
+	clear_area()
+	for x = -1, 1 do for y = -6, 0 do for z = -1, 1 do core.set_node(P(x, y, z), { name = material }) end end end
+	local pos = make_robot(P(0, 1, 0), "use mining\ncall shaft 4\ncall climb 4", nil, {})
+	assert(S.start(pos))
+	wait_for(pos, 40, function (timeout)
+		local p = find_robot()
+		report("a robot climbs back out of its own shaft", not timeout and p and vector.equals(p, P(0, 1, 0)),
+			"ended at " .. (p and core.pos_to_string(vector.subtract(p, ORIGIN)) or "?") .. " " .. (p and err_of(p) or ""))
+		done()
+	end)
+end)
+
+test("a robot beside a tower climbs it, one in open air does not", function (done)
+	clear_area()
+	for y = 0, 10 do core.set_node(P(1, y, 0), { name = material }) end
+	local pos = make_robot(P(0, 1, 0), "repeat 8\n  move up", nil, {})
+	core.set_node(P(0, 0, 0), { name = material })
+	assert(S.start(pos))
+	wait_for(pos, 40, function (timeout)
+		local p = find_robot()
+		-- beside the tower all the way: 8 up from y=1
+		report("a robot beside a tower climbs it", not timeout and p and vector.equals(p, P(0, 9, 0)),
+			"ended at " .. (p and core.pos_to_string(vector.subtract(p, ORIGIN)) or "?"))
+		done()
+	end)
+end)
+
+path_test("pathfind climbs up a shaft wall", {}, function ()
+	for y = 0, 8 do core.set_node(P(1, y, 0), { name = material }) end
+	core.set_node(P(0, 0, 0), { name = material })
+end, P(0, 7, 0), function (timeout)
+	assert(not timeout, "timeout")
+	local p = find_robot()
+	-- arrived at y=7, then the program's "move up" went on along the wall
+	assert(vector.equals(p, P(0, 8, 0)), "ended at " .. core.pos_to_string(vector.subtract(p, ORIGIN)))
+end)
+
+-- ---------------------------------------------------------------- drone
+
+test("a robot with a flight upgrade is a drone", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "stop", nil, {})
+	local node = core.registered_nodes["cogwork:robot"]
+	local fake = { get_player_name = function () return "tester" end }
+	local inv = core.get_meta(pos):get_inventory()
+
+	local before = core.get_node(pos).name
+	-- as the formspec does: the engine stores the stack, then calls the callback
+	inv:set_stack("upgrades", 1, ItemStack("cogwork:upgrade_flight"))
+	node.on_metadata_inventory_put(pos, "upgrades", 1, ItemStack("cogwork:upgrade_flight"), fake)
+	local drone = core.get_node(pos).name
+	local p2 = core.get_node(pos).param2
+
+	-- it runs as a drone too, and stops as one
+	assert(S.start(pos))
+	local running = core.get_node(pos).name
+	S.stop(pos, "")
+	local stopped = core.get_node(pos).name
+
+	inv:set_stack("upgrades", 1, ItemStack(""))
+	node.on_metadata_inventory_take(pos, "upgrades", 1, ItemStack("cogwork:upgrade_flight"), fake)
+	local back = core.get_node(pos).name
+
+	report("a robot with a flight upgrade is a drone",
+		before == "cogwork:robot" and drone == "cogwork:drone" and running == "cogwork:drone_on"
+		and stopped == "cogwork:drone" and back == "cogwork:robot" and core.get_node(pos).param2 == p2,
+		table.concat({ before, drone, running, stopped, back }, " "))
+	done()
+end)
+
+test("a hover upgrade does not make a drone", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "stop", nil, { "cogwork:upgrade_hover" })
+	S.refresh_variant(pos)
+	report("a hover upgrade does not make a drone", core.get_node(pos).name == "cogwork:robot", core.get_node(pos).name)
+	done()
 end)
 
 -- ---------------------------------------------------------------- node events
@@ -697,7 +777,7 @@ test("editor formspec", function (done)
 end)
 
 test("robot can be dug by hand", function (done)
-	for _, name in ipairs({ "cogwork:robot", "cogwork:robot_on" }) do
+	for _, name in ipairs(S.ROBOT_NODES) do
 		local def = core.registered_nodes[name]
 		local ok, info
 		if core.get_modpath("mcl_core") then

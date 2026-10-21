@@ -18,12 +18,7 @@ function S.running_line (pos)
 end
 
 local function set_variant (pos, on)
-	local node = core.get_node_or_nil(pos)
-	if not node or not S.is_robot(node.name) then return end
-	local want = on and "cogwork:robot_on" or "cogwork:robot"
-	if node.name ~= want then
-		core.swap_node(pos, { name = want, param2 = node.param2 })
-	end
+	S.refresh_variant(pos, on)
 end
 
 -- called by Bot:move
@@ -140,7 +135,7 @@ end)
 core.register_lbm({
 	label = "Cogwork resume",
 	name = "cogwork:resume",
-	nodenames = { "cogwork:robot_on" },
+	nodenames = { "cogwork:robot_on", "cogwork:drone_on" },
 	run_at_every_load = true,
 	action = function (pos)
 		if running[hash(pos)] then return end

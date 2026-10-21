@@ -164,13 +164,24 @@ local function allow_move (pos, from_list, from_index, to_list, to_index, count,
 	return S.can_access(pos, player) and count or 0
 end
 
-local function register (name, on)
+-- a Flight Upgrade put in or taken out changes how the robot looks
+local function upgrades_changed (pos, listname)
+	if listname == "upgrades" then S.refresh_variant(pos) end
+end
+local function on_inventory_put (pos, listname) upgrades_changed(pos, listname) end
+local function on_inventory_take (pos, listname) upgrades_changed(pos, listname) end
+local function on_inventory_move (pos, from_list, from_index, to_list)
+	upgrades_changed(pos, from_list)
+	upgrades_changed(pos, to_list)
+end
+
+local function register (name, on, drone)
 	local def = {
 		description = T("Robot"),
 		short_description = T("Robot"),
 		_tt_help = T("A programmable robot"),
 		drawtype = "mesh",
-		mesh = "cogwork_robot.obj",
+		mesh = drone and "cogwork_drone.obj" or "cogwork_robot.obj",
 		tiles = {
 			"cogwork_metal.png", on and "cogwork_face_on.png" or "cogwork_face.png",
 			"cogwork_tread.png", "cogwork_accent.png", "cogwork_back.png",
@@ -199,11 +210,16 @@ local function register (name, on)
 		allow_metadata_inventory_put = allow_put,
 		allow_metadata_inventory_take = allow_take,
 		allow_metadata_inventory_move = allow_move,
+		on_metadata_inventory_put = on_inventory_put,
+		on_metadata_inventory_take = on_inventory_take,
+		on_metadata_inventory_move = on_inventory_move,
 	}
 
-	if on then def.groups.not_in_creative_inventory = 1 end
+	if on or drone then def.groups.not_in_creative_inventory = 1 end
 	core.register_node(name, def)
 end
 
 register("cogwork:robot", false)
 register("cogwork:robot_on", true)
+register("cogwork:drone", false, true)
+register("cogwork:drone_on", true, true)

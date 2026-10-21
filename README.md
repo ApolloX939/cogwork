@@ -271,6 +271,17 @@ Upgrade** removes the limit. `height_limit` is the allowed number of blocks, `-1
 when flying. Robots placed before upgrades existed get their slots when the
 Storage tab is opened, and fall under the limit like any other.
 
+A robot with a **Flight Upgrade** looks like a drone (its own model; it changes
+as the upgrade goes in or out). The limit never keeps a robot from going down,
+and next to a block it may hold on: it can go along a wall, and up from a cell
+that has a block beside it, so a robot that dug a shaft with `mining.shaft`
+climbs back out with `mining.climb`. The pathfinder plans with the same moves.
+
+| upgrade | recipe |
+|---|---|
+| Hover | Skyblock: Zero: matter plates, a Simple Processor, an Emitter and circuits. Other games: glass, steel and coal |
+| Flight | Skyblock: Zero: four Hover Upgrades around two antimatter plates, two retaining circuits and an emittrium circuit. Other games: four Hover Upgrades, gold, diamonds and steel |
+
 ### Item aliases
 
 `@stone @cobble @dirt @sand @gravel @glass @planks @log @sapling @torch @chest

@@ -102,8 +102,7 @@ local function search (bot, from, goal, forceloaded)
 		if node == nil or node.name == "ignore" then
 			v = forceloaded
 		else
-			v = S.node_passable(c) and not bot:protected(c)
-				and S.height_ok(c, height, from) or false
+			v = S.node_passable(c) and not bot:protected(c) or false
 		end
 		free_cache[h] = v
 		return v
@@ -137,7 +136,8 @@ local function search (bot, from, goal, forceloaded)
 				local n = { x = c.x + d.x, y = c.y + d.y, z = c.z + d.z }
 				local nh = hash(n)
 				if not closed[nh] and manhattan(n, from) <= reach
-					and free(n, nh) and (g_of[nh] == nil or g < g_of[nh]) then
+					and free(n, nh) and (g_of[nh] == nil or g < g_of[nh])
+					and S.move_allowed(c, n, height, from) then
 					cells[nh] = n
 					g_of[nh] = g
 					parent[nh] = h
