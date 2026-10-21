@@ -76,8 +76,55 @@ action("stop", "flow", {}, function (ctx)
 	assert(false, { scratch = true, stop = true, msg = "stopped" })
 end)
 
+-- chat: to the owner (no limit), to everyone / to one player (limited per player)
 action("chat", "flow", { VAL }, function (ctx, text)
 	return ctx.bot:chat(lang.tostr(text))
+end)
+
+action("say", "flow", { VAL }, function (ctx, text)
+	return ctx.bot:say(lang.tostr(text))
+end)
+
+action("whisper", "flow", { VAL, VAL }, function (ctx, player, text)
+	return ctx.bot:whisper(player, lang.tostr(text))
+end)
+
+--------------------------------------------------------------------------
+-- events (see events.lua; the `events` package wraps these)
+
+action("event_register", "flow", { VAL, VAL, VAL }, function (ctx, kind, radius, handler)
+	return ctx.bot:event_register(ctx, kind, radius, handler)
+end)
+
+-- Handle events until event_leave; each handler runs to its end before the next
+action("event_process", "flow", {}, function (ctx)
+	if ctx.bot:event_count(ctx) == 0 then
+		lang.rt_error(ctx, "nothing to process: call events.register first")
+	end
+	ctx.leave = false
+	while not ctx.leave do
+		local ev = ctx.bot:event_next(ctx)
+		if ev then
+			lang.call_named(ctx, ev.handler, ev.args)
+		else
+			ctx.yield(ctx.bot:event_idle(ctx))
+		end
+	end
+	return true
+end)
+
+action("event_leave", "flow", {}, function (ctx)
+	ctx.leave = true
+	return true
+end)
+
+-- robot to robot, no limits; only robots that allow this one hear it
+action("tell_bot", "flow", { VAL, VAL }, function (ctx, name, text)
+	return ctx.bot:tell_bot(name, lang.tostr(text))
+end)
+
+action("tell_bots", "flow", { VAL }, function (ctx, text)
+	return ctx.bot:tell_bots(lang.tostr(text))
 end)
 
 --------------------------------------------------------------------------
@@ -108,6 +155,13 @@ query("even", "check", { VAL }, function (ctx, v) return intpart(ctx, v, "even")
 query("odd", "check", { VAL }, function (ctx, v) return intpart(ctx, v, "odd") % 2 == 1 end)
 query("floor", "check", { VAL }, function (ctx, v) return intpart(ctx, v, "floor") end)
 query("length", "check", { VAL }, function (ctx, v) return #lang.tostr(v) end)
+
+-- robots that are running, listen for robot messages and allow this one
+query("listeners", "check", {}, function (ctx) return #ctx.bot:listeners() end)
+query("listener", "check", { VAL }, function (ctx, n)
+	n = intpart(ctx, n, "listener")
+	return ctx.bot:listeners()[n] or ""
+end)
 
 query("random", "check", { VAL }, function (ctx, n)
 	n = intpart(ctx, n, "random")

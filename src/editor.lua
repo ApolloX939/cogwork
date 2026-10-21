@@ -118,7 +118,11 @@ local function palette_entries (cat, lines, view)
 		add({ "break" }, "line", T("Leave the loop"))
 		add({ "continue" }, "line", T("Next loop turn"))
 		add({ "wait", "5" }, "line", T("Wait, in tenths of a second"))
-		add({ "chat", '"hello"' }, "line", T("Send a chat message"))
+		add({ "chat", '"hello"' }, "line", T("Chat message to the owner"))
+		add({ "say", '"hello"' }, "line", T("Public chat message (limited per player)"))
+		add({ "whisper", '"name"', '"hello"' }, "line", T("Private chat message to a player (limited per player)"))
+		add({ "tell_bot", '"name"', '"hello"' }, "line", T("Message a robot that allows this one"))
+		add({ "tell_bots", '"hello"' }, "line", T("Message every robot that allows this one"))
 		add({ "stop" }, "line", T("Stop the program"))
 		add({ "#", "note" }, "line", T("A note, ignored by the robot"))
 	elseif cat == "move" then
@@ -145,7 +149,7 @@ local function palette_entries (cat, lines, view)
 		add({ "join", "s", '"text"' }, "line", T("Append text to a variable"))
 	elseif cat == "check" then
 		for _, v in ipairs({ "detect", "node", "contains", "fits", "count", "counter", "ok",
-			"even", "odd", "random", "floor", "length", "pos_x", "pos_y", "pos_z", "facing" }) do
+			"listeners", "listener", "even", "odd", "random", "floor", "length", "pos_x", "pos_y", "pos_z", "facing" }) do
 			add({ v }, "token", T("@1", v))
 		end
 		for _, v in ipairs({ "true", "false", "not", "and", "or", "matches", "=", "!=",
@@ -520,20 +524,18 @@ local function program_tab (fs, pos, s, lines)
 	local running = S.is_running(pos)
 	fs[#fs + 1] = ("image_button[%g,0.8;1.1,1.1;cogwork_ui_power_%s.png;op_power;]"):format(rx, running and "on" or "off")
 	fs[#fs + 1] = ("tooltip[op_power;%s]"):format(esc(running and T("Stop the program") or T("Run the program")))
+	if not running then
+		fs[#fs + 1] = ("image_button_exit[%g,0.8;1.1,1.1;cogwork_ui_run_bg.png;op_runclose;]"):format(rx + 1.3)
+		fs[#fs + 1] = ("tooltip[op_runclose;%s]"):format(esc(T("Run in Background: start the program and close this window; the robot keeps working")))
+	end
 	local persist = meta:get_int("persist") == 1
-	fs[#fs + 1] = ("image_button[%g,0.8;1.1,1.1;cogwork_ui_persist_%s.png;op_persist;]"):format(rx + 1.3, persist and "on" or "off")
-	fs[#fs + 1] = ("tooltip[op_persist;%s]"):format(esc(T("Keep the area loaded while the robot works: @1", persist and T("on") or T("off"))))
+	fs[#fs + 1] = ("image_button[%g,0.8;1.1,1.1;cogwork_ui_persist_%s.png;op_persist;]"):format(rx + 2.6, persist and "on" or "off")
+	fs[#fs + 1] = ("tooltip[op_persist;%s]"):format(esc(T("Forceload: keep the area loaded while the robot works: @1", persist and T("on") or T("off"))))
 
 	local name = meta:get_string("bot_name")
-	fs[#fs + 1] = ("label[%g,1.0;%s]"):format(rx + 2.6, esc(name ~= "" and name or T("(no name)")))
-	if not running then
-		fs[#fs + 1] = ("image[%g,1.3;0.7,0.7;cogwork_ui_run_bg.png]"):format(rx + 4.9)
-		fs[#fs + 1] = ("style[op_runclose;font_size=-3]")
-		fs[#fs + 1] = ("button_exit[%g,1.3;2.6,0.7;op_runclose;%s]"):format(rx + 5.7, esc(T("Run in Background")))
-		fs[#fs + 1] = ("tooltip[op_runclose;%s]"):format(esc(T("Start the program and close this window; the robot keeps working")))
-	end
+	fs[#fs + 1] = ("label[%g,1.2;%s]"):format(rx + 3.9, esc(name ~= "" and name or T("(no name)")))
 	local owner = meta:get_string("owner")
-	fs[#fs + 1] = ("label[%g,1.5;%s]"):format(rx + 2.6, esc(owner ~= "" and T("Owner: @1", owner) or ""))
+	fs[#fs + 1] = ("label[%g,1.6;%s]"):format(rx + 3.9, esc(owner ~= "" and T("Owner: @1", owner) or ""))
 
 	-- palette categories
 	for k, cat in ipairs(PALETTE_CATS) do
@@ -599,32 +601,9 @@ local function program_tab (fs, pos, s, lines)
 	fs[#fs + 1] = ("tooltip[val_set;%s]"):format(esc(T("Replace the selected block")))
 	fs[#fs + 1] = ("tooltip[val_ins;%s]"):format(esc(T("Insert after the selected block")))
 
-	-- items to pick: the player's hotbar, then the robot's storage
-	local items = {}
-	local seen = {}
-	local player_inv = s.player and s.player:get_inventory()
-	local function collect (inv, list, limit)
-		if not inv then return end
-		for _, st in ipairs(inv:get_list(list) or {}) do
-			if #items >= limit then break end
-			local n = st:get_name()
-			if n ~= "" and not seen[n] then
-				seen[n] = true
-				items[#items + 1] = n
-			end
-		end
-	end
-	collect(core.get_meta(pos):get_inventory(), "main", 8)
-	collect(player_inv, "main", 16)
-	s.items = items
-
-	fs[#fs + 1] = ("label[%g,%g;%s]"):format(rx, vy + 1.35, esc(T("Pick an item from the robot or your inventory")))
-	for k, n in ipairs(items) do
-		local col, row = (k - 1) % 8, math.floor((k - 1) / 8)
-		local name_ = "i_" .. k
-		fs[#fs + 1] = ("item_image_button[%g,%g;0.78,0.78;%s;%s;]"):format(rx + col * 0.83, vy + 1.55 + row * 0.83, esc(n), name_)
-		fs[#fs + 1] = ("tooltip[%s;%s]"):format(name_, esc(n))
-	end
+	-- items: one button opens the picker with everything the robot and the player carry
+	fs[#fs + 1] = ("button[%g,%g;%g,0.8;pick_item;%s]"):format(rx, vy + 1.3, rw - 0.4, esc(T("Pick an item...")))
+	fs[#fs + 1] = ("tooltip[pick_item;%s]"):format(esc(T("Choose an item from the robot's storage or your inventory")))
 end
 
 local function text_tab (fs, pos, s, lines)
@@ -686,9 +665,9 @@ local function packages_tab (fs, pos, s)
 	if s.pkg then src, mine = package_source(pos, s.pkg) end
 	fs[#fs + 1] = ("textarea[7.2,1.3;12.2,4.0;;%s;%s]"):format(esc(s.pkg and (lang.packages[s.pkg] and lang.packages[s.pkg].meta.description or "") or ""), esc(src or ""))
 
-	fs[#fs + 1] = ("button[7.2,5.5;3.6,0.8;pkg_disk;%s]"):format(esc(T("Copy to a disk")))
+	fs[#fs + 1] = ("button[7.2,5.5;3.6,0.8;pkg_disk;%s]"):format(esc(T("Write to the disk")))
 	fs[#fs + 1] = ("field[11.0,5.7;3.8,0.7;pkg_name;%s;%s]"):format(esc(T("Name for the disk")), esc(s.pkg_new or ""))
-	fs[#fs + 1] = ("button[15.0,5.5;4.4,0.8;pkg_mine;%s]"):format(esc(T("Disk from my functions")))
+	fs[#fs + 1] = ("button[15.0,5.5;4.4,0.8;pkg_mine;%s]"):format(esc(T("Write my functions to the disk")))
 	if s.msg ~= "" then
 		fs[#fs + 1] = ("label[0.4,6.55;%s]"):format(esc(s.msg))
 	end
@@ -698,7 +677,7 @@ local function packages_tab (fs, pos, s)
 	fs[#fs + 1] = "list[current_player;main;0.4,7.1;8,4;]"
 
 	local spos = ("%d,%d,%d"):format(pos.x, pos.y, pos.z)
-	fs[#fs + 1] = ("label[10.8,7.1;%s]"):format(esc(T("Disk to install:")))
+	fs[#fs + 1] = ("label[10.8,7.1;%s]"):format(esc(T("Disk slot:")))
 	fs[#fs + 1] = slot_bg(10.8, 7.4, 1, 1)
 	fs[#fs + 1] = ("list[nodemeta:%s;disk;10.8,7.4;1,1;]"):format(spos)
 	fs[#fs + 1] = ("button[12.2,7.5;3.6,0.8;pkg_install;%s]"):format(esc(T("Install it")))
@@ -716,6 +695,23 @@ local function settings_tab (fs, pos, s)
 	fs[#fs + 1] = ("checkbox[0.5,3;public;%s;%s]"):format(esc(T("Public: anyone can use this robot")), meta:get_int("public") == 1 and "true" or "false")
 	fs[#fs + 1] = ("label[0.5,4.2;%s]"):format(esc(T("Owner: @1", meta:get_string("owner"))))
 	fs[#fs + 1] = ("label[0.5,5;%s]"):format(esc(T("Position: @1", core.pos_to_string(pos))))
+
+	-- robot to robot messages
+	local x = 10.0
+	fs[#fs + 1] = ("label[%g,1.1;%s]"):format(x, esc(T("Robots allowed to message this one")))
+	fs[#fs + 1] = ("label[%g,1.5;%s]"):format(x, esc(T("Your own robots always are. A player name allows all their robots, Player/RobotName just one.")))
+	fs[#fs + 1] = ("field[%g,2.2;5.4,0.8;allow_name;;]"):format(x)
+	fs[#fs + 1] = "field_close_on_enter[allow_name;false]"
+	fs[#fs + 1] = ("button[%g,2.2;1.8,0.8;allow_add;%s]"):format(x + 5.6, esc(T("Allow")))
+	local allow = {}
+	for _, e in ipairs(S.bot_allow_list(pos)) do allow[#allow + 1] = esc(e) end
+	fs[#fs + 1] = ("textlist[%g,3.2;7.4,2.4;allow_sel;%s;%d]"):format(x, table.concat(allow, ","), s.allow_sel or 0)
+	fs[#fs + 1] = ("button[%g,5.7;3.4,0.8;allow_remove;%s]"):format(x, esc(T("Remove selected")))
+
+	local heard = {}
+	for _, e in ipairs(S.listeners_of(pos)) do heard[#heard + 1] = esc(e) end
+	fs[#fs + 1] = ("label[%g,7.0;%s]"):format(x, esc(T("Listening to this robot now (running, and registered for robot messages)")))
+	fs[#fs + 1] = ("textlist[%g,7.3;7.4,2.6;;%s]"):format(x, #heard > 0 and table.concat(heard, ",") or esc(T("(nobody)")))
 end
 
 local function hx (text)
@@ -754,6 +750,9 @@ local function help_text ()
 	p("")
 	p("<b>" .. esc(T("Packages")) .. "</b>")
 	p(esc(T("'use mining' makes a package's functions available. Names can also be written package.function. Packages are made of functions only; copy yours to a disk and install it in another robot.")))
+	p("")
+	p("<b>" .. esc(T("Events")) .. "</b>")
+	p(esc(T("use events, then call events.register_nodes / register_entities r / register_items r / register_chat / register_whisper / register_bot with the name of one of your functions in quotes, then call events.process. It handles events until a handler calls events.leave. Messages: chat (owner, no limit), say (everyone) and whisper (one player) are limited per player; tell_bot and tell_bots reach robots that allow this one in their Settings tab.")))
 	p("")
 	p("<b>" .. esc(T("Items")) .. "</b>")
 	p(esc(T("Write item names in full (default:stone) or as @stone, @cobble, @dirt, @planks, @torch, @chest ... which pick the matching item of the game being played.")))
@@ -863,6 +862,9 @@ S.on_editor_fields = function (player, formname, fields)
 					local ok, err = S.start(pos)
 					if not ok then core.chat_send_player(pname, err or "") end
 				end
+			elseif name == "pick_item" then
+				S.show_item_picker(pos, player)
+				return true
 			elseif name == "op_persist" then
 				local on = meta:get_int("persist") ~= 1
 				if not S.set_persist(pos, on) then
@@ -885,12 +887,6 @@ S.on_editor_fields = function (player, formname, fields)
 				k = name:match("^o_(%d+)$")
 				if k and s.options and s.options[tonumber(k)] then
 					lines[s.line].tokens[s.tok] = s.options[tonumber(k)]
-					changed = true
-				end
-				k = name:match("^i_(%d+)$")
-				if k and s.items and s.items[tonumber(k)] then
-					clamp_cursor(s, lines)
-					replace_or_insert(s, lines, { s.items[tonumber(k)] })
 					changed = true
 				end
 			end
@@ -962,9 +958,12 @@ S.on_editor_fields = function (player, formname, fields)
 
 		if fields.pkg_disk and s.pkg then
 			local src = package_source(pos, s.pkg)
-			if src and S.give_disk then
-				S.give_disk(player, s.pkg, src)
-				s.msg = T("A disk with '@1' is in your inventory.", s.pkg)
+			if src then
+				if S.write_disk(meta:get_inventory(), s.pkg, src) then
+					s.msg = T("Wrote '@1' to the disk in the slot.", s.pkg)
+				else
+					s.msg = T("Put a package disk in the slot first.")
+				end
 			end
 		elseif fields.pkg_mine then
 			local name = (fields.pkg_name or ""):gsub("%s", "")
@@ -975,11 +974,12 @@ S.on_editor_fields = function (player, formname, fields)
 				s.msg = T("The program has no functions to put on a disk.")
 			else
 				local ok, err = S.validate_library(lib)
-				if ok then
-					S.give_disk(player, name, lib)
-					s.msg = T("A disk with '@1' is in your inventory.", name)
-				else
+				if not ok then
 					s.msg = err
+				elseif S.write_disk(meta:get_inventory(), name, lib) then
+					s.msg = T("Wrote '@1' to the disk in the slot.", name)
+				else
+					s.msg = T("Put a package disk in the slot first.")
 				end
 			end
 		elseif fields.pkg_install then
@@ -1016,10 +1016,126 @@ S.on_editor_fields = function (player, formname, fields)
 		if fields.public ~= nil then
 			meta:set_int("public", fields.public == "true" and 1 or 0)
 		end
+
+		local list = S.bot_allow_list(pos)
+		local sel = fields.allow_sel and tonumber(fields.allow_sel:match("^%a+:(%d+)$"))
+		if sel then s.allow_sel = sel end
+
+		if fields.allow_add or fields.key_enter_field == "allow_name" then
+			local entry = (fields.allow_name or ""):gsub("^%s+", ""):gsub("%s+$", "")
+			if entry ~= "" and #entry <= 80 and not entry:find("[\n,;%[%]]") and #list < 32 then
+				local dup = false
+				for _, e in ipairs(list) do if e:lower() == entry:lower() then dup = true end end
+				if not dup then
+					list[#list + 1] = entry
+					S.bot_allow_set(pos, list)
+				end
+			end
+		elseif fields.allow_remove and s.allow_sel and list[s.allow_sel] then
+			table.remove(list, s.allow_sel)
+			S.bot_allow_set(pos, list)
+			s.allow_sel = nil
+		end
 		S.show_editor(pos, player)
 		return true
 	end
 
 	return true
 end
+
+--------------------------------------------------------------------------
+-- item picker: a second window listing every item to choose from
+
+local PICKFORM = "cogwork:items"
+local PICK_COLS = 8
+
+local function unique_items (inv, list, seen, out)
+	if not inv then return end
+	for _, st in ipairs(inv:get_list(list) or {}) do
+		local n = st:get_name()
+		if n ~= "" and not seen[n] then
+			seen[n] = true
+			out[#out + 1] = n
+		end
+	end
+end
+
+function S.show_item_picker (pos, player)
+	local s = session(player)
+	s.pos = vector.new(pos)
+	s.player = player
+
+	local seen = {}
+	local robot, mine = {}, {}
+	unique_items(core.get_meta(pos):get_inventory(), "main", seen, robot)
+	unique_items(player:get_inventory(), "main", seen, mine)
+	s.pick_items = {}
+
+	local fs = { "formspec_version[6]", "size[10,9.5]", "bgcolor[#1c1c24f0;true]" }
+	fs[#fs + 1] = ("label[0.4,0.5;%s]"):format(esc(T("Pick an item")))
+	fs[#fs + 1] = "scroll_container[0.4,1;8.7,7;pick_scroll;vertical;0.1]"
+	local y = 0
+	local function section (title, list)
+		fs[#fs + 1] = ("label[0,%g;%s]"):format(y + 0.3, esc(title))
+		y = y + 0.6
+		if #list == 0 then
+			fs[#fs + 1] = ("label[0,%g;%s]"):format(y + 0.3, esc(T("(nothing)")))
+			y = y + 0.8
+			return
+		end
+		for i, n in ipairs(list) do
+			local col, row = (i - 1) % PICK_COLS, math.floor((i - 1) / PICK_COLS)
+			s.pick_items[#s.pick_items + 1] = n
+			local name_ = "pi_" .. #s.pick_items
+			fs[#fs + 1] = ("item_image_button[%g,%g;1,1;%s;%s;]"):format(col * 1.08, y + row * 1.08, esc(n), name_)
+			fs[#fs + 1] = ("tooltip[%s;%s]"):format(name_, esc(n))
+		end
+		y = y + math.ceil(#list / PICK_COLS) * 1.08 + 0.3
+	end
+	section(T("In the robot"), robot)
+	section(T("In your inventory"), mine)
+	fs[#fs + 1] = "scroll_container_end[]"
+	local total = math.max(0, y - 7)
+	fs[#fs + 1] = ("scrollbaroptions[max=%d]"):format(math.ceil(total * 10 + 5))
+	fs[#fs + 1] = "scrollbar[9.2,1;0.4,7;vertical;pick_scroll;0]"
+	fs[#fs + 1] = ("button[0.4,8.4;3,0.8;pick_back;%s]"):format(esc(T("Back")))
+	core.show_formspec(player:get_player_name(), PICKFORM, table.concat(fs))
+end
+
+core.register_on_player_receive_fields(function (player, formname, fields)
+	if formname ~= PICKFORM then return end
+	local s = session(player)
+	local pos = s.pos
+	if not pos then return true end
+	local node = core.get_node_or_nil(pos)
+	if not node or not S.is_robot(node.name) or not S.can_access(pos, player) then
+		s.pos = nil
+		return true
+	end
+
+	for name in pairs(fields) do
+		local k = name:match("^pi_(%d+)$")
+		local item = k and s.pick_items and s.pick_items[tonumber(k)]
+		if item then
+			local lines = get_lines(pos)
+			clamp_cursor(s, lines)
+			replace_or_insert(s, lines, { item })
+			s.check = nil
+			if put_lines(pos, lines) then
+				core.get_meta(pos):set_string("error", "")
+			else
+				core.chat_send_player(player:get_player_name(), T("The program is too long."))
+			end
+			S.show_editor(pos, player)
+			return true
+		end
+	end
+
+	-- Back, or the window was closed: return to the editor
+	if fields.pick_back or fields.quit then
+		S.show_editor(pos, player)
+	end
+	return true
+end)
+
 core.register_on_player_receive_fields(S.on_editor_fields)

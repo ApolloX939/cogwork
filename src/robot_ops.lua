@@ -551,16 +551,13 @@ end
 --------------------------------------------------------------------------
 -- chat
 
+-- To the owner only, no limits. Public and private messages are in events.lua.
 function Bot:chat (text)
 	local name = core.get_meta(self.pos):get_string("bot_name")
 	if name == "" then name = "Robot" end
-	local msg = "<" .. name .. "> " .. text
-	local public = core.get_meta(self.pos):get_int("public") == 1
 
-	if public and settings.public_chat then
-		core.chat_send_all(msg)
-	elseif self.owner and self.owner ~= "" then
-		core.chat_send_player(self.owner, msg)
+	if self.owner and self.owner ~= "" then
+		core.chat_send_player(self.owner, "<" .. name .. "> " .. text)
 	end
 	return true, 0
 end

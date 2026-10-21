@@ -38,7 +38,29 @@ local function new_bot ()
 	function bot:coord () return 3 end
 	function bot:facing () return "north" end
 	function bot:random (n) return n end
+
+	-- events: pending holds { handler, args } to deliver; idle_hook runs when nothing is pending
+	bot.pending, bot.idles = {}, 0
+	function bot:event_register (ctx, kind, radius, handler)
+		self.log[#self.log + 1] = "register " .. kind .. " " .. tostring(radius) .. " " .. handler
+		self.registered = (self.registered or 0) + 1
+		return true, 0
+	end
+	function bot:event_count () return self.registered or 0 end
+	function bot:event_next () return table.remove(self.pending, 1) end
+	function bot:event_idle ()
+		self.idles = self.idles + 1
+		if self.idle_hook then self.idle_hook(self) end
+		return 0.1
+	end
 	return bot
+end
+
+-- the events package, as the mod registers it
+do
+	local f = assert(io.open("packages/events.cog", "rb"))
+	lang.register_package("events", f:read("*a"), {})
+	f:close()
 end
 
 -- run text; returns log string, error message
@@ -47,6 +69,7 @@ local function run (text, opts)
 	if not unit then return nil, err end
 
 	local bot = new_bot()
+	if (opts or {}).setup then opts.setup(bot) end
 	local yields = 0
 	local ctx = lang.new_ctx({ bot = bot, budget = (opts or {}).budget,
 		yield = function () yields = yields + 1 end })
@@ -160,6 +183,69 @@ expect_err("error line", "move up\nmove up\nset q = 1 / 0", "line 3")
 do
 	local _, err, yields = run("repeat 1000\n  set a = 1", { budget = 50 })
 	check("budget yields", not err and yields >= 20, tostring(yields))
+end
+
+-- events
+do
+	local prog = "use events\n"
+		.. "fn on_chat player msg\n  chat msg\n  chat player\n  call events.leave\n"
+		.. "call events.register_chat \"on_chat\"\n"
+		.. "call events.process\n"
+		.. "chat \"after\""
+	local log, err = run(prog, { setup = function (b)
+		b.pending = { { handler = "on_chat", args = { "bob", "hi" } } }
+	end })
+	check("event handler runs, leave ends process", log == "register chat 0 on_chat;chat hi;chat bob;chat after" and not err,
+		tostring(log) .. " / " .. tostring(err))
+
+	-- idle: process yields until something arrives
+	local log2, err2, yields = run(prog, { setup = function (b)
+		b.idle_hook = function (self)
+			if self.idles == 3 then
+				self.pending = { { handler = "on_chat", args = { "amy", "yo" } } }
+			end
+		end
+	end })
+	check("process waits when idle", log2 == "register chat 0 on_chat;chat yo;chat amy;chat after" and yields == 3,
+		tostring(log2) .. " / " .. tostring(err2) .. " / " .. tostring(yields))
+
+	-- more parameters than the event carries are empty, extra event values are dropped
+	local log3 = run("use events\nfn h a b c\n  chat length c\n  call events.leave\n"
+		.. "call events.register_bot \"h\"\ncall events.process", { setup = function (b)
+		b.pending = { { handler = "h", args = { "x", "y", "z", "dropped" } } }
+	end })
+	check("handler gets the event arguments", log3 == "register bot 0 h;chat 1", tostring(log3))
+
+	-- radius goes through
+	local log4 = run("use events\nfn h a\n  stop\ncall events.register_entities 4 \"h\"")
+	check("register_entities passes radius", log4 == "register entities 4 h", tostring(log4))
+	local log5 = run("use events\nfn h a\n  stop\ncall events.register \"items\" 2 \"h\"")
+	check("generic register", log5 == "register items 2 h", tostring(log5))
+
+	expect_err("process needs a registration", "use events\ncall events.process", "nothing to process")
+
+	-- handlers found by name
+	local unit = lang.compile_text("use events\nfn h\n  stop")
+	check("find_fn own", lang.find_fn(unit, "h") ~= nil)
+	check("find_fn package", lang.find_fn(unit, "events.leave") ~= nil)
+	check("find_fn used package", lang.find_fn(unit, "leave") ~= nil)
+	check("find_fn unknown", lang.find_fn(unit, "nope") == nil)
+end
+
+-- chat commands reach the bot
+do
+	local log = run("say \"hi\"\nwhisper \"bob\" \"psst\"\ntell_bot \"scout\" \"go\"\ntell_bots \"all\"", { setup = function (b)
+		function b:say (t) self.log[#self.log + 1] = "say " .. t return true, 0 end
+		function b:whisper (p, t) self.log[#self.log + 1] = "whisper " .. p .. " " .. t return true, 0 end
+		function b:tell_bot (n, t) self.log[#self.log + 1] = "tell_bot " .. n .. " " .. t return true, 0 end
+		function b:tell_bots (t) self.log[#self.log + 1] = "tell_bots " .. t return true, 0 end
+	end })
+	check("say/whisper/tell_bot", log == "say hi;whisper bob psst;tell_bot scout go;tell_bots all", tostring(log))
+
+	local q = run("if listeners > 1\n  chat listener 2", { setup = function (b)
+		function b:listeners () return { "a/x", "a/y" } end
+	end })
+	check("listeners queries", q == "chat a/y", tostring(q))
 end
 
 -- round trip

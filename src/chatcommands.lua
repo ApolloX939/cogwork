@@ -38,3 +38,17 @@ core.register_chatcommand("cogwork", {
 		return false, T("Usage: /cogwork packages | package <name> | items")
 	end,
 })
+
+core.register_chatcommand("bot", {
+	params = "<robot name> <message>",
+	description = T("Send a private message to a robot that is listening for them"),
+	func = function (name, param)
+		-- a name with spaces goes in quotes: /bot "Farm bot" hello
+		local botname, message = param:match('^"([^"]+)"%s+(.+)$')
+		if not botname then botname, message = param:match("^(%S+)%s+(.+)$") end
+		if not botname then return false, T("Usage: /bot <robot name> <message>") end
+		local ok, res = S.whisper_to_bot(name, botname, message)
+		if not ok then return false, res end
+		return true, T("Sent to @1 robot(s).", res)
+	end,
+})

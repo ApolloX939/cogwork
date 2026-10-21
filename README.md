@@ -63,7 +63,11 @@ if detect front @stone and contains @torch
 | `drop`, `drop_stack`, `trash`, `trash_stack` | into the world / destroy |
 | `craft <item>` | craft from the robot's storage |
 | `wait n` | wait n tenths of a second |
-| `chat text`, `stop` | message to the owner (everyone if public), end the program |
+| `chat text` | message to the owner, no limits |
+| `say text` | public chat message (limited per player, see Events) |
+| `whisper player text` | private chat message to a player (limited per player) |
+| `tell_bot name text`, `tell_bots text` | message to other robots (see Events) |
+| `stop` | end the program |
 
 `<dir>` is `front front_up front_down back back_up back_down up down`.
 Without an item, `pull/put/drop/trash` take everything; with one, a single
@@ -119,12 +123,63 @@ available; `call mining.tunnel 5` works without `use`. Built in:
 | `farming` | `plant_row n seed`, `harvest_row n`, `plant_field w d seed` |
 | `storage` | `unload`, `load`, `take item n`, `give item n` |
 | `math` | `abs min max sign clamp power` |
+| `events` | `register_nodes`, `register_entities r`, `register_items r`, `register_chat`, `register_whisper`, `register_bot`, `register kind r handler`, `process`, `leave` |
 
 `/cogwork packages`, `/cogwork package <name>`, `/cogwork items` list them.
 
 Players make their own: write functions in a program, open the Packages tab,
-name it, *Make a disk from my program*. Put the disk in another robot's disk
-slot and *Install it*. A package may only contain `fn` and `use` lines.
+name it, put a blank Package Disk in the robot's disk slot and press *Write my
+functions to the disk* (it writes onto the disk in the slot and uses no extra
+disk). Put the disk in another robot's slot and *Install it*. A package may only contain `fn` and `use` lines.
+
+### Events
+
+A robot reacts to things instead of running a fixed route: register a handler
+function by name for each kind of event, then call `events.process`, which
+sits and handles events one at a time until a handler calls `events.leave`.
+
+```
+use events
+fn on_item item count distance
+  chat "dropped: " + item
+fn on_chat player message
+  if message matches "stop"
+    call events.leave
+call events.register_items 4 "on_item"
+call events.register_chat "on_chat"
+call events.process
+```
+
+| register | handler is called with |
+|---|---|
+| `events.register_nodes h` | `dir node`: one of the six blocks next to the robot (`front back left right up down`) changed |
+| `events.register_entities r h` | `name distance`: a non-item entity or a player came within `r` blocks |
+| `events.register_items r h` | `item count distance`: a dropped item came within `r` blocks |
+| `events.register_chat h` | `player message`: a public chat message |
+| `events.register_whisper h` | `player message`: a private message, sent with `/bot <robot name> <message>` (quote names with spaces) |
+| `events.register_bot h` | `from message`: another robot's message, `from` is `Owner/RobotName` |
+
+A handler may declare fewer parameters than shown. Registering a kind again
+replaces its handler. `entities` and `items` take a radius from 1 up to
+`cogwork_event_max_radius` (6); the nearer to the limit, the longer between
+scans (`radius / max * cogwork_event_max_interval`, 3 s at the limit, never
+under 0.5 s), so a wide watch reacts slower. Events pile up to 32 per robot.
+
+**Chat limits.** `chat` (to the owner) and robot-to-robot messages have none.
+`say` (public) is limited per owner and `whisper` per target player, and the
+`chat` and `whisper` events accept so many messages per sending player and
+robot: `cogwork_chat_limit` (5) within `cogwork_chat_window` (10) seconds.
+Over the limit, messages are dropped (`ok` is false for `say` and `whisper`).
+A robot only hears private messages from its owner, or from anyone if it is
+public.
+
+**Robot to robot.** `tell_bot "Name" text` reaches the running robots of that
+name which called `events.register_bot` *and* allow the sender; `tell_bots
+text` reaches all of them. A robot always hears robots of its own owner; for
+others the owner lists them in the Settings tab: `Player` allows all of that
+player's robots, `Player/RobotName` one. Also in the Settings tab: who is
+listening to this robot right now. In a program, `listeners` is how many and
+`listener n` the name of the nth.
 
 ### Item aliases
 
@@ -155,7 +210,7 @@ Actions return `ok, delay_seconds`. `ctx.bot` is the robot (`pos`, `owner`,
 ## Settings
 
 See `settingtypes.txt`: scheduler interval, action and move delays, public
-chat, item `on_place` handlers, resume on start (off by default: robots
+chat, event radius and scan speed, chat limits, item `on_place` handlers, resume on start (off by default: robots
 stop when the server restarts), statements per tick.
 
 ## Tests

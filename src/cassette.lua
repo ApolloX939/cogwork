@@ -95,18 +95,16 @@ core.register_craftitem(DISK, {
 	stack_max = 1,
 })
 
-function S.give_disk (player, name, source)
-	local stack = ItemStack(DISK)
+-- Write a package onto the disk in a robot's disk slot (replaces what it held)
+function S.write_disk (inv, name, source)
+	local stack = inv:get_stack("disk", 1)
+	if stack:get_name() ~= DISK then return false end
 	local meta = stack:get_meta()
 	meta:set_string("package", name)
 	meta:set_string("source", source)
 	meta:set_string("description", T("Package Disk: @1", name))
-
-	local inv = player:get_inventory()
-	local left = inv:add_item("main", stack)
-	if not left:is_empty() then
-		core.add_item(player:get_pos(), left)
-	end
+	inv:set_stack("disk", 1, stack)
+	return true
 end
 
 function S.read_disk (stack)

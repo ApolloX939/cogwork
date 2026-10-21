@@ -22,23 +22,28 @@ compat.register_recipes(function (c)
 	local trim = first("copper", "circuit", "steel")
 
 	if c.family == "sbz" then
-		local plate, circuit, matter = c.item("plate"), c.item("circuit"), c.item("matter")
-		if plate and circuit and matter then
+		local plate, circuit = c.item("plate"), c.item("circuit")
+		local processor = "sbz_resources:simple_processor"
+		local emitter = "sbz_resources:emitter"
+		local dust = "sbz_resources:core_dust"
+		local have = core.registered_items
+		if plate and circuit and have[processor] and have[emitter] and have[dust] then
+			-- harder than the other games: engraved processors, emitters and core dust
 			core.register_craft({
 				output = "cogwork:robot",
 				recipe = {
-					{ plate, circuit, plate },
-					{ circuit, matter, circuit },
-					{ plate, circuit, plate },
+					{ plate, processor, plate },
+					{ emitter, dust, emitter },
+					{ plate, processor, plate },
 				},
 			})
 			core.register_craft({
 				type = "shapeless", output = "cogwork:cassette",
-				recipe = { plate, circuit },
+				recipe = { plate, circuit, circuit },
 			})
 			core.register_craft({
 				type = "shapeless", output = "cogwork:disk",
-				recipe = { plate, plate, circuit },
+				recipe = { plate, plate, circuit, circuit },
 			})
 			return
 		end

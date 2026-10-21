@@ -1,0 +1,43 @@
+# title: Events
+# description: Sit and react: nodes next to the robot, entities, dropped items, chat, private messages and messages from other robots.
+# Register handlers by function name, then call events.process.
+#
+#   call events.register_nodes "on_node"          on_node dir node
+#   call events.register_entities 4 "on_entity"   on_entity name distance
+#   call events.register_items 4 "on_item"        on_item item count distance
+#   call events.register_chat "on_chat"           on_chat player message
+#   call events.register_whisper "on_whisper"     on_whisper player message
+#   call events.register_bot "on_bot"             on_bot from message
+#   call events.process
+#
+# A handler may take fewer parameters than shown. Radius 1 to the limit in the
+# settings (6): the larger it is, the longer between scans.
+
+# kind: nodes entities items chat whisper bot; radius only matters for entities and items
+fn register kind radius handler
+  event_register kind radius handler
+
+fn register_nodes handler
+  event_register "nodes" 0 handler
+
+fn register_entities radius handler
+  event_register "entities" radius handler
+
+fn register_items radius handler
+  event_register "items" radius handler
+
+fn register_chat handler
+  event_register "chat" 0 handler
+
+fn register_whisper handler
+  event_register "whisper" 0 handler
+
+fn register_bot handler
+  event_register "bot" 0 handler
+
+# handle events until events.leave is called from a handler
+fn process
+  event_process
+
+fn leave
+  event_leave

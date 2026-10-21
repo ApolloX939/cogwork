@@ -259,6 +259,119 @@ if chest then
 end
 
 -- the editor builds without errors for every tab
+-- ---------------------------------------------------------------- events
+
+core.register_entity("cogwork_test:dummy", {
+	initial_properties = { physical = false, visual = "sprite", textures = { "blank.png" } },
+})
+
+local H = "use events\nfn h a b c\n  move up\n  call events.leave\n"
+
+-- the handler lifts the robot one block, so ending at y+1 shows it ran
+local function lifted () return vector.equals(find_robot() or P(9, 9, 9), P(0, 2, 0)) end
+
+run_program("event nodes",
+	H .. "call events.register_nodes \"h\"\ncall events.process",
+	nil, function ()
+		core.after(1.0, function () core.set_node(P(0, 1, 1), { name = material }) end)
+	end, function (_, timeout) assert(not timeout and lifted(), "handler did not run") end)
+
+run_program("event items",
+	H .. "call events.register_items 3 \"h\"\ncall events.process",
+	nil, function ()
+		core.set_node(P(1, 0, 1), { name = material })
+		core.after(1.0, function () core.add_item(P(1, 1, 1), ItemStack(material)) end)
+	end, function (_, timeout) assert(not timeout and lifted(), "handler did not run") end)
+
+run_program("event entities",
+	H .. "call events.register_entities 3 \"h\"\ncall events.process",
+	nil, function ()
+		core.after(1.0, function () core.add_entity(P(1, 1, 1), "cogwork_test:dummy") end)
+	end, function (_, timeout) assert(not timeout and lifted(), "handler did not run") end)
+
+run_program("event public chat",
+	H .. "call events.register_chat \"h\"\ncall events.process",
+	nil, function ()
+		core.after(1.0, function ()
+			for _, f in ipairs(core.registered_on_chat_messages) do f("tester", "hello") end
+		end)
+	end, function (_, timeout) assert(not timeout and lifted(), "handler did not run") end)
+
+run_program("event private message",
+	H .. "call events.register_whisper \"h\"\ncall events.process",
+	nil, function ()
+		core.after(1.0, function ()
+			local ok, res = S.whisper_to_bot("tester", "Scout", "psst")
+			assert(ok == false, "an unnamed robot was found")
+			core.get_meta(find_robot()):set_string("bot_name", "Scout")
+			local ok2, res2 = S.whisper_to_bot("tester", "scout", "psst")
+			assert(ok2 and res2 == 1, tostring(res2))
+			-- somebody else's private robot does not listen to strangers
+			assert(S.whisper_to_bot("stranger", "Scout", "hi") == false)
+		end)
+	end, function (_, timeout) assert(not timeout and lifted(), "handler did not run") end)
+
+-- robot to robot: a robot of another owner only hears what its owner allowed
+test("event robot message", function (done)
+	clear_area()
+	local sender = make_robot(P(0, 1, 0), "wait 40\ntell_bots \"hello\"", nil)
+	core.get_meta(sender):set_string("bot_name", "Sender")
+	local rx = make_robot(P(5, 1, 0), H .. "call events.register_bot \"h\"\ncall events.process", nil)
+	local m = core.get_meta(rx)
+	m:set_string("bot_name", "Rx")
+	m:set_string("owner", "other")
+	local ok = S.start(rx)
+	local started = S.start(sender)
+	local blocked, allowed
+
+	core.after(1.0, function ()
+		-- another owner's robot does not hear us until its owner allows it
+		blocked = #S.listeners_of(sender)
+		S.bot_allow_set(rx, { "tester" })
+		allowed = S.listeners_of(sender)
+	end)
+
+	wait_for(sender, 40, function (timeout)
+		local lifted_rx = core.get_node(P(5, 2, 0)).name:find("cogwork:robot") ~= nil
+		report("event robot message", ok and started and not timeout and blocked == 0
+			and allowed and #allowed == 1 and allowed[1] == "other/Rx" and lifted_rx,
+			("blocked=%s allowed=%s lifted=%s timeout=%s"):format(tostring(blocked),
+				allowed and table.concat(allowed, ",") or "nil", tostring(lifted_rx), tostring(timeout)))
+		done()
+	end)
+end)
+
+test("event chat limits", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "use events\nset n = 0\nfn h a b\n  add n 1\n"
+		.. "call events.register_chat \"h\"\ncall events.process", nil)
+	core.get_meta(pos):set_string("bot_name", "Counter")
+	assert(S.start(pos))
+
+	core.after(1.0, function ()
+		for i = 1, 8 do
+			for _, f in ipairs(core.registered_on_chat_messages) do f("tester", "m" .. i) end
+		end
+		for _, f in ipairs(core.registered_on_chat_messages) do f("other", "x") end
+	end)
+
+	core.after(3.0, function ()
+		local r = S.running[core.hash_node_position(pos)]
+		local got = r and r.ctx.globals.n
+		S.stop(pos)
+
+		-- sending: public and private messages are limited per player, the owner's chat is not
+		local bot = S.Bot.new(pos, "tester")
+		local said = 0
+		for _ = 1, 8 do if bot:say("hi") then said = said + 1 end end
+		local owner_ok = true
+		for _ = 1, 20 do owner_ok = owner_ok and bot:chat("x") end
+		report("event chat limits", got == 6 and said == S.settings.chat_limit and owner_ok,
+			("received=%s (want 6: 5 from tester, 1 from other) said=%s"):format(tostring(got), said))
+		done()
+	end)
+end)
+
 test("editor formspec", function (done)
 	clear_area()
 	local pos = make_robot(P(0, 1, 0), "use mining\ncall tunnel 3\nif detect front\n  dig front", { material .. " 4" })

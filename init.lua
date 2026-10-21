@@ -14,13 +14,17 @@ S.settings = {
 	use_on_place = core.settings:get_bool("cogwork_use_on_place", true),
 	resume_on_start = core.settings:get_bool("cogwork_resume_on_start", false),
 	step_budget = tonumber(core.settings:get("cogwork_step_budget")) or 200,
+	event_max_radius = math.max(1, math.floor(tonumber(core.settings:get("cogwork_event_max_radius")) or 6)),
+	event_max_interval = math.max(0.5, tonumber(core.settings:get("cogwork_event_max_interval")) or 3),
+	chat_limit = math.max(1, math.floor(tonumber(core.settings:get("cogwork_chat_limit")) or 5)),
+	chat_window = math.max(1, tonumber(core.settings:get("cogwork_chat_window")) or 10),
 }
 
 S.lang = assert(loadfile(modpath .. "/src/lang.lua"))()
 assert(loadfile(modpath .. "/src/commands.lua"))(S.lang)
 S.compat = assert(loadfile(modpath .. "/src/compat.lua"))()
 
-for _, file in ipairs({ "robot_ops", "runtime", "api", "packages", "robot", "editor",
+for _, file in ipairs({ "robot_ops", "runtime", "events", "api", "packages", "robot", "editor",
 	"cassette", "crafting", "chatcommands" }) do
 	assert(loadfile(modpath .. "/src/" .. file .. ".lua"))(S)
 end

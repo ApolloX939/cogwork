@@ -724,6 +724,8 @@ function lang.compile (lines, opts)
 				cerr(i, "unknown package '" .. pname .. "'")
 			end
 			st.uses[#st.uses + 1] = pname
+			unit.use_units = unit.use_units or {}
+			unit.use_units[pname] = lang.get_package(pname, i)
 		end
 	end
 
@@ -732,8 +734,43 @@ function lang.compile (lines, opts)
 	return unit
 end
 
+-- Find a function of the running program by name: its own, "package.name"
+-- or one from a package it uses. Returns nil when there is none.
+function lang.find_fn (unit, name)
+	if not unit then return nil end
+	local fn = unit.fns[name]
+	if fn then return fn end
+
+	local uses = unit.use_units or {}
+	local pkg, fname = name:match("^(.-)%.([^.]+)$")
+	if pkg then
+		local u = uses[pkg]
+		if not u and lang.packages[pkg] then
+			local ok, res = pcall(lang.get_package, pkg, 0)
+			u = ok and res or nil
+		end
+		fn = u and u.fns[fname]
+		if fn then return fn end
+	end
+
+	for _, pname in ipairs(unit.uses) do
+		local u = uses[pname]
+		fn = u and u.fns[name]
+		if fn then return fn end
+	end
+end
+
+-- Call a function by name from native code (event handlers). Extra arguments
+-- are dropped, missing ones are empty.
+function lang.call_named (ctx, name, args)
+	local fn = lang.find_fn(ctx.unit, name)
+	if not fn then rt_error(ctx, "unknown function '" .. tostring(name) .. "'") end
+	return call_fn(ctx, fn, args or {})
+end
+
 -- Run a unit. ctx fields: yield, alias, budget (see lang.new_ctx).
 function lang.run (unit, ctx)
+	ctx.unit = unit
 	ctx.main_scope = { vars = ctx.globals }
 	ctx.scope = ctx.main_scope
 	exec_block(unit.main, ctx)
