@@ -283,6 +283,21 @@ do
 	check("start, step, left, cancel", m == "plan 0 0 0;step 1;chat 2;chat 1;chat 1;cancel", tostring(m))
 end
 
+-- machine readings and switching reach the bot
+do
+	local log = run('chat machine_state front\nchat machine_level up\nchat network_level back\nchat node_timer down\nchat node_stock front "a:b"\nchat height_limit\nmachine_switch front "off"\nmachine_switch front true',
+		{ setup = function (b)
+			function b:machine_state (d) return d == "front" and "on" or "" end
+			function b:machine_reading (d, key) return key .. ":" .. d end
+			function b:node_timer (d) return 4 end
+			function b:node_stock (d, item) return item == "a:b" and 12 or 0 end
+			function b:height_limit () return 3 end
+			function b:machine_switch (d, on) self.log[#self.log + 1] = "switch " .. d .. " " .. tostring(on) return true, 0 end
+		end })
+	check("machine queries and switch", log == "chat on;chat level:up;chat network_level:back;chat 4;chat 12;chat 3;switch front false;switch front true", tostring(log))
+	expect_err("machine_switch needs on or off", 'machine_switch front "maybe"', "needs on or off")
+end
+
 -- chat commands reach the bot
 do
 	local log = run("say \"hi\"\nwhisper \"bob\" \"psst\"\ntell_bot \"scout\" \"go\"\ntell_bots \"all\"", { setup = function (b)

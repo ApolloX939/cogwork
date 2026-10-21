@@ -45,6 +45,22 @@ compat.register_recipes(function (c)
 				type = "shapeless", output = "cogwork:disk",
 				recipe = { plate, plate, circuit, circuit },
 			})
+			core.register_craft({
+				output = "cogwork:upgrade_hover",
+				recipe = {
+					{ plate, processor, plate },
+					{ circuit, emitter, circuit },
+					{ plate, circuit, plate },
+				},
+			})
+			core.register_craft({
+				output = "cogwork:upgrade_flight",
+				recipe = {
+					{ "cogwork:upgrade_hover", processor, "cogwork:upgrade_hover" },
+					{ dust, emitter, dust },
+					{ plate, processor, plate },
+				},
+			})
 			return
 		end
 	end
@@ -60,6 +76,27 @@ compat.register_recipes(function (c)
 		})
 	else
 		core.log("warning", "[cogwork] no robot recipe for this game")
+	end
+
+	if steel and glass and coal then
+		core.register_craft({
+			output = "cogwork:upgrade_hover",
+			recipe = {
+				{ glass, steel, glass },
+				{ steel, coal, steel },
+				{ glass, steel, glass },
+			},
+		})
+		if copper then
+			core.register_craft({
+				output = "cogwork:upgrade_flight",
+				recipe = {
+					{ "cogwork:upgrade_hover", copper, "cogwork:upgrade_hover" },
+					{ steel, coal, steel },
+					{ "cogwork:upgrade_hover", copper, "cogwork:upgrade_hover" },
+				},
+			})
+		end
 	end
 
 	if paper and coal and stick then

@@ -93,6 +93,7 @@ local function search (bot, from, goal, forceloaded)
 	heap_push(heap, { manhattan(from, goal.pos), 0, start })
 
 	-- known free blocks; unloaded ones count as free for a forceloaded robot
+	local height = S.height_limit(from)
 	local free_cache = {}
 	local function free (c, h)
 		local v = free_cache[h]
@@ -101,7 +102,8 @@ local function search (bot, from, goal, forceloaded)
 		if node == nil or node.name == "ignore" then
 			v = forceloaded
 		else
-			v = S.node_passable(c) and not bot:protected(c) or false
+			v = S.node_passable(c) and not bot:protected(c)
+				and S.height_ok(c, height, from) or false
 		end
 		free_cache[h] = v
 		return v

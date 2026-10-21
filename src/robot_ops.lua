@@ -224,6 +224,11 @@ function Bot:move (dir)
 		return false, settings.action_delay
 	end
 
+	-- not higher above the floor than the upgrades allow
+	if not S.height_ok(to, S.height_limit(from), from) then
+		return false, settings.action_delay
+	end
+
 	local data = meta:to_table()
 
 	if persistent then core.forceload_free_block(from, false) end

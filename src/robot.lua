@@ -43,6 +43,7 @@ local function on_construct (pos)
 	local inv = meta:get_inventory()
 	inv:set_size("main", STORAGE)
 	inv:set_size("disk", 1)
+	inv:set_size("upgrades", S.UPGRADE_SLOTS)
 	meta:set_string("infotext", T("Robot"))
 end
 
@@ -150,12 +151,16 @@ end
 
 local function allow_put (pos, listname, index, stack, player)
 	if listname == "disk" and stack:get_name() ~= "cogwork:disk" then return 0 end
+	if listname == "upgrades" and not S.UPGRADE_ITEMS[stack:get_name()] then return 0 end
 	return S.can_access(pos, player) and stack:get_count() or 0
 end
 local function allow_take (pos, listname, index, stack, player)
 	return S.can_access(pos, player) and stack:get_count() or 0
 end
 local function allow_move (pos, from_list, from_index, to_list, to_index, count, player)
+	local moved = core.get_meta(pos):get_inventory():get_stack(from_list, from_index):get_name()
+	if to_list == "upgrades" and not S.UPGRADE_ITEMS[moved] then return 0 end
+	if to_list == "disk" and moved ~= "cogwork:disk" then return 0 end
 	return S.can_access(pos, player) and count or 0
 end
 

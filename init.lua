@@ -27,7 +27,7 @@ S.lang = assert(loadfile(modpath .. "/src/lang.lua"))()
 assert(loadfile(modpath .. "/src/commands.lua"))(S.lang)
 S.compat = assert(loadfile(modpath .. "/src/compat.lua"))()
 
-for _, file in ipairs({ "robot_ops", "runtime", "events", "pathfind", "api", "packages", "robot", "editor",
+for _, file in ipairs({ "robot_ops", "upgrades", "machines", "runtime", "events", "pathfind", "api", "packages", "robot", "editor",
 	"cassette", "crafting", "chatcommands" }) do
 	assert(loadfile(modpath .. "/src/" .. file .. ".lua"))(S)
 end

@@ -154,12 +154,47 @@ call events.process
 
 | register | handler is called with |
 |---|---|
-| `events.register_nodes h` | `dir node`: one of the six blocks next to the robot (`front back left right up down`) changed |
+| `events.register_nodes h` | `dir block change detail`: something changed in one of the six blocks next to the robot (`front back left right up down`), see below |
 | `events.register_entities r h` | `name distance`: a non-item entity or a player came within `r` blocks |
 | `events.register_items r h` | `item count distance`: a dropped item came within `r` blocks |
 | `events.register_chat h` | `player message`: a public chat message |
 | `events.register_whisper h` | `player message`: a private message, sent with `/bot <robot name> <message>` (quote names with spaces) |
 | `events.register_bot h` | `from message`: another robot's message, `from` is `Owner/RobotName` |
+
+**What a `nodes` handler hears** (`change`, `detail`; `block` is the node name):
+
+| change | when | detail |
+|---|---|---|
+| `node` | the block was replaced | the name it had |
+| `inventory` | a list in its inventory changed (chest, furnace, another robot) | the list's name |
+| `timer` | its node timer started, stopped, or ran out and restarted | `started` `stopped` `restarted` |
+| `state` | its machine switched | `on`, `off`, or the machine's own word |
+| `power` | the charge of its battery, or of the batteries of its network, changed | percent |
+
+The first scan after registering only learns what is there. Machines are read
+through `sbz_power` (batteries, machines, network supply/demand), `technic`
+(`<TIER>_EU_*` fields; a battery box's charge is known in eighths) and
+`techage` (`state`, `delivered` and `load` of its node number), whichever of
+them is installed. At most 8 changes are handled per scan.
+
+To read a neighbour yourself (all give `-1` when unknown, `""` for
+`machine_state` when the block is not a machine): `machine_state`,
+`machine_power`, `machine_capacity`, `machine_level` (percent),
+`machine_supply`, `machine_demand`, `network_level` (percent of the network's
+batteries), `node_timer` (seconds left), `node_stock dir [item]` (items in its
+inventory), each with a direction. `machine_switch front "off"` turns the
+machine on or off (it respects protection). A robot that watches a battery can
+tell another one:
+
+```
+use events
+fn on_block dir block change detail
+  if change = "power"
+    if detail < 20
+      tell_bot "Switcher" "off"
+```
+
+The other robot's `register_bot` handler then does `machine_switch front message`.
 
 A handler may declare fewer parameters than shown. Registering a kind again
 replaces its handler. `entities` and `items` take a radius from 1 up to
@@ -225,6 +260,16 @@ it is assumed to be open and the robot goes anyway. As it walks the forceload
 moves with it, and blocks it walks into are loaded from disk or generated
 (waiting up to 10 seconds for that). If the server's forceload limit is
 reached on the way, the robot keeps going but is no longer forceloaded.
+
+### Upgrades
+
+Every robot has five upgrade slots (Storage tab). Without upgrades a robot can
+be 1 block above the floor, the nearest block that is not free below it (`move`
+refuses to go higher, and so does the pathfinder, which plans within the same
+limit). A **Hover Upgrade** adds a block each (up to 6 with five), a **Flight
+Upgrade** removes the limit. `height_limit` is the allowed number of blocks, `-1`
+when flying. Robots placed before upgrades existed get their slots when the
+Storage tab is opened, and fall under the limit like any other.
 
 ### Item aliases
 

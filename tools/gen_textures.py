@@ -1059,6 +1059,46 @@ disk = [
 ]
 sprite(disk, "cogwork_disk.png")
 
+hover = [
+    "................",
+    ".kkkkkkkkkkkkkk.",
+    ".kddddddddddddk.",
+    ".kdmmmmmmmmmmdk.",
+    ".kdmmmmooommmdk.",
+    ".kdmmmmmoommmdk.",
+    ".kdmmmmmmmmmmdk.",
+    ".kdmbbmmmmbbmdk.",
+    ".kdmbwmmmmwbmdk.",
+    ".kdmbbmmmmbbmdk.",
+    ".kdmmbmmmmbmmdk.",
+    ".kdmmmmmmmmmmdk.",
+    ".kddddddddddddk.",
+    ".kkkkkkkkkkkkkk.",
+    "................",
+    "................",
+]
+sprite(hover, "cogwork_upgrade_hover.png")
+
+flight = [
+    "................",
+    "................",
+    "..l..........l..",
+    ".ll..kkkkkk..ll.",
+    ".lwl.kddddk.lwl.",
+    ".lmml.kmmk.lmml.",
+    ".lmmmlkoookmmml.",
+    "..lmmmkooklmml..",
+    "...lmmkmmkmml...",
+    "....lmkddkml....",
+    ".....lkbbkl.....",
+    "......kbbk......",
+    ".......bb.......",
+    "................",
+    "................",
+    "................",
+]
+sprite(flight, "cogwork_upgrade_flight.png")
+
 # ----------------------------------------------------------------- icons.lua
 
 with open(os.path.join(MOD, "src", "icons.lua"), "w") as f:

@@ -134,6 +134,7 @@ local function palette_entries (cat, lines, view)
 		add({ "place", "front" }, "line", T("Place an item from storage"))
 		add({ "interact", "front" }, "line", T("Use (right-click) the block"))
 		add({ "punch", "front" }, "line", T("Pick up dropped items, or hit an entity (name a tool from storage to hit with it)"))
+		add({ "machine_switch", "front", '"off"' }, "line", T("Turn the machine in the block on or off"))
 		add({ "craft" }, "line", T("Craft an item from storage"))
 	elseif cat == "inventory" then
 		for _, v in ipairs({ "pull", "pull_stack", "put", "put_stack", "drop", "drop_stack",
@@ -149,7 +150,8 @@ local function palette_entries (cat, lines, view)
 		add({ "mod", "x", "2" }, "line", T("Remainder of a variable"))
 		add({ "join", "s", '"text"' }, "line", T("Append text to a variable"))
 	elseif cat == "check" then
-		for _, v in ipairs({ "detect", "node", "entity", "contains", "fits", "count", "counter", "ok",
+		for _, v in ipairs({ "detect", "node", "entity", "machine_state", "machine_power", "machine_level",
+			"network_level", "node_timer", "node_stock", "height_limit", "contains", "fits", "count", "counter", "ok",
 			"listeners", "listener", "even", "odd", "random", "floor", "length", "pos_x", "pos_y", "pos_z", "facing" }) do
 			add({ v }, "token", T("@1", v))
 		end
@@ -629,6 +631,15 @@ local function storage_tab (fs, pos, s)
 	fs[#fs + 1] = slot_bg(0.4, 6.6, 8, 4)
 	fs[#fs + 1] = "list[current_player;main;0.4,6.6;8,4;]"
 	fs[#fs + 1] = ("listring[nodemeta:%s;main]listring[current_player;main]"):format(spos)
+
+	S.ensure_upgrade_slots(pos)
+	fs[#fs + 1] = ("label[9.6,1.0;%s]"):format(esc(T("Upgrades")))
+	fs[#fs + 1] = slot_bg(9.6, 1.3, S.UPGRADE_SLOTS, 1)
+	fs[#fs + 1] = ("list[nodemeta:%s;upgrades;9.6,1.3;%d,1;]"):format(spos, S.UPGRADE_SLOTS)
+	fs[#fs + 1] = ("label[9.6,2.9;%s]"):format(esc(S.height_text(pos)))
+	fs[#fs + 1] = ("label[9.6,3.4;%s]"):format(esc(T("Hover Upgrade: one more block above the floor.")))
+	fs[#fs + 1] = ("label[9.6,3.8;%s]"):format(esc(T("Flight Upgrade: no limit.")))
+	fs[#fs + 1] = ("label[9.6,4.2;%s]"):format(esc(T("Without upgrades: 1 block above the floor.")))
 end
 
 local function package_source (pos, name)
@@ -754,6 +765,9 @@ local function help_text ()
 	p("")
 	p("<b>" .. esc(T("Events")) .. "</b>")
 	p(esc(T("use events, then call events.register_nodes / register_entities r / register_items r / register_chat / register_whisper / register_bot with the name of one of your functions in quotes, then call events.process. It handles events until a handler calls events.leave. Messages: chat (owner, no limit), say (everyone) and whisper (one player) are limited per player; tell_bot and tell_bots reach robots that allow this one in their Settings tab.")))
+	p("")
+	p("<b>" .. esc(T("Machines, upgrades")) .. "</b>")
+	p(esc(T("The nodes event hands the handler: dir node change detail, where change is node, inventory, timer, state or power. machine_state/_power/_level/_capacity front, network_level front, node_timer front, node_stock front item read the block next to the robot (-1 when unknown); machine_switch front \"off\" turns a Skyblock: Zero, Technic or Techage machine on or off. A robot can be 1 block above the floor; each Hover Upgrade adds a block, a Flight Upgrade removes the limit (five upgrade slots in the Storage tab). height_limit is the limit, -1 flying.")))
 	p("")
 	p("<b>" .. esc(T("Punch and pathfinding")) .. "</b>")
 	p(esc(T("punch front: pick up dropped items there, else hit the entity there; punch front default:sword_steel hits with that tool from storage. Players are never hit. 'entity front' is the name of the entity there. use pathfind, then call pathfind.goto x y z or call pathfind.goto_entity name: they walk there and give 0 when arrived, -1 when there is no way. pathfind.start/start_entity plan only (steps, or -1), pathfind.step moves one step (steps left). Routes are re-planned while walking. Unloaded terrain is a wall unless Forceload is on.")))

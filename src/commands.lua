@@ -64,6 +64,16 @@ for _, def in ipairs({
 	end)
 end
 
+-- turn the machine in that block on or off (sbz_power, technic, techage)
+action("machine_switch", "world", { DIR8, VAL }, function (ctx, dir, state)
+	local want = lang.tostr(state):lower()
+	local on = want == "on" or want == "true" or want == "1"
+	if not on and want ~= "off" and want ~= "false" and want ~= "0" then
+		lang.rt_error(ctx, "'machine_switch' needs on or off")
+	end
+	return ctx.bot:machine_switch(dir, on)
+end)
+
 action("craft", "inventory", { VAL }, function (ctx, item)
 	return ctx.bot:craft(item)
 end)
@@ -167,6 +177,22 @@ query("listener", "check", { VAL }, function (ctx, n)
 	n = intpart(ctx, n, "listener")
 	return ctx.bot:listeners()[n] or ""
 end)
+
+-- machines and containers next to the robot (see machines.lua): -1 = not known
+query("machine_state", "check", { DIR8 }, function (ctx, dir) return ctx.bot:machine_state(dir) end)
+for _, key in ipairs({ "power", "capacity", "level", "supply", "demand" }) do
+	query("machine_" .. key, "check", { DIR8 }, function (ctx, dir)
+		return ctx.bot:machine_reading(dir, key)
+	end)
+end
+query("network_level", "check", { DIR8 }, function (ctx, dir)
+	return ctx.bot:machine_reading(dir, "network_level")
+end)
+query("node_timer", "check", { DIR8 }, function (ctx, dir) return ctx.bot:node_timer(dir) end)
+query("node_stock", "check", { DIR8, OPTVAL }, function (ctx, dir, item)
+	return ctx.bot:node_stock(dir, item)
+end)
+query("height_limit", "check", {}, function (ctx) return ctx.bot:height_limit() end)
 
 -- name of the entity (not an item or a player) in the block in dir, "" if none
 query("entity", "check", { DIR8 }, function (ctx, dir) return ctx.bot:entity_at(dir) end)

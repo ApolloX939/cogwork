@@ -2,13 +2,20 @@
 # description: Sit and react: nodes next to the robot, entities, dropped items, chat, private messages and messages from other robots.
 # Register handlers by function name, then call events.process.
 #
-#   call events.register_nodes "on_node"          on_node dir node
+#   call events.register_nodes "on_node"          on_node dir block change detail
 #   call events.register_entities 4 "on_entity"   on_entity name distance
 #   call events.register_items 4 "on_item"        on_item item count distance
 #   call events.register_chat "on_chat"           on_chat player message
 #   call events.register_whisper "on_whisper"     on_whisper player message
 #   call events.register_bot "on_bot"             on_bot from message
 #   call events.process
+#
+# nodes: dir is front back left right up down. change tells what happened to that block:
+#   node       it was replaced (detail: the name it had)
+#   inventory  a list of its inventory changed (detail: the list)
+#   timer      its node timer "started", "stopped" or "restarted"
+#   state      its machine switched (detail: on, off, ...) - sbz_power, technic, techage
+#   power      the charge of its battery / network changed (detail: percent)
 #
 # A handler may take fewer parameters than shown. Radius 1 to the limit in the
 # settings (6): the larger it is, the longer between scans.

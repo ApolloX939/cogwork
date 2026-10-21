@@ -2,7 +2,7 @@
 -- then sits in events.process, which scans the world, collects messages and
 -- calls the handlers one at a time.
 --
---   nodes     the six blocks next to the robot changed        (dir, node)
+--   nodes     one of the six blocks next to the robot changed (dir, node, change, detail)
 --   entities  a non-item entity or player came within radius  (name, distance)
 --   items     a dropped item came within radius               (item, count, distance)
 --   chat      a public chat message                           (player, message)
@@ -136,17 +136,89 @@ local function side_vector (front, side)
 	return { x = 0, y = -1, z = 0 }
 end
 
+-- what is worth comparing about the block at p: its name, the contents of its
+-- inventory lists, its node timer and what its machine reports
+local function inventory_signatures (p)
+	local sigs = {}
+	local inv = core.get_meta(p):get_inventory()
+	for name, list in pairs(inv:get_lists()) do
+		local parts = {}
+		for i, stack in ipairs(list) do parts[i] = stack:to_string() end
+		sigs[name] = table.concat(parts, "|")
+	end
+	return sigs
+end
+
+local function snapshot (p, name)
+	local snap = { name = name, inv = inventory_signatures(p) }
+
+	local timer = core.get_node_timer(p)
+	snap.timer = { started = timer:is_started(), elapsed = timer:get_elapsed() }
+
+	local info = S.machine_info(p)
+	if info then
+		snap.state = info.state
+		snap.level = info.level or info.network_level
+	end
+	return snap
+end
+
+-- push one event per change of a block next to the robot:
+--   node       the block was replaced                  detail: the name it had
+--   inventory  a list of its inventory changed         detail: the list's name
+--   timer      its node timer started, stopped or ran out and restarted
+--   state      its machine switched                    detail: on, off, ...
+--   power      the charge of its battery / network     detail: percent
+local function changes (before, after, side, push_event)
+	if before.name ~= after.name then
+		push_event(side, after.name, "node", before.name)
+		return
+	end
+
+	for list, sig in pairs(after.inv) do
+		if before.inv[list] ~= nil and before.inv[list] ~= sig then
+			push_event(side, after.name, "inventory", list)
+		end
+	end
+
+	if before.timer.started ~= after.timer.started then
+		push_event(side, after.name, "timer", after.timer.started and "started" or "stopped")
+	elseif after.timer.started and after.timer.elapsed < before.timer.elapsed then
+		push_event(side, after.name, "timer", "restarted")
+	end
+
+	if after.state ~= nil and before.state ~= nil and before.state ~= after.state then
+		push_event(side, after.name, "state", after.state)
+	end
+	if after.level ~= nil and before.level ~= nil and before.level ~= after.level then
+		push_event(side, after.name, "power", after.level)
+	end
+end
+
 local function scan_nodes (bot, ctx, reg)
 	local front = bot:front_vec()
 	local last = reg.seen
 	reg.seen = {}
+	local fired = 0
+
+	local function push_event (side, name, change, detail)
+		if fired < PER_SCAN_MAX then
+			fired = fired + 1
+			push(ctx, "nodes", { side, name, change, detail })
+		end
+	end
+
 	for _, side in ipairs(SIDES) do
-		local node = core.get_node_or_nil(vector.add(bot.pos, side_vector(front, side)))
-		local name = node and node.name or (last and last[side]) or "ignore"
-		reg.seen[side] = name
-		-- the first scan only learns what is there
-		if last and last[side] ~= name and name ~= "ignore" then
-			push(ctx, "nodes", { side, name })
+		local p = vector.add(bot.pos, side_vector(front, side))
+		local node = core.get_node_or_nil(p)
+		if node and node.name ~= "ignore" then
+			local snap = snapshot(p, node.name)
+			reg.seen[side] = snap
+			-- the first scan only learns what is there
+			if last and last[side] then changes(last[side], snap, side, push_event) end
+		else
+			-- not loaded: keep what we knew
+			reg.seen[side] = last and last[side] or nil
 		end
 	end
 end

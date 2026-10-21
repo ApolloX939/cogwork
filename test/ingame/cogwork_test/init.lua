@@ -45,11 +45,16 @@ local dirt = S.compat.item("dirt") or material
 local chest = S.compat.item("chest")
 
 -- place a robot at pos facing +z (front = +z), give it items and a program
-local function make_robot (pos, program, items)
+local function make_robot (pos, program, items, upgrades)
 	core.set_node(pos, { name = "cogwork:robot", param2 = core.dir_to_facedir({ x = 0, y = 0, z = -1 }) })
 	local meta = core.get_meta(pos)
 	meta:get_inventory():set_size("main", 32)
 	meta:get_inventory():set_size("disk", 1)
+	meta:get_inventory():set_size("upgrades", 5)
+	-- the test world is a void: robots fly unless a test says otherwise
+	for _, up in ipairs(upgrades or { "cogwork:upgrade_flight" }) do
+		meta:get_inventory():add_item("upgrades", up)
+	end
 	meta:set_string("owner", "tester")
 	meta:set_string("program", program)
 	for _, it in ipairs(items or {}) do
@@ -502,6 +507,172 @@ test("pathfind to unloaded terrain with forceload", function (done)
 		S.set_persist(p, false)
 		done()
 	end)
+end)
+
+-- ---------------------------------------------------------------- upgrades
+
+-- run a program on a robot with the given upgrades, standing on a floor block
+local function upgrade_test (name, upgrades, program, check)
+	test(name, function (done)
+		clear_area()
+		core.set_node(P(0, 0, 0), { name = material })
+		local pos = make_robot(P(0, 1, 0), program, nil, upgrades)
+		assert(S.start(pos))
+		wait_for(pos, 40, function (timeout)
+			local ok, why = pcall(check, timeout)
+			report(name, ok and why ~= false, not ok and why or nil)
+			done()
+		end)
+	end)
+end
+
+local UP = "repeat 6\n  move up"
+upgrade_test("a bare robot goes 1 block above the floor", {}, UP, function ()
+	assert(vector.equals(find_robot(), P(0, 2, 0)), "ended at " .. core.pos_to_string(vector.subtract(find_robot(), ORIGIN)))
+end)
+upgrade_test("each hover upgrade adds a block", { "cogwork:upgrade_hover", "cogwork:upgrade_hover" }, UP, function ()
+	assert(vector.equals(find_robot(), P(0, 4, 0)), "ended at " .. core.pos_to_string(vector.subtract(find_robot(), ORIGIN)))
+end)
+upgrade_test("a flight upgrade removes the limit", { "cogwork:upgrade_flight" }, UP, function ()
+	assert(vector.equals(find_robot(), P(0, 7, 0)), "ended at " .. core.pos_to_string(vector.subtract(find_robot(), ORIGIN)))
+end)
+upgrade_test("height_limit reports it", { "cogwork:upgrade_hover" },
+	"if height_limit = 2\n  move up", function ()
+	assert(vector.equals(find_robot(), P(0, 2, 0)), "limit not 2")
+end)
+
+test("upgrade slots only take upgrades", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "stop", nil, {})
+	local node = core.registered_nodes["cogwork:robot"]
+	local fake = { get_player_name = function () return "tester" end }
+	local stone = ItemStack(material)
+	local up = ItemStack("cogwork:upgrade_hover")
+	report("upgrade slots only take upgrades",
+		node.allow_metadata_inventory_put(pos, "upgrades", 1, stone, fake) == 0
+		and node.allow_metadata_inventory_put(pos, "upgrades", 1, up, fake) == 1
+		and S.height_limit(pos) == 1)
+	done()
+end)
+
+-- pathfinding is bound by the same limit: no way up into the air, but a staircase works
+local function path_test (name, upgrades, build, target, check)
+	test(name, function (done)
+		clear_area()
+		build()
+		local pos = make_robot(P(0, 1, 0), goto_program(target), nil, upgrades)
+		assert(S.start(pos))
+		wait_for(pos, 60, function (timeout)
+			local ok, why = pcall(check, timeout)
+			report(name, ok and why ~= false, not ok and why or nil)
+			done()
+		end)
+	end)
+end
+
+path_test("pathfind will not climb into the air without upgrades", {}, function ()
+	core.set_node(P(0, 0, 0), { name = material })
+end, P(0, 6, 0), function (timeout)
+	assert(not timeout, "timeout")
+	local p = find_robot()
+	assert(vector.equals(p, P(0, 1, 0)), "moved to " .. core.pos_to_string(vector.subtract(p, ORIGIN)))
+end)
+
+path_test("pathfind climbs a staircase within the limit", {}, function ()
+	for x = 0, 4 do for y = 0, x do core.set_node(P(x, y, 0), { name = material }) end end
+end, P(4, 5, 0), function (timeout)
+	assert(not timeout, "timeout")
+	-- it climbed the stairs (each step is 1 block above the floor at most), arrived and
+	-- the program's "move up" took it one block above the top step
+	local p = find_robot()
+	assert(vector.equals(p, P(4, 6, 0)), "ended at " .. core.pos_to_string(vector.subtract(p, ORIGIN)))
+end)
+
+-- ---------------------------------------------------------------- node events
+
+local NODE_EVENT = "use events\nfn h dir block change detail\n  if change = \"%s\"\n    if detail = \"%s\"\n      move up\n      call events.leave\n"
+	.. "call events.register_nodes \"h\"\ncall events.process"
+
+local function node_event_test (name, change, detail, setup, trigger)
+	run_program(name, NODE_EVENT:format(change, detail), nil, function ()
+		if setup then setup() end
+		core.after(1.5, trigger)
+	end, function (_, timeout)
+		assert(not timeout and S.is_robot(core.get_node(P(0, 2, 0)).name), "handler did not run")
+	end)
+end
+
+node_event_test("nodes event: replaced block", "node", material, function ()
+	core.set_node(P(0, 1, 1), { name = material })
+end, function () core.set_node(P(0, 1, 1), { name = "air" }) end)
+
+node_event_test("nodes event: inventory change", "inventory", "main", function ()
+	local box = make_robot(P(0, 1, 1), "stop", nil, {})
+end, function ()
+	core.get_meta(P(0, 1, 1)):get_inventory():add_item("main", ItemStack(material))
+end)
+
+node_event_test("nodes event: timer", "timer", "started", function ()
+	core.set_node(P(0, 1, 1), { name = material })
+end, function () core.get_node_timer(P(0, 1, 1)):start(30) end)
+
+if rawget(_G, "sbz_api") and core.registered_nodes["sbz_power:battery"] then
+	node_event_test("nodes event: battery level (sbz_power)", "power", "100", function ()
+		core.set_node(P(0, 1, 1), { name = "sbz_power:battery" })
+		core.get_meta(P(0, 1, 1)):set_int("power", 2500)
+	end, function () core.get_meta(P(0, 1, 1)):set_int("power", 5000) end)
+
+	test("sbz_power reading and switching", function (done)
+		clear_area()
+		core.set_node(P(0, 1, 1), { name = "sbz_power:battery" })
+		core.get_meta(P(0, 1, 1)):set_int("power", 1250)
+		local info = S.machine_info(P(0, 1, 1))
+		report("sbz_power reading and switching", info and info.mod == "sbz_power"
+			and info.power == 1250 and info.capacity == 5000 and info.level == 25,
+			info and ("level=" .. tostring(info.level) .. " cap=" .. tostring(info.capacity)) or "no reading")
+		done()
+	end)
+end
+
+core.register_node("cogwork_test:tbox4", { groups = { technic_machine = 1, technic_lv = 1 } })
+core.register_node("cogwork_test:tmachine_active", { groups = { technic_machine = 1, technic_mv = 1 } })
+
+-- technic and techage are not in the test games: stand-ins that answer the way the
+-- real ones do (fields and calls read from their source) check our side of it
+test("technic and techage readings", function (done)
+	clear_area()
+	rawset(_G, "technic", {})
+	rawset(_G, "techage", {
+		get_node_number = function (pos) if vector.equals(pos, P(0, 1, 2)) then return 77 end end,
+		send_single = function (src, number, topic, payload)
+			assert(src == "0" and number == 77)
+			if topic == "state" then return "running" end
+			if topic == "delivered" then return 120 end
+			if topic == "load" then return 64 end
+			if topic == "on" or topic == "off" then return true end
+		end,
+	})
+	core.set_node(P(0, 1, 1), { name = "cogwork_test:tbox4" })
+	local m = core.get_meta(P(0, 1, 1))
+	m:set_int("LV_EU_demand", 300) m:set_int("LV_EU_input", 100)
+	core.set_node(P(0, 1, 3), { name = "cogwork_test:tmachine_active" })
+	core.get_meta(P(0, 1, 3)):set_string("enabled", "1")
+	core.set_node(P(0, 1, 2), { name = material })
+
+	local box = S.machine_info(P(0, 1, 1))
+	local machine = S.machine_info(P(0, 1, 3))
+	local ta = S.machine_info(P(0, 1, 2))
+	local switched = S.machine_switch(P(0, 1, 3), false)
+	local ta_on = S.machine_switch(P(0, 1, 2), true)
+	rawset(_G, "technic", nil)
+	rawset(_G, "techage", nil)
+
+	local ok = box and box.mod == "technic" and box.demand == 300 and box.power == 100
+		and machine and machine.state == "on" and switched == true
+		and core.get_meta(P(0, 1, 3)):get_int("enabled") == 0
+		and ta and ta.mod == "techage" and ta.state == "on" and ta.power == 120 and ta.level == 64 and ta_on == true
+	report("technic and techage readings", ok, ok and nil or core.serialize({ box = box, machine = machine, ta = ta, switched = switched, ta_on = ta_on }))
+	done()
 end)
 
 test("editor formspec", function (done)
