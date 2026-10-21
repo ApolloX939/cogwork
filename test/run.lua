@@ -63,6 +63,12 @@ do
 	f:close()
 end
 
+do
+	local f = assert(io.open("packages/pathfind.cog", "rb"))
+	lang.register_package("pathfind", f:read("*a"), {})
+	f:close()
+end
+
 -- run text; returns log string, error message
 local function run (text, opts)
 	local unit, err = lang.compile_text(text)
@@ -230,6 +236,51 @@ do
 	check("find_fn package", lang.find_fn(unit, "events.leave") ~= nil)
 	check("find_fn used package", lang.find_fn(unit, "leave") ~= nil)
 	check("find_fn unknown", lang.find_fn(unit, "nope") == nil)
+end
+
+-- punch, entity and pathfinding reach the bot
+do
+	local function setup (steps_to_go, fail_at)
+		return function (b)
+			function b:punch (dir, item) self.log[#self.log + 1] = "punch " .. dir .. " " .. tostring(item) return true, 0 end
+			function b:entity_at (dir) return dir == "front" and "mobs:zombie" or "" end
+			function b:path_plan (ctx, x, y, z)
+				self.log[#self.log + 1] = "plan " .. x .. " " .. y .. " " .. z
+				self.left = steps_to_go
+				return steps_to_go
+			end
+			function b:path_plan_entity (ctx, name)
+				self.log[#self.log + 1] = "plan_entity " .. name
+				self.left = steps_to_go
+				return steps_to_go
+			end
+			function b:path_step (ctx)
+				if self.left == fail_at then self.left = -1 return -1 end
+				self.left = self.left - 1
+				self.log[#self.log + 1] = "step " .. self.left
+				return self.left
+			end
+			function b:path_left () return self.left or -1 end
+			function b:path_cancel () self.log[#self.log + 1] = "cancel" end
+		end
+	end
+
+	local log = run('punch front\npunch back_up "a:sword"\nif entity front = "mobs:zombie"\n  chat "zombie"',
+		{ setup = setup(0) })
+	check("punch and entity", log == "punch front nil;punch back_up a:sword;chat zombie", tostring(log))
+
+	local g = run('use pathfind\nset r = call pathfind.goto 1 2 3\nchat r', { setup = setup(3) })
+	check("goto walks the whole path", g == "plan 1 2 3;step 2;step 1;step 0;chat 0", tostring(g))
+
+	local f = run('use pathfind\nset r = call pathfind.goto 1 2 3\nchat r', { setup = setup(3, 2) })
+	check("goto reports a failure", f == "plan 1 2 3;step 2;chat -1", tostring(f))
+
+	local u = run('use pathfind\nset r = call pathfind.goto_entity "mobs:zombie"\nchat r', { setup = setup(-1) })
+	check("goto_entity unreachable", u == "plan_entity mobs:zombie;chat -1", tostring(u))
+
+	local m = run('use pathfind\nset n = call pathfind.start 0 0 0\nset t = call pathfind.step\nchat n\nchat t\nchat call pathfind.left\ncall pathfind.cancel',
+		{ setup = setup(2) })
+	check("start, step, left, cancel", m == "plan 0 0 0;step 1;chat 2;chat 1;chat 1;cancel", tostring(m))
 end
 
 -- chat commands reach the bot

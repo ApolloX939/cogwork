@@ -30,3 +30,12 @@ cogwork_chat_limit (Chat messages per window) int 5 1 100
 
 # ... within this many seconds
 cogwork_chat_window (Chat window) float 10 1 600
+
+# Most block cells a robot looks at when it plans a path (longer, more winding routes fail)
+cogwork_path_max_nodes (Pathfinding search limit) int 6000 100 100000
+
+# Seconds between a travelling robot's re-planning of its path (terrain and moving targets change)
+cogwork_path_replan (Path re-plan interval) float 5 0.5 120
+
+# How far, in blocks, a robot looks for the entity it was told to walk to
+cogwork_path_entity_radius (Pathfinding entity search radius) float 48 1 200

@@ -1,0 +1,46 @@
+# title: Pathfind
+# description: Walk to a position or to an entity, around obstacles. Results are the steps still to go, 0 when there, -1 when there is no way.
+# The route is planned again every few seconds (and when something is in the way),
+# because the world and the target change. Terrain nobody has loaded counts as a
+# wall, unless the robot has Forceload on: then it goes anyway and the forceload
+# moves along with it.
+#
+# Doing something on the way (an event that attacks, say):
+#   set left = call pathfind.start_entity "mobs:zombie"
+#   loop left > 0
+#     set left = call pathfind.step
+#     ...
+
+# plan a route to a position without moving; the steps, or -1
+fn start x y z
+  return path_plan x y z
+
+# plan a route to the nearest entity (or player) of that name; the steps, or -1
+fn start_entity name
+  return path_plan_entity name
+
+# move one step along the planned route; steps left, 0 there, -1 failed
+fn step
+  return path_step
+
+# steps left of the planned route, -1 when there is none
+fn left
+  return path_left
+
+# forget the planned route
+fn cancel
+  path_cancel
+
+# walk to a position; 0 when there, -1 when not possible
+fn goto x y z
+  set remaining = path_plan x y z
+  loop remaining > 0
+    set remaining = path_step
+  return remaining
+
+# walk next to the nearest entity (or player) of that name; 0 when there, -1 when not possible
+fn goto_entity name
+  set remaining = path_plan_entity name
+  loop remaining > 0
+    set remaining = path_step
+  return remaining

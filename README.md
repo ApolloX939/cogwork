@@ -61,6 +61,7 @@ if detect front @stone and contains @torch
 | `pull [item]` / `pull_stack [item]` | from the container in front into the robot |
 | `put [item]` / `put_stack [item]` | from the robot into the container in front |
 | `drop`, `drop_stack`, `trash`, `trash_stack` | into the world / destroy |
+| `punch <dir> [item]` | with no item: pick up dropped items there, else hit the entity there bare-handed; with an item from storage: hit with that tool (it wears). Players are never hit |
 | `craft <item>` | craft from the robot's storage |
 | `wait n` | wait n tenths of a second |
 | `chat text` | message to the owner, no limits |
@@ -75,7 +76,7 @@ item (`_stack`: a whole stack). Items can be `group:name`.
 
 ### Values and conditions
 
-`counter` (loop turn, from 0), `ok` (did the last action work), `detect <dir>
+`entity <dir>` (name of the entity in that block, `""` if none), `counter` (loop turn, from 0), `ok` (did the last action work), `detect <dir>
 [item]`, `node <dir>`, `contains [item]`, `fits [item]`, `count item`,
 `pos_x pos_y pos_z`, `facing`, `even n`, `odd n`, `floor n`, `length text`,
 `random n`, numbers, `"text"`, items (`default:stone`, or `@stone`), `true`,
@@ -123,6 +124,7 @@ available; `call mining.tunnel 5` works without `use`. Built in:
 | `farming` | `plant_row n seed`, `harvest_row n`, `plant_field w d seed` |
 | `storage` | `unload`, `load`, `take item n`, `give item n` |
 | `math` | `abs min max sign clamp power` |
+| `pathfind` | `goto x y z`, `goto_entity name`, `start`, `start_entity`, `step`, `left`, `cancel` |
 | `events` | `register_nodes`, `register_entities r`, `register_items r`, `register_chat`, `register_whisper`, `register_bot`, `register kind r handler`, `process`, `leave` |
 
 `/cogwork packages`, `/cogwork package <name>`, `/cogwork items` list them.
@@ -181,6 +183,49 @@ player's robots, `Player/RobotName` one. Also in the Settings tab: who is
 listening to this robot right now. In a program, `listeners` is how many and
 `listener n` the name of the nth.
 
+### Punching
+
+`punch front` picks up the dropped items in the block in front, or hits the
+entity there. `punch front default:sword_steel` takes that tool from the
+robot's storage and hits with it (`group:sword` works too); the tool wears and
+the punch waits the tool's full punch interval. A robot never hits players and
+respects protection. With the owner online the owner is credited as the
+puncher. `entity front` tells which entity is there, so an event handler can
+check it is the one to attack:
+
+```
+use events
+use pathfind
+fn on_entity name distance
+  if name = "mobs_animal:rat"
+    call pathfind.goto_entity name
+    punch front default:sword_steel
+```
+
+### Pathfinding
+
+`use pathfind` and `call pathfind.goto x y z` (or `goto_entity "name"`, which
+stops next to the nearest entity or player of that name, searching
+`cogwork_path_entity_radius` blocks) plans a route and walks it. The robot
+moves in the six axis directions and needs no floor. The result is `0` when it
+arrived and `-1` when there is no way: a sealed target, terrain nobody has
+loaded, a route longer than `cogwork_path_max_nodes` cells of search, or a
+target that disappeared.
+
+The route is planned again every `cogwork_path_replan` seconds and whenever a
+move is blocked, because the world (and the entity) change.
+
+To do things on the way, plan and step yourself: `pathfind.start x y z` (or
+`start_entity`) returns the steps to go (`-1`: no way) and `pathfind.step`
+moves once and returns the steps left (`0` there, `-1` failed); `left` is the
+steps left and `cancel` forgets the route.
+
+Unloaded terrain counts as a wall, **unless the robot has Forceload on**: then
+it is assumed to be open and the robot goes anyway. As it walks the forceload
+moves with it, and blocks it walks into are loaded from disk or generated
+(waiting up to 10 seconds for that). If the server's forceload limit is
+reached on the way, the robot keeps going but is no longer forceloaded.
+
 ### Item aliases
 
 `@stone @cobble @dirt @sand @gravel @glass @planks @log @sapling @torch @chest
@@ -210,7 +255,7 @@ Actions return `ok, delay_seconds`. `ctx.bot` is the robot (`pos`, `owner`,
 ## Settings
 
 See `settingtypes.txt`: scheduler interval, action and move delays, public
-chat, event radius and scan speed, chat limits, item `on_place` handlers, resume on start (off by default: robots
+chat, event radius and scan speed, chat limits, item `on_place` handlers, path search limit, re-plan interval and entity search radius, resume on start (off by default: robots
 stop when the server restarts), statements per tick.
 
 ## Tests

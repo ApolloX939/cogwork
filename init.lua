@@ -16,6 +16,9 @@ S.settings = {
 	step_budget = tonumber(core.settings:get("cogwork_step_budget")) or 200,
 	event_max_radius = math.max(1, math.floor(tonumber(core.settings:get("cogwork_event_max_radius")) or 6)),
 	event_max_interval = math.max(0.5, tonumber(core.settings:get("cogwork_event_max_interval")) or 3),
+	path_max_nodes = math.max(100, math.floor(tonumber(core.settings:get("cogwork_path_max_nodes")) or 6000)),
+	path_replan = math.max(0.5, tonumber(core.settings:get("cogwork_path_replan")) or 5),
+	path_entity_radius = math.max(1, tonumber(core.settings:get("cogwork_path_entity_radius")) or 48),
 	chat_limit = math.max(1, math.floor(tonumber(core.settings:get("cogwork_chat_limit")) or 5)),
 	chat_window = math.max(1, tonumber(core.settings:get("cogwork_chat_window")) or 10),
 }
@@ -24,7 +27,7 @@ S.lang = assert(loadfile(modpath .. "/src/lang.lua"))()
 assert(loadfile(modpath .. "/src/commands.lua"))(S.lang)
 S.compat = assert(loadfile(modpath .. "/src/compat.lua"))()
 
-for _, file in ipairs({ "robot_ops", "runtime", "events", "api", "packages", "robot", "editor",
+for _, file in ipairs({ "robot_ops", "runtime", "events", "pathfind", "api", "packages", "robot", "editor",
 	"cassette", "crafting", "chatcommands" }) do
 	assert(loadfile(modpath .. "/src/" .. file .. ".lua"))(S)
 end

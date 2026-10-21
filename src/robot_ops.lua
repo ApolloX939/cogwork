@@ -193,18 +193,38 @@ local function passable (pos)
 	return def and def.buildable_to and def.liquidtype == "none"
 end
 
+S.node_passable = passable
+
+-- terrain nobody has loaded (or generated): reads as nil or "ignore"
+local function unknown (pos)
+	local node = core.get_node_or_nil(pos)
+	return node == nil or node.name == "ignore"
+end
+S.node_unknown = unknown
+
 function Bot:move (dir)
 	local node = self:node_info()
 	local to = V.add(self.pos, dir_vector(self:front_vec(), dir))
+
+	local from = self.pos
+	local meta = core.get_meta(from)
+	local persistent = meta:get_int("persist") == 1
+
+	-- a forceloaded robot goes into terrain nobody has loaded: load it from
+	-- disk now, or have it generated and try again a moment later
+	if persistent and unknown(to) then
+		core.load_area(to)
+		if unknown(to) then
+			core.emerge_area(to, to)
+			return false, settings.move_delay
+		end
+	end
 
 	if not passable(to) or self:protected(to) then
 		return false, settings.action_delay
 	end
 
-	local from = self.pos
-	local meta = core.get_meta(from)
 	local data = meta:to_table()
-	local persistent = meta:get_int("persist") == 1
 
 	if persistent then core.forceload_free_block(from, false) end
 
@@ -217,7 +237,10 @@ function Bot:move (dir)
 	S.moving = false
 	core.check_for_falling(from)
 
-	if persistent then core.forceload_block(to, false) end
+	-- the forceload follows the robot; past the server's limit it is lost
+	if persistent and core.forceload_block(to, false) == false then
+		core.get_meta(to):set_int("persist", 0)
+	end
 
 	self.pos = to
 	S.on_robot_moved(from, to)
@@ -546,6 +569,106 @@ function Bot:craft (item)
 	end
 
 	return false, delay
+end
+
+--------------------------------------------------------------------------
+-- punching: pick up dropped items, or hit an entity
+
+-- objects around the middle of the block in dir: items, other entities
+local function objects_at (pos)
+	local items, others = {}, {}
+	for _, obj in ipairs(core.get_objects_inside_radius(pos, 1.25)) do
+		local le = obj:get_luaentity()
+		if le and le.name == "__builtin:item" then
+			items[#items + 1] = obj
+		elseif not obj:is_player() then
+			-- players are never hit by a robot
+			others[#others + 1] = obj
+		end
+	end
+	table.sort(others, function (a, b)
+		return V.distance(a:get_pos(), pos) < V.distance(b:get_pos(), pos)
+	end)
+	return items, others
+end
+
+-- name of the nearest entity (not an item or a player) in the block in dir, or ""
+function Bot:entity_at (dir)
+	local _, others = objects_at(self:target(dir))
+	local le = others[1] and others[1]:get_luaentity()
+	return le and le.name or ""
+end
+
+-- the first stack in storage that is item (or in group:x)
+local function find_stack (inv, item)
+	for i, st in ipairs(inv:get_list(LIST) or {}) do
+		if not st:is_empty() and item_matches(st:get_name(), item) then return i, st end
+	end
+end
+
+function Bot:punch (dir, item)
+	local pos = self:target(dir)
+	local delay = settings.action_delay
+	if self:protected(pos) then return false, delay end
+
+	item = stack_name(item)
+	local items, others = objects_at(pos)
+
+	-- bare hands: pick up what lies there first
+	if not item then
+		local got = false
+		for _, obj in ipairs(items) do
+			local le = obj:get_luaentity()
+			local stack = ItemStack(le.itemstring or "")
+			if not stack:is_empty() then
+				local left = self:inv():add_item(LIST, stack)
+				if left:get_count() < stack:get_count() then got = true end
+				if left:is_empty() then obj:remove() else le.itemstring = left:to_string() end
+			end
+		end
+		if got then return true, delay end
+	end
+
+	local target = others[1]
+	if not target then return false, delay end
+
+	local index, stack
+	if item then
+		index, stack = find_stack(self:inv(), item)
+		if not index then return false, delay end
+	else
+		stack = ItemStack("")
+	end
+
+	local caps = stack:get_tool_capabilities()
+	local interval = caps.full_punch_interval or 1
+	local owner = self.owner and core.get_player_by_name(self.owner)
+	target:punch(owner, interval, caps, V.direction(self.pos, target:get_pos()))
+
+	-- a tool wears with every hit
+	local uses = caps.punch_attack_uses
+	if index and uses and uses > 0 then
+		stack:add_wear(math.ceil(65535 / uses))
+		self:inv():set_stack(LIST, index, stack)
+	end
+	return true, math.max(delay, interval)
+end
+
+-- Move into the neighbouring block cell (used by pathfinding): up and down,
+-- straight on, backwards, or turn first when it is to the side.
+function Bot:step_to (cell)
+	local d = V.subtract(cell, self.pos)
+	if d.y == 1 then return self:move("up") end
+	if d.y == -1 then return self:move("down") end
+
+	local f = self:front_vec()
+	if V.equals(d, f) then return self:move("forward") end
+	if V.equals(d, V.multiply(f, -1)) then return self:move("back") end
+
+	local turned = V.equals(d, { x = f.z, y = 0, z = -f.x }) and "right" or "left"
+	local _, turn_delay = self:turn(turned)
+	local ok, delay = self:move("forward")
+	return ok, turn_delay + (delay or 0)
 end
 
 --------------------------------------------------------------------------

@@ -372,6 +372,138 @@ test("event chat limits", function (done)
 	end)
 end)
 
+-- ---------------------------------------------------------------- punch
+
+core.register_tool("cogwork_test:sword", {
+	description = "Test sword",
+	inventory_image = "blank.png",
+	tool_capabilities = { full_punch_interval = 0.3, damage_groups = { fleshy = 4 }, punch_attack_uses = 20 },
+})
+
+core.register_entity("cogwork_test:mob", {
+	initial_properties = { physical = false, visual = "sprite", textures = { "blank.png" }, hp_max = 10 },
+	on_activate = function (self) self.object:set_armor_groups({ fleshy = 100 }) end,
+})
+
+run_program("punch picks up items",
+	"wait 5\npunch front\nif count " .. material .. " = 3\n  move up",
+	nil, function ()
+		core.after(0.0, function ()
+			core.set_node(P(0, 0, 1), { name = material })
+			local obj = core.add_item(P(0, 1, 1), ItemStack(material .. " 3"))
+			assert(obj, "no item")
+		end)
+	end, function ()
+		assert(vector.equals(find_robot(), P(0, 2, 0)), "items were not picked up")
+	end)
+
+test("punch hits an entity with a tool", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0),
+		"if entity front = \"cogwork_test:mob\"\n  repeat 4\n    punch front cogwork_test:sword\nelse\n  move down",
+		{ "cogwork_test:sword" })
+	local mob = core.add_entity(P(0, 1, 1), "cogwork_test:mob")
+	assert(S.start(pos))
+	wait_for(pos, 40, function (timeout)
+		local gone = not mob:is_valid() or mob:get_hp() <= 0
+		local stack = core.get_meta(pos):get_inventory():get_stack("main", 1)
+		local worn = stack:get_wear() > 0
+		report("punch hits an entity with a tool", not timeout and gone and worn,
+			("gone=%s worn=%s timeout=%s err=%s"):format(tostring(gone), tostring(worn), tostring(timeout), err_of(pos)))
+		if mob:is_valid() then mob:remove() end
+		done()
+	end)
+end)
+
+test("punch never hits a player-less robot's missing tool", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "punch front cogwork_test:sword\nif ok\n  move up", {})
+	local mob = core.add_entity(P(0, 1, 1), "cogwork_test:mob")
+	assert(S.start(pos))
+	wait_for(pos, 40, function (timeout)
+		report("punch with an item the robot does not have fails",
+			vector.equals(find_robot(), P(0, 1, 0)) and mob:get_hp() == 10 and not timeout)
+		mob:remove()
+		done()
+	end)
+end)
+
+-- ---------------------------------------------------------------- pathfinding
+
+local function goto_program (target, extra)
+	return ("use pathfind\nset r = call pathfind.goto %d %d %d\nif r = 0\n  move up\nif r = -1\n  turn around%s")
+		:format(target.x, target.y, target.z, extra or "")
+end
+
+run_program("pathfind around a wall",
+	goto_program(P(0, 1, 6)),
+	nil, function ()
+		for x = -2, 2 do for y = -1, 6 do core.set_node(P(x, y, 3), { name = material }) end end
+	end, function (_, timeout)
+		assert(not timeout, "timeout")
+		assert(vector.equals(find_robot(), P(0, 2, 6)), "ended at " .. core.pos_to_string(vector.subtract(find_robot(), ORIGIN)))
+	end)
+
+run_program("pathfind reports -1 for a sealed target",
+	goto_program(P(0, 1, 6)),
+	nil, function ()
+		for x = -1, 1 do for y = 0, 2 do for z = 5, 7 do
+			if not (x == 0 and y == 1 and z == 6) then core.set_node(P(x, y, z), { name = material }) end
+		end end end
+	end, function (_, timeout)
+		assert(not timeout, "timeout")
+		-- the robot turns around and stays: its front is now -z
+		local p = find_robot()
+		assert(vector.equals(p, P(0, 1, 0)), "moved to " .. core.pos_to_string(vector.subtract(p, ORIGIN)))
+		assert(core.get_node(p).param2 ~= core.dir_to_facedir({ x = 0, y = 0, z = -1 }), "did not turn around")
+	end)
+
+run_program("pathfind to an entity",
+	"use pathfind\nset r = call pathfind.goto_entity \"cogwork_test:dummy\"\nif r = 0\n  move up",
+	nil, function ()
+		-- earlier tests left dummies around
+		for _, obj in ipairs(core.get_objects_inside_radius(P(0, 1, 0), 60)) do
+			if not obj:is_player() then obj:remove() end
+		end
+		core.add_entity(P(0, 1, 5), "cogwork_test:dummy")
+	end, function (_, timeout)
+		assert(not timeout, "timeout")
+		local p = find_robot()
+		assert(vector.equals(p, P(0, 2, 4)), "ended at " .. core.pos_to_string(vector.subtract(p, ORIGIN)))
+	end)
+
+-- terrain nobody loaded: a wall without Forceload, walked into with it
+local FAR = P(0, 1, 64)
+
+run_program("pathfind to unloaded terrain fails without forceload",
+	goto_program(FAR),
+	nil, nil, function (_, timeout)
+		assert(not timeout, "timeout")
+		assert(vector.equals(find_robot(), P(0, 1, 0)), "it moved")
+	end)
+
+test("pathfind to unloaded terrain with forceload", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), goto_program(FAR), nil)
+	-- clear_area stops at z=30 and the rest of the emerged area is not air
+	for x = -3, 3 do for y = -3, 5 do for z = 31, 47 do
+		core.set_node(P(x, y, z), { name = "air" })
+	end end end
+	assert(S.set_persist(pos, true), "no forceload")
+	assert(S.start(pos))
+	wait_for(pos, 90, function (timeout)
+		local p = vector.add(FAR, { x = 0, y = 1, z = 0 })
+		local good = S.is_robot(core.get_node(p).name)
+		local found = core.find_nodes_in_area(P(-3, -3, -3), P(3, 8, 80), { "cogwork:robot", "cogwork:robot_on" })
+		local where = {}
+		for _, f in ipairs(found) do where[#where + 1] = core.pos_to_string(vector.subtract(f, ORIGIN)) .. " " .. err_of(f) end
+		report("pathfind to unloaded terrain with forceload", not timeout and good,
+			("timeout=%s node=%s robots at %s"):format(tostring(timeout), core.get_node(p).name, table.concat(where, ";")))
+		S.set_persist(p, false)
+		done()
+	end)
+end)
+
 test("editor formspec", function (done)
 	clear_area()
 	local pos = make_robot(P(0, 1, 0), "use mining\ncall tunnel 3\nif detect front\n  dig front", { material .. " 4" })

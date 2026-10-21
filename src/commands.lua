@@ -40,6 +40,11 @@ action("place", "world", { DIR8, OPTVAL }, function (ctx, dir, item)
 	return ctx.bot:place(dir, item)
 end)
 action("interact", "world", { DIR8 }, function (ctx, dir) return ctx.bot:interact(dir) end)
+-- no item: pick up dropped items, else hit an entity with bare hands;
+-- with an item from storage: hit an entity with it (players are never hit)
+action("punch", "world", { DIR8, OPTVAL }, function (ctx, dir, item)
+	return ctx.bot:punch(dir, item)
+end)
 
 --------------------------------------------------------------------------
 -- inventory transfers (container in front of the robot, or the world)
@@ -161,6 +166,23 @@ query("listeners", "check", {}, function (ctx) return #ctx.bot:listeners() end)
 query("listener", "check", { VAL }, function (ctx, n)
 	n = intpart(ctx, n, "listener")
 	return ctx.bot:listeners()[n] or ""
+end)
+
+-- name of the entity (not an item or a player) in the block in dir, "" if none
+query("entity", "check", { DIR8 }, function (ctx, dir) return ctx.bot:entity_at(dir) end)
+
+-- pathfinding (see pathfind.lua; the `pathfind` package wraps these)
+query("path_plan", "check", { VAL, VAL, VAL }, function (ctx, x, y, z)
+	return ctx.bot:path_plan(ctx, x, y, z)
+end)
+query("path_plan_entity", "check", { VAL }, function (ctx, name)
+	return ctx.bot:path_plan_entity(ctx, name)
+end)
+query("path_step", "check", {}, function (ctx) return ctx.bot:path_step(ctx) end)
+query("path_left", "check", {}, function (ctx) return ctx.bot:path_left(ctx) end)
+action("path_cancel", "flow", {}, function (ctx)
+	ctx.bot:path_cancel(ctx)
+	return true
 end)
 
 query("random", "check", { VAL }, function (ctx, n)

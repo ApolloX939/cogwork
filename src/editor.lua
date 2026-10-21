@@ -133,6 +133,7 @@ local function palette_entries (cat, lines, view)
 		add({ "dig", "front" }, "line", T("Dig a block"))
 		add({ "place", "front" }, "line", T("Place an item from storage"))
 		add({ "interact", "front" }, "line", T("Use (right-click) the block"))
+		add({ "punch", "front" }, "line", T("Pick up dropped items, or hit an entity (name a tool from storage to hit with it)"))
 		add({ "craft" }, "line", T("Craft an item from storage"))
 	elseif cat == "inventory" then
 		for _, v in ipairs({ "pull", "pull_stack", "put", "put_stack", "drop", "drop_stack",
@@ -148,7 +149,7 @@ local function palette_entries (cat, lines, view)
 		add({ "mod", "x", "2" }, "line", T("Remainder of a variable"))
 		add({ "join", "s", '"text"' }, "line", T("Append text to a variable"))
 	elseif cat == "check" then
-		for _, v in ipairs({ "detect", "node", "contains", "fits", "count", "counter", "ok",
+		for _, v in ipairs({ "detect", "node", "entity", "contains", "fits", "count", "counter", "ok",
 			"listeners", "listener", "even", "odd", "random", "floor", "length", "pos_x", "pos_y", "pos_z", "facing" }) do
 			add({ v }, "token", T("@1", v))
 		end
@@ -753,6 +754,9 @@ local function help_text ()
 	p("")
 	p("<b>" .. esc(T("Events")) .. "</b>")
 	p(esc(T("use events, then call events.register_nodes / register_entities r / register_items r / register_chat / register_whisper / register_bot with the name of one of your functions in quotes, then call events.process. It handles events until a handler calls events.leave. Messages: chat (owner, no limit), say (everyone) and whisper (one player) are limited per player; tell_bot and tell_bots reach robots that allow this one in their Settings tab.")))
+	p("")
+	p("<b>" .. esc(T("Punch and pathfinding")) .. "</b>")
+	p(esc(T("punch front: pick up dropped items there, else hit the entity there; punch front default:sword_steel hits with that tool from storage. Players are never hit. 'entity front' is the name of the entity there. use pathfind, then call pathfind.goto x y z or call pathfind.goto_entity name: they walk there and give 0 when arrived, -1 when there is no way. pathfind.start/start_entity plan only (steps, or -1), pathfind.step moves one step (steps left). Routes are re-planned while walking. Unloaded terrain is a wall unless Forceload is on.")))
 	p("")
 	p("<b>" .. esc(T("Items")) .. "</b>")
 	p(esc(T("Write item names in full (default:stone) or as @stone, @cobble, @dirt, @planks, @torch, @chest ... which pick the matching item of the game being played.")))

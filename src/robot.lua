@@ -20,7 +20,8 @@ end
 function S.set_persist (pos, on)
 	local meta = core.get_meta(pos)
 	if on then
-		if core.forceload_block(pos, false) then
+		-- false means the limit is reached; nil is "already loaded another way"
+		if core.forceload_block(pos, false) ~= false then
 			meta:set_int("persist", 1)
 			return true
 		end
