@@ -527,8 +527,10 @@ local function program_tab (fs, pos, s, lines)
 	local name = meta:get_string("bot_name")
 	fs[#fs + 1] = ("label[%g,1.0;%s]"):format(rx + 2.6, esc(name ~= "" and name or T("(no name)")))
 	if not running then
-		fs[#fs + 1] = ("button_exit[%g,1.3;3.4,0.7;op_runclose;%s]"):format(rx + 5.0, esc(T("Run and close")))
-		fs[#fs + 1] = ("tooltip[op_runclose;%s]"):format(esc(T("Start the program and close this window")))
+		fs[#fs + 1] = ("image[%g,1.3;0.7,0.7;cogwork_ui_run_bg.png]"):format(rx + 4.9)
+		fs[#fs + 1] = ("style[op_runclose;font_size=-3]")
+		fs[#fs + 1] = ("button_exit[%g,1.3;2.6,0.7;op_runclose;%s]"):format(rx + 5.7, esc(T("Run in Background")))
+		fs[#fs + 1] = ("tooltip[op_runclose;%s]"):format(esc(T("Start the program and close this window; the robot keeps working")))
 	end
 	local owner = meta:get_string("owner")
 	fs[#fs + 1] = ("label[%g,1.5;%s]"):format(rx + 2.6, esc(owner ~= "" and T("Owner: @1", owner) or ""))

@@ -117,6 +117,7 @@ local function after_dig_node (pos, oldnode, oldmetadata, digger)
 end
 
 local function on_rightclick (pos, node, clicker, itemstack, pointed_thing)
+	if S.acting then return itemstack end
 	if not S.can_access(pos, clicker) then
 		core.chat_send_player(clicker:get_player_name(), T("This robot belongs to @1.",
 			core.get_meta(pos):get_string("owner")))
@@ -134,6 +135,7 @@ local function on_rightclick (pos, node, clicker, itemstack, pointed_thing)
 end
 
 local function on_punch (pos, node, puncher, pointed_thing)
+	if S.acting then return end
 	if not puncher or not S.can_access(pos, puncher) then return end
 
 	if puncher:get_player_control().sneak and S.is_running(pos) then

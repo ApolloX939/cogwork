@@ -339,6 +339,22 @@ test("editor events and check", function (done)
 	done()
 end)
 
+test("robot callbacks do not open the editor while a program runs", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "move up", nil)
+	local fake = { get_player_name = function () return "tester" end,
+		get_inventory = function () return nil end, is_player = function () return true end,
+		get_player_control = function () return {} end }
+	local s = S.editor_session(fake)
+	s.pos = nil
+	local def = core.registered_nodes["cogwork:robot"]
+	S.acting = true
+	def.on_rightclick(pos, core.get_node(pos), fake, ItemStack(""), { type = "node", under = pos, above = pos })
+	S.acting = false
+	report("rightclick ignored while acting", s.pos == nil)
+	done()
+end)
+
 test("packages compile", function (done)
 	local ok = true
 	for _, name in ipairs(S.list_packages()) do

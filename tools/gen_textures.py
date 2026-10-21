@@ -812,7 +812,15 @@ def u_check(c):
     c.line([(12, 22), (16, 26), (25, 14)], 3.5, fill="#58e06b")
 
 
-for name, fn in (("check", u_check), ("insert", u_insert), ("delete", u_delete), ("duplicate", u_duplicate),
+def u_run_bg(c):
+    # a window with a play triangle, and a tray arrow: runs on while closed
+    c.rect(5, 5, 27, 22, outline=c.ink, w=2, rad=2)
+    c.line([(5, 9), (27, 9)], 1.5)
+    c.poly([(13, 12), (13, 20), (20, 16)], fill="#58e06b")
+    c.arrow(16, 27, 270, length=8, w=2, head=5)
+
+
+for name, fn in (("run_bg", u_run_bg), ("check", u_check), ("insert", u_insert), ("delete", u_delete), ("duplicate", u_duplicate),
                  ("indent", u_indent), ("unindent", u_unindent), ("line_up", u_up),
                  ("line_down", u_down), ("cell_left", u_left), ("cell_right", u_right),
                  ("cell_delete", u_cell_delete), ("clear", u_clear)):

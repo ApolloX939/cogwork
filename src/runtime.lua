@@ -119,7 +119,11 @@ core.register_globalstep(function (dt)
 		else
 			r.wait = r.wait - dt
 			if r.wait <= 0 then
+				-- Callbacks the program triggers (a placed item's on_place right-clicks the
+				-- node it is placed against: the robot) must not open the editor
+				S.acting = true
 				local ok, res = coroutine.resume(r.co)
+				S.acting = false
 				if not ok then
 					finish(r, res)
 				elseif coroutine.status(r.co) == "dead" then
