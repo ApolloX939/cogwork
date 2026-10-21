@@ -1,0 +1,32 @@
+# title: Math
+# description: Small helpers: abs, min, max, sign, clamp, power.
+fn abs v
+  if v < 0
+    return 0 - v
+  return v
+
+fn min a b
+  if a < b
+    return a
+  return b
+
+fn max a b
+  if a > b
+    return a
+  return b
+
+fn sign v
+  if v < 0
+    return -1
+  if v > 0
+    return 1
+  return 0
+
+fn clamp v low high
+  return call min (call max v low) high
+
+fn power base exp
+  set result = 1
+  repeat exp
+    mul result base
+  return result

@@ -1,0 +1,26 @@
+# title: Farming
+# description: Plant and harvest rows. The robot flies one block above the crop row, with soil below the crops.
+# plant a row of n seeds
+fn plant_row n seed
+  repeat n
+    place down seed
+    move forward
+
+# harvest a row of n crops
+fn harvest_row n
+  repeat n
+    dig down
+    move forward
+
+# a field of rows w wide and d rows, planted with seed
+fn plant_field w d seed
+  repeat d
+    call plant_row w seed
+    if even counter
+      turn right
+      move forward
+      turn right
+    else
+      turn left
+      move forward
+      turn left

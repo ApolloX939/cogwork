@@ -1,0 +1,34 @@
+# title: Building
+# description: Lines, floors and walls from the robot's storage. Items may be "@cobble" style names that work in every game.
+use movement
+
+# n blocks placed under the robot as it walks forward
+fn line n item
+  repeat n
+    place down item
+    move forward
+
+# a floor w by d, placed under the robot's path
+fn pave w d item
+  repeat d
+    repeat w
+      place down item
+      if counter < w - 1
+        move forward
+    if counter < d - 1
+      if even counter
+        turn right
+        move forward
+        turn right
+      else
+        turn left
+        move forward
+        turn left
+
+# a wall n long and h high, the lowest row under the robot's path
+fn wall n h item
+  repeat h
+    call line n item
+    turn around
+    move forward
+    move up

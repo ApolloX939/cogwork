@@ -1,0 +1,20 @@
+# Interval for the robot scheduler, in seconds
+cogwork_tick (Scheduler interval) float 0.1 0.05 1
+
+# Delay in seconds for a robot's action (minimum 0.1)
+cogwork_action_delay (Action delay) float 0.2 0.1 10
+
+# Delay in seconds for a robot's movement (minimum 0.1)
+cogwork_move_delay (Movement delay) float 0.5 0.1 10
+
+# Allow the chat command on public robots
+cogwork_public_chat (Allow public chat) bool true
+
+# Let the placed item's own on_place handler run (seeds, torches, ...)
+cogwork_use_on_place (Use item on_place) bool true
+
+# Start robots that were running when the server stopped
+cogwork_resume_on_start (Resume on start) bool false
+
+# Statements run per scheduler tick before a program yields
+cogwork_step_budget (Step budget) int 200 10 5000

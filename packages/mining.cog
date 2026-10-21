@@ -1,0 +1,53 @@
+# title: Mining
+# description: Tunnels, shafts and quarries. Dug items go into the robot's storage.
+use movement
+
+# a tunnel two blocks high, n long
+fn tunnel n
+  repeat n
+    dig front
+    move forward
+    dig up
+
+fn shaft n
+  repeat n
+    dig down
+    move down
+
+fn climb n
+  repeat n
+    dig up
+    move up
+
+# dig out one layer w wide and d deep (to the right of the robot's
+# heading) at the robot's height, then come back to where it started
+fn layer w d
+  repeat d
+    call bore (w - 1)
+    if counter < d - 1
+      if even counter
+        turn right
+        dig front
+        move forward
+        turn right
+      else
+        turn left
+        dig front
+        move forward
+        turn left
+  if odd d
+    turn around
+    call walk (w - 1)
+    turn right
+  else
+    turn right
+  call walk (d - 1)
+  turn right
+
+# dig a quarry w by d, h layers deep: each layer at the robot's height,
+# then down one level
+fn quarry w d h
+  repeat h
+    call layer w d
+    dig down
+    move down

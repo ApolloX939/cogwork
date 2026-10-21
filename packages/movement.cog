@@ -1,0 +1,32 @@
+# title: Movement
+# description: Walk several steps, get past obstacles and patrol shapes.
+fn walk n
+  repeat n
+    move forward
+
+fn retreat n
+  repeat n
+    move back
+
+fn rise n
+  repeat n
+    move up
+
+fn sink n
+  repeat n
+    move down
+
+fn about_face
+  turn around
+
+# walk n steps, digging through whatever is in the way
+fn bore n
+  repeat n
+    dig front
+    move forward
+
+# walk the edge of a square, side steps long
+fn patrol side
+  repeat 4
+    call walk side
+    turn right

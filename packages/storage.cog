@@ -1,0 +1,19 @@
+# title: Storage
+# description: Empty into and refill from the container in front of the robot.
+# put everything into the container in front
+fn unload
+  put
+
+# take everything from the container in front
+fn load
+  pull
+
+# take up to n of an item from the container in front
+fn take item n
+  repeat n
+    pull item
+
+# put up to n of an item into the container in front
+fn give item n
+  repeat n
+    put item
