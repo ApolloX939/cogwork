@@ -239,7 +239,8 @@ local function scan_objects (bot, ctx, reg, kind)
 
 	for _, obj in ipairs(core.get_objects_inside_radius(bot.pos, reg.radius)) do
 		local item = is_item(obj)
-		if item == (kind == "items") then
+		-- the robots' own bodies are no entities to react to
+		if not S.is_visual(obj) and item == (kind == "items") then
 			local id = object_id(obj)
 			reg.seen[id] = true
 			if last and not last[id] and fired < PER_SCAN_MAX then

@@ -90,6 +90,7 @@ core.register_abm({
 	chance = 1,
 	catch_up = false,
 	action = function (pos)
+		S.ensure_visual(pos)
 		if S.is_running(pos) then
 			S.refresh_variant(pos)
 		else

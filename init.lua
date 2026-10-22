@@ -20,6 +20,7 @@ S.settings = {
 	path_replan = math.max(0.5, tonumber(core.settings:get("cogwork_path_replan")) or 5),
 	path_entity_radius = math.max(1, tonumber(core.settings:get("cogwork_path_entity_radius")) or 48),
 	gravity = core.settings:get_bool("cogwork_gravity", true),
+	particles = core.settings:get_bool("cogwork_particles", true),
 	-- robots_can_float: a robot in water floats in it; off, it sinks to the bottom
 	can_float = core.settings:get_bool("cogwork_robots_can_float", core.settings:get_bool("robots_can_float", true)),
 	fall_range = math.max(1, math.floor(tonumber(core.settings:get("cogwork_fall_range")) or 128)),
@@ -34,7 +35,7 @@ S.lang = assert(loadfile(modpath .. "/src/lang.lua"))()
 assert(loadfile(modpath .. "/src/commands.lua"))(S.lang)
 S.compat = assert(loadfile(modpath .. "/src/compat.lua"))()
 
-for _, file in ipairs({ "robot_ops", "upgrades", "structure", "machines", "runtime", "events", "pathfind", "api", "gravity", "packages", "robot", "editor",
+for _, file in ipairs({ "robot_ops", "upgrades", "structure", "machines", "runtime", "events", "pathfind", "api", "visual", "gravity", "packages", "robot", "editor",
 	"cassette", "crafting", "structure_recipes", "charger", "chatcommands" }) do
 	assert(loadfile(modpath .. "/src/" .. file .. ".lua"))(S)
 end

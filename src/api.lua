@@ -78,6 +78,7 @@ function S.refresh_variant (pos, on)
 	if node.name ~= want then
 		core.swap_node(pos, { name = want, param2 = node.param2 })
 	end
+	S.update_visual(pos)
 end
 
 function S.get_program (pos)

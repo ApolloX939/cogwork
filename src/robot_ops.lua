@@ -244,6 +244,9 @@ function S.relocate (from, to, node)
 	S.moving = false
 	core.check_for_falling(from)
 
+	-- the robot you see goes along (before the model is refreshed for the new place)
+	S.move_visual(from, to)
+
 	-- the forceload follows the robot; past the server's limit it is lost
 	if persistent and core.forceload_block(to, false) == false then
 		moved:set_int("persist", 0)
@@ -620,7 +623,9 @@ local function objects_at (pos, hit_players, owner)
 	local items, others = {}, {}
 	for _, obj in ipairs(core.get_objects_inside_radius(pos, 1.25)) do
 		local le = obj:get_luaentity()
-		if le and le.name == "__builtin:item" then
+		if S.is_visual(obj) then
+			-- a robot's own body is nobody to hit
+		elseif le and le.name == "__builtin:item" then
 			items[#items + 1] = obj
 		elseif obj:is_player() then
 			-- players are only hit by a robot with the Combat Upgrade (never its owner)

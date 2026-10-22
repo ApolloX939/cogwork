@@ -61,6 +61,8 @@ local function on_destruct (pos)
 	if core.get_meta(pos):get_int("persist") == 1 then
 		core.forceload_free_block(pos, false)
 	end
+	-- last: stopping refreshes the model, which would make a new one
+	S.remove_visual(pos)
 end
 
 local function after_place_node (pos, placer, itemstack)
@@ -99,6 +101,7 @@ local function after_place_node (pos, placer, itemstack)
 	meta:set_string("infotext", display_name(meta))
 
 	if imeta:get_int("persist") == 1 then S.set_persist(pos, true) end
+	S.ensure_visual(pos)
 end
 
 local function preserve_metadata (pos, oldnode, oldmeta, drops)
@@ -250,12 +253,8 @@ local function register (name, on, model)
 		description = T("Robot"),
 		short_description = T("Robot"),
 		_tt_help = T("A programmable robot"),
-		drawtype = "mesh",
-		mesh = "cogwork_" .. model .. ".obj",
-		tiles = {
-			"cogwork_metal.png", on and "cogwork_face_on.png" or "cogwork_face.png",
-			"cogwork_tread.png", "cogwork_accent.png", "cogwork_back.png",
-		},
+		-- drawn by the robot's visual entity (visual.lua), the node is its invisible body
+		drawtype = "airlike",
 		inventory_image = "cogwork_robot_inv.png",
 		wield_image = "cogwork_robot_inv.png",
 		selection_box = { type = "fixed", fixed = { -0.5, -0.5, -0.5, 0.5, 0.5, 0.5 } },

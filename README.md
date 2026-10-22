@@ -357,6 +357,19 @@ keep the slots up to their last item and shrink once those are empty.
 Recipe: a chest between steel, copper and steel (matter plates, circuits and a
 processor in Skyblock: Zero).
 
+### The robot is an entity
+
+What you see is an entity standing on the robot's block (`src/visual.lua`); the
+block itself is invisible and is the robot's body for the game (its storage,
+program, forceload, protection and your hand). The entity shows the robot,
+hover or drone model with its face lit while it runs, turned the way the robot
+faces, and glides when the robot moves or falls. A **drone's four rotors are
+entities of their own and spin while it runs**, and stop when it stops. A robot
+that flies or hovers (a free block under it) gives off a few **thruster
+particles** (`cogwork_particles`). Entities are not saved: they are made again
+when the block loads, and one whose robot is gone removes itself. Robots are not
+entities to each other: `entity`, `punch` and the entity event skip them.
+
 ### Hover model, gravity and water
 
 A robot that is not a drone and has a free block under it is drawn with the

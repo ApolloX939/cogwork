@@ -1576,6 +1576,16 @@ bottom = Image.new("RGBA", (16, 16), P["d"]) if "Image" in globals() else None
 if bottom is not None:
     bottom.save(os.path.join(TEX, "cogwork_charger_bottom.png"))
 
+# thruster particle: a soft blue-white spark
+spark = Image.new("RGBA", (8, 8), (0, 0, 0, 0))
+for _x in range(8):
+    for _y in range(8):
+        _d = math.hypot(_x - 3.5, _y - 3.5)
+        if _d < 4:
+            _a = int(255 * max(0.0, 1 - _d / 4) ** 1.5)
+            spark.putpixel((_x, _y), (170, 215, 255, _a))
+spark.save(os.path.join(TEX, "cogwork_particle.png"))
+
 # ----------------------------------------------------------------- icons.lua
 
 with open(os.path.join(MOD, "src", "icons.lua"), "w") as f:

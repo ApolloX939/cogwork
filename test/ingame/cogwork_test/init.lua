@@ -1470,6 +1470,115 @@ test("the Storage tab with all upgrades fits its window and overlaps nothing", f
 	done()
 end)
 
+-- ---------------------------------------------------------------- the robot you see
+
+-- the visual entities standing on the robot node at pos
+local function visuals_at (p)
+	local out = {}
+	for _, obj in ipairs(core.get_objects_inside_radius(p, 0.45)) do
+		local le = obj:get_luaentity()
+		if le and le.name == "cogwork:visual" then out[#out + 1] = obj end
+	end
+	return out
+end
+
+test("a robot is drawn by one entity with the right model and face", function (done)
+	clear_area()
+	core.set_node(P(0, 0, 0), { name = material })
+	local pos = make_robot(P(0, 1, 0), "wait 100", nil, {})
+	S.ensure_visual(pos)
+	S.ensure_visual(pos)                      -- twice: still one
+	local one = visuals_at(pos)
+	local mesh = one[1] and one[1]:get_properties().mesh
+	local off_face = one[1] and one[1]:get_properties().textures[2]
+
+	assert(S.start(pos))
+	local lit = visuals_at(pos)[1]:get_properties().textures[2]
+	S.stop(pos, "")
+	local dark = visuals_at(pos)[1]:get_properties().textures[2]
+
+	-- nothing under it: the hover model
+	local up = make_robot(P(4, 1, 0), "stop", nil, {})
+	S.refresh_variant(up)
+	local hover = visuals_at(up)[1] and visuals_at(up)[1]:get_properties().mesh
+	report("a robot is drawn by one entity with the right model and face",
+		#one == 1 and mesh == "cogwork_robot.obj" and off_face == "cogwork_face.png"
+		and lit == "cogwork_face_on.png" and dark == "cogwork_face.png" and hover == "cogwork_hover.obj",
+		("n=%d %s %s %s %s %s"):format(#one, tostring(mesh), tostring(off_face), tostring(lit), tostring(dark), tostring(hover)))
+	done()
+end)
+
+test("a drone has four rotors that spin while it runs, and thrusters give particles in the air", function (done)
+	clear_area()
+	core.set_node(P(0, 0, 0), { name = material })
+	-- a drone on the floor: rotors, no particles
+	local grounded = make_robot(P(0, 1, 0), "wait 100", nil, { "cogwork:upgrade_flight" })
+	S.refresh_variant(grounded)
+	local le = visuals_at(grounded)[1]:get_luaentity()
+	local rotors = #(le.rotors or {})
+	local still = le.rotors[1]:get_properties().automatic_rotate == 0
+	local no_particles = le.spawner == nil
+
+	assert(S.start(grounded))
+	le = visuals_at(P(0, 1, 0))[1]:get_luaentity()
+	local spins = le.rotors[1]:get_properties().automatic_rotate > 0 and le.rotors[4]:get_properties().automatic_rotate > 0
+	S.stop(grounded, "")
+	le = visuals_at(P(0, 1, 0))[1]:get_luaentity()
+	local stops = le.rotors[1]:get_properties().automatic_rotate == 0
+
+	-- the same in the air, and a hover robot: thruster particles
+	local flying = make_robot(P(5, 3, 0), "stop", nil, { "cogwork:upgrade_flight" })
+	S.refresh_variant(flying)
+	local fle = visuals_at(flying)[1]:get_luaentity()
+	local hovering = make_robot(P(8, 3, 0), "stop", nil, {})
+	S.refresh_variant(hovering)
+	local hle = visuals_at(hovering)[1]:get_luaentity()
+	report("a drone has four rotors that spin while it runs, and thrusters give particles in the air",
+		rotors == 4 and still and no_particles and spins and stops and fle.spawner ~= nil and hle.spawner ~= nil,
+		("rotors=%d still=%s nopart=%s spins=%s stops=%s fly=%s hover=%s"):format(rotors, tostring(still), tostring(no_particles),
+			tostring(spins), tostring(stops), tostring(fle.spawner), tostring(hle.spawner)))
+	done()
+end)
+
+test("the visual goes along when the robot moves and is gone when it is dug", function (done)
+	clear_area()
+	core.set_node(P(0, 0, 0), { name = material })
+	core.set_node(P(0, 0, 1), { name = material })
+	core.set_node(P(0, 0, 2), { name = material })
+	local pos = make_robot(P(0, 1, 0), "move forward\nmove forward", nil, {})
+	S.ensure_visual(pos)
+	assert(S.start(pos))
+	wait_for(pos, 20, function (timeout)
+		local at_new = #visuals_at(P(0, 1, 2))
+		local at_old = #visuals_at(P(0, 1, 0)) + #visuals_at(P(0, 1, 1))
+		-- dug: the node's destructor takes the visual with it
+		core.remove_node(P(0, 1, 2))     -- calls the node's on_destruct
+		-- an entity is removed at the end of the server step
+		core.after(0.5, function ()
+			local after_dig = #visuals_at(P(0, 1, 2))
+			report("the visual goes along when the robot moves and is gone when it is dug",
+				not timeout and at_new == 1 and at_old == 0 and after_dig == 0,
+				("new=%d old=%d dug=%d"):format(at_new, at_old, after_dig))
+			done()
+		end)
+	end)
+end)
+
+test("a robot's body is not an entity to the robots around it", function (done)
+	clear_area()
+	core.set_node(P(0, 0, 0), { name = material })
+	local pos = make_robot(P(0, 1, 0), "if entity front = \"\"\n  move up", nil, {})
+	local other = make_robot(P(0, 1, 1), "stop", nil, {})
+	S.ensure_visual(other)
+	S.ensure_visual(pos)
+	assert(S.start(pos))
+	wait_for(pos, 20, function (timeout)
+		report("a robot's body is not an entity to the robots around it",
+			not timeout and S.is_robot(name_at(P(0, 2, 0))), "no move")
+		done()
+	end)
+end)
+
 -- armor numbers: the lightest 24, 7 more every tier
 test("armor takes 24, 31 and 38", function (done)
 	local function max_of (name) return select(2, S.armor_info(ItemStack(name))) end

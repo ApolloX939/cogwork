@@ -54,3 +54,6 @@ cogwork_generator_amount (Self-Generator power) float 10 1 1000
 
 # Seconds between a Self-Generator's charges (never under 5)
 cogwork_generator_interval (Self-Generator interval) float 5 5 600
+
+# Thruster particles under robots that fly or hover
+cogwork_particles (Thruster particles) bool true
