@@ -167,6 +167,7 @@ local SPOTS = {
 	chest = { { 2, 1, 7 } },
 	bay = { { 2, 1, 9 } },
 	terminal = { { 13, 1, 7 } },
+	settings = { { 13, 1, 9 } },
 	controller = { { 7, 1, 11 } },
 	console = { { 6, 1, 11 }, { 8, 1, 11 } },
 	light = { { 4, 9, 4 }, { 11, 9, 4 }, { 4, 9, 11 }, { 11, 9, 11 }, { 2, 0, 2 }, { 13, 0, 2 }, { 2, 0, 13 }, { 13, 0, 13 } },
@@ -218,6 +219,14 @@ local function ready (id, callback)
 		if remaining > 0 then return end
 		local marker = core.get_node_or_nil({ x = o.x + 7, y = o.y, z = o.z + 7 })
 		if not marker or marker.name ~= "cogwork:room_floor" then build(id) end
+		-- parts added after the room was built (the settings panel)
+		for kind, list in pairs(SPOTS) do
+			for _, p in ipairs(list) do
+				local at = { x = o.x + p[1], y = o.y + p[2], z = o.z + p[3] }
+				local node = core.get_node_or_nil(at)
+				if node and node.name == "air" then core.set_node(at, { name = "cogwork:room_" .. kind }) end
+			end
+		end
 		callback()
 	end)
 end
@@ -321,13 +330,42 @@ local function teleport_out (player, pos)
 	player:set_pos({ x = spot.x, y = spot.y - 0.4, z = spot.z })
 end
 
+-- The lock on the room's entrance (the robot's "room_lock"): "" = whoever can
+-- use the robot, "allow" = its owner and the players in its allow list (the
+-- Settings tab), "owner" = its owner only. Admins with protection_bypass pass.
+S.ROOM_LOCKS = { "", "allow", "owner" }
+
+function S.room_lock (pos)
+	local lock = core.get_meta(pos):get_string("room_lock")
+	return (lock == "allow" or lock == "owner") and lock or ""
+end
+
+function S.can_enter (pos, player)
+	if not S.can_access(pos, player) then return false end
+	local lock = S.room_lock(pos)
+	if lock == "" then return true end
+	local name = player:get_player_name()
+	local owner = core.get_meta(pos):get_string("owner")
+	if owner == "" or owner == name or core.check_player_privs(name, { protection_bypass = true }) then return true end
+	if lock == "allow" then
+		for _, entry in ipairs(S.bot_allow_list(pos)) do
+			if (entry:match("^([^/]+)/") or entry) == name then return true end
+		end
+	end
+	return false
+end
+
 -- Sneak + punch: the player goes into the robot at pos.
 function S.room_enter (pos, player)
 	if not settings.rooms then return false end
 	if S.room_of_player(player) then return false end
 	local name = player:get_player_name()
-	if not S.can_access(pos, player) then
-		core.chat_send_player(name, T("This robot belongs to @1.", core.get_meta(pos):get_string("owner")))
+	if not S.can_enter(pos, player) then
+		if S.can_access(pos, player) then
+			core.chat_send_player(name, T("The room of this robot is locked."))
+		else
+			core.chat_send_player(name, T("This robot belongs to @1.", core.get_meta(pos):get_string("owner")))
+		end
 		return false
 	end
 
@@ -364,6 +402,18 @@ function S.room_exit (player)
 		player:set_pos(core.setting_get_pos("static_spawnpoint") or { x = 0, y = 10, z = 0 })
 	end
 	return true
+end
+
+-- The lock changed: whoever it no longer lets in is put out next to the robot.
+function S.room_recheck (pos)
+	local id = S.room_id(pos)
+	if not id then return end
+	for _, p in ipairs(occupants(id)) do
+		if not S.can_enter(pos, p) then
+			core.chat_send_player(p:get_player_name(), T("The room was locked: you are put out."))
+			S.room_exit(p)
+		end
+	end
 end
 
 -- The robot is dug (or destroyed): whoever is inside comes out where it stood.

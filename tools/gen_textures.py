@@ -1707,6 +1707,20 @@ def p_terminal_top(im, px):
     r_rect(px, 4, 4, 11, 11, P["d"])
 
 
+def p_settings(im, px):
+    r_border(px)
+    for y, knob in ((4, 5), (7, 10), (10, 7)):
+        r_rect(px, 3, y, 12, y, P["d"])
+        r_rect(px, knob, y - 1, knob + 1, y + 1, P["o"])
+    r_rect(px, 4, 13, 11, 13, P["d"])
+
+
+def p_settings_top(im, px):
+    r_border(px)
+    r_rect(px, 5, 5, 10, 10, P["d"])
+    r_rect(px, 7, 7, 8, 8, P["o"])
+
+
 def p_ctl(im, px):
     r_border(px)
     px[7, 4] = px[8, 4] = px[7, 5] = px[8, 5] = P["r"]
@@ -1725,7 +1739,8 @@ def p_ctl_top(im, px):
 for _name, _p in (("wall", p_wall), ("floor", p_floor), ("light", p_light), ("frame", p_frame),
                   ("screen", p_screen), ("console", p_console), ("console_top", p_console_top),
                   ("exit", p_exit), ("chest", p_chest), ("chest_top", p_chest_top), ("bay", p_bay),
-                  ("terminal", p_terminal), ("terminal_top", p_terminal_top), ("ctl", p_ctl),
+                  ("terminal", p_terminal), ("terminal_top", p_terminal_top), ("settings", p_settings),
+                  ("settings_top", p_settings_top), ("ctl", p_ctl),
                   ("ctl_top", p_ctl_top)):
     room_tex(_name, _p)
 

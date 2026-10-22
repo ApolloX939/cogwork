@@ -4,6 +4,7 @@
 --   chest       the robot's own storage (the editor's Storage tab)
 --   bay         armor, cells, augmentation and upgrades (the Structure tab)
 --   terminal    the program (the Program tab): program a robot in peace
+--   settings    the Settings tab: name, public, allow list and the entrance lock
 --   controller  move and turn the robot
 -- The screen (an entity) is drawn in front of the screen panels; see viewscreen.lua.
 
@@ -77,6 +78,11 @@ register("bay", {
 register("terminal", {
 	description = T("Program terminal"), tiles = { tex("terminal_top"), tex("wall"), tex("terminal") },
 	on_rightclick = open_editor("program"),
+})
+
+register("settings", {
+	description = T("Settings panel"), tiles = { tex("settings_top"), tex("wall"), tex("settings") },
+	on_rightclick = open_editor("settings"),
 })
 
 --------------------------------------------------------------------------

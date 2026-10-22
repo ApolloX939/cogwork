@@ -807,6 +807,14 @@ local function settings_tab (fs, pos, s)
 	fs[#fs + 1] = ("label[0.5,4.2;%s]"):format(esc(T("Owner: @1", meta:get_string("owner"))))
 	fs[#fs + 1] = ("label[0.5,5;%s]"):format(esc(T("Position: @1", core.pos_to_string(pos))))
 
+	-- who may go into the robot's room (sneak + punch)
+	local lock = S.room_lock(pos)
+	local at = 1
+	for i, mode in ipairs(S.ROOM_LOCKS) do if mode == lock then at = i end end
+	fs[#fs + 1] = ("label[0.5,6.3;%s]"):format(esc(T("Entrance of the room (sneak + punch)")))
+	fs[#fs + 1] = ("dropdown[0.5,6.6;6,0.8;room_lock;%s,%s,%s;%d;true]"):format(
+		esc(T("Anyone who can use the robot")), esc(T("Owner and the players allowed here")), esc(T("Owner only")), at)
+
 	-- robot to robot messages
 	local x = 10.0
 	fs[#fs + 1] = ("label[%g,1.1;%s]"):format(x, esc(T("Robots allowed to message this one")))
@@ -866,13 +874,13 @@ local function help_text ()
 	p(esc(T("use events, then call events.register_nodes / register_entities r / register_items r / register_chat / register_whisper / register_bot with the name of one of your functions in quotes, then call events.process. It handles events until a handler calls events.leave. Messages: chat (owner, no limit), say (everyone) and whisper (one player) are limited per player; tell_bot and tell_bots reach robots that allow this one in their Settings tab.")))
 	p("")
 	p("<b>" .. esc(T("Inside the robot")) .. "</b>")
-	p(esc(T("Sneak and punch a robot to go into it: a room with a viewscreen showing what the robot sees, a chest (its storage), a bay (armor, cells, upgrades), a terminal (the program) and a controller (move and turn it). The door, or /leave_robot, takes you out.")))
+	p(esc(T("Sneak and punch a robot to go into it: a room with a viewscreen showing what the robot sees, a chest (its storage), a bay (armor, cells, upgrades), a terminal (the program), a settings panel (name, access and the lock on the entrance) and a controller (move and turn it). The door, or /leave_robot, takes you out.")))
 	p("")
 	p("<b>" .. esc(T("Structure and power")) .. "</b>")
 	p(esc(T("A robot runs only with armor and a power cell that has charge (Structure tab); without them it stays off, and it stops when they go. Every action costs power, a Small cell lasts about 450 moves. Armor never breaks, at no durability it protects nothing and damage goes to the cells. install \"cell\" / \"armor_mod\" / \"augment\" and uninstall put parts from and to storage (a cell only while another stays; the armor is for players). battery_level and armor_level are percent, cell_count, structure_item \"cell1\".")))
 	p("")
 	p("<b>" .. esc(T("Machines, upgrades")) .. "</b>")
-	p(esc(T("The nodes event hands the handler: dir node change detail, where change is node, inventory, timer, state or power. machine_state/_power/_level/_capacity front, network_level front, node_timer front, node_stock front item read the block next to the robot (-1 when unknown); machine_switch front \"off\" turns a Skyblock: Zero, Technic or Techage machine on or off. A robot can be 1 block above the floor; each Hover Upgrade adds a block, a Flight Upgrade removes the limit (five upgrade slots in the Storage tab). height_limit is the limit, -1 flying.")))
+	p(esc(T("The nodes event hands the handler: dir node change detail, where change is node, inventory, timer, state or power. machine_state/_power/_level/_capacity front, network_level front, node_timer front, node_stock front item read the block next to the robot (-1 when unknown); machine_switch front \"off\" turns a Skyblock: Zero, Technic or Techage machine on or off. A robot can be 1 block above the floor; each Hover Upgrade adds a block, a Flight Upgrade removes the limit (six upgrade slots in the Structure tab). height_limit is the limit, -1 flying.")))
 	p("")
 	p("<b>" .. esc(T("Punch and pathfinding")) .. "</b>")
 	p(esc(T("punch front: pick up dropped items there, else hit the entity there; punch front default:sword_steel hits with that tool from storage. Players are never hit. 'entity front' is the name of the entity there. use pathfind, then call pathfind.goto x y z or call pathfind.goto_entity name: they walk there and give 0 when arrived, -1 when there is no way. pathfind.start/start_entity plan only (steps, or -1), pathfind.step moves one step (steps left). Routes are re-planned while walking. Unloaded terrain is a wall unless Forceload is on.")))
@@ -1165,6 +1173,12 @@ S.on_editor_fields = function (player, formname, fields)
 		end
 		if fields.public ~= nil then
 			meta:set_int("public", fields.public == "true" and 1 or 0)
+		end
+
+		local mode = fields.room_lock and S.ROOM_LOCKS[tonumber(fields.room_lock)]
+		if mode ~= nil then
+			meta:set_string("room_lock", mode)
+			S.room_recheck(pos)
 		end
 
 		local list = S.bot_allow_list(pos)

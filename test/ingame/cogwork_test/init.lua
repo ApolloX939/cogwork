@@ -53,7 +53,7 @@ local function make_robot (pos, program, items, upgrades, bare)
 	local meta = core.get_meta(pos)
 	meta:get_inventory():set_size("main", 16)
 	meta:get_inventory():set_size("disk", 1)
-	meta:get_inventory():set_size("upgrades", 5)
+	meta:get_inventory():set_size("upgrades", 6)
 	-- the test world is a void: robots fly unless a test says otherwise
 	for _, up in ipairs(upgrades or { "cogwork:upgrade_flight" }) do
 		meta:get_inventory():add_item("upgrades", up)
@@ -440,6 +440,50 @@ test("punch never hits a player-less robot's missing tool", function (done)
 		mob:remove()
 		done()
 	end)
+end)
+
+local function reach_test (name, upgrades, distance, hit, blocked)
+	test(name, function (done)
+		clear_area()
+		for _, obj in ipairs(core.get_objects_inside_radius(P(0, 1, 2), 10)) do
+			if not obj:is_player() and not S.is_visual(obj) then obj:remove() end
+		end
+		if blocked then core.set_node(P(0, 1, 2), { name = material }) end
+		local pos = make_robot(P(0, 1, 0), "punch front cogwork_test:sword", { "cogwork_test:sword" }, upgrades)
+		local mob = core.add_entity(P(0, 1, distance), "cogwork_test:mob")
+		assert(S.start(pos))
+		core.after(3, function ()
+			local gone = not mob:is_valid() or mob:get_hp() < 10
+			report(name, gone == hit, ("gone=%s expected=%s hp=%s err=%s count=%s"):format(tostring(gone), tostring(hit), tostring(mob:is_valid() and mob:get_hp()), err_of(pos), S.combat_count(pos)))
+			if mob:is_valid() then mob:remove() end
+			S.stop(pos, "")
+			done()
+		end)
+	end)
+end
+
+reach_test("one Combat Upgrade punches one block", { "cogwork:upgrade_combat" }, 3, false)
+reach_test("three Combat Upgrades punch three blocks", { "cogwork:upgrade_combat", "cogwork:upgrade_combat", "cogwork:upgrade_combat" }, 3, true)
+reach_test("a block in the way stops the extended punch", { "cogwork:upgrade_combat", "cogwork:upgrade_combat", "cogwork:upgrade_combat" }, 3, false, true)
+
+test("the entrance lock lets in the owner, the allowed players or nobody else", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "stop", nil, {})
+	local meta = core.get_meta(pos)
+	meta:set_string("owner", "alice")
+	meta:set_int("public", 1)
+	local function who (name) return { get_player_name = function () return name end } end
+	local open = S.can_enter(pos, who("bob"))
+	meta:set_string("room_lock", "allow")
+	S.bot_allow_set(pos, { "carol", "dave/Rover" })
+	local allowed = S.can_enter(pos, who("carol")) and S.can_enter(pos, who("dave")) and S.can_enter(pos, who("alice"))
+	local denied = not S.can_enter(pos, who("bob"))
+	meta:set_string("room_lock", "owner")
+	local only = S.can_enter(pos, who("alice")) and not S.can_enter(pos, who("carol"))
+	report("the entrance lock lets in the owner, the allowed players or nobody else",
+		open and allowed and denied and only,
+		("open=%s allowed=%s denied=%s only=%s"):format(tostring(open), tostring(allowed), tostring(denied), tostring(only)))
+	done()
 end)
 
 -- ---------------------------------------------------------------- pathfinding
@@ -1480,7 +1524,7 @@ test("storage is 16 slots and every Storage Upgrade adds 4", function (done)
 	local plain = make_robot(P(0, 1, 0), "stop", nil, {})
 	local two = make_robot(P(3, 1, 0), "stop", nil, { "cogwork:upgrade_storage", "cogwork:upgrade_storage" })
 	local all = make_robot(P(6, 1, 0), "stop", nil, { "cogwork:upgrade_storage", "cogwork:upgrade_storage",
-		"cogwork:upgrade_storage", "cogwork:upgrade_storage", "cogwork:upgrade_storage" })
+		"cogwork:upgrade_storage", "cogwork:upgrade_storage", "cogwork:upgrade_storage", "cogwork:upgrade_storage" })
 
 	-- a fresh robot node, and the callback that puts an upgrade in
 	core.set_node(P(9, 1, 0), { name = "cogwork:robot" })
@@ -1490,7 +1534,7 @@ test("storage is 16 slots and every Storage Upgrade adds 4", function (done)
 		ItemStack("cogwork:upgrade_storage"), { get_player_name = function () return "tester" end })
 	report("storage is 16 slots and every Storage Upgrade adds 4",
 		inv_of(plain):get_size("main") == 16 and inv_of(two):get_size("main") == 24
-		and inv_of(all):get_size("main") == 36 and fresh == 16 and inv_of(P(9, 1, 0)):get_size("main") == 20,
+		and inv_of(all):get_size("main") == 40 and fresh == 16 and inv_of(P(9, 1, 0)):get_size("main") == 20,
 		("%d %d %d fresh=%d put=%d"):format(inv_of(plain):get_size("main"), inv_of(two):get_size("main"), inv_of(all):get_size("main"), fresh, inv_of(P(9, 1, 0)):get_size("main")))
 	done()
 end)
@@ -1538,7 +1582,7 @@ end)
 test("the Storage tab with all upgrades fits its window and overlaps nothing", function (done)
 	clear_area()
 	local pos = make_robot(P(0, 1, 0), "stop", nil, { "cogwork:upgrade_storage", "cogwork:upgrade_storage",
-		"cogwork:upgrade_storage", "cogwork:upgrade_storage", "cogwork:upgrade_storage" })
+		"cogwork:upgrade_storage", "cogwork:upgrade_storage", "cogwork:upgrade_storage", "cogwork:upgrade_storage" })
 	local fake = { get_player_name = function () return "tester" end, get_inventory = function () return nil end, is_player = function () return true end }
 	local fs = S.formspec(pos, { tab = "storage", line = 1, tok = 0, scroll = 0, cat = "flow", msg = "", player = fake, pos = pos })
 	local height = tonumber(fs:match("size%[19%.8,([%d%.]+)%]"))
@@ -1549,7 +1593,7 @@ test("the Storage tab with all upgrades fits its window and overlaps nothing", f
 		lists[#lists + 1] = { y = y, y2 = y + h * 1.25 - 0.25, h = h }
 		bottom = math.max(bottom, y + h * 1.25 - 0.25)
 	end
-	-- 36 slots in 5 rows, the inventory below them, all inside the window
+	-- 40 slots in 5 rows, the inventory below them, all inside the window
 	report("the Storage tab with all upgrades fits its window and overlaps nothing",
 		#lists == 2 and lists[1].h == 5 and lists[1].y2 <= lists[2].y and bottom <= height,
 		("lists=%d rows=%s bottom=%s height=%s"):format(#lists, tostring(lists[1] and lists[1].h), tostring(bottom), tostring(height)))

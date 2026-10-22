@@ -1,4 +1,4 @@
--- Upgrades: five slots in every robot.
+-- Upgrades: six slots in every robot.
 --
 -- A robot may be 1 block above the floor (floor = the nearest block that is
 -- not free below it). Each Hover Upgrade lets it go one block higher, a
@@ -11,7 +11,7 @@
 local S = ...
 local T = S.S
 
-S.UPGRADE_SLOTS = 5
+S.UPGRADE_SLOTS = 6
 S.BASE_HEIGHT = 1
 
 local HOVER, FLIGHT = "cogwork:upgrade_hover", "cogwork:upgrade_flight"
@@ -68,6 +68,16 @@ function S.ensure_upgrade_slots (pos)
 	if inv:get_size("upgrades") ~= S.UPGRADE_SLOTS then
 		inv:set_size("upgrades", S.UPGRADE_SLOTS)
 	end
+end
+
+-- How many Combat Upgrades the robot at pos has: a punch reaches that many blocks
+-- (one with a single upgrade or none).
+function S.combat_count (pos)
+	local n = 0
+	for _, stack in ipairs(core.get_meta(pos):get_inventory():get_list("upgrades") or {}) do
+		if stack:get_name() == COMBAT then n = n + 1 end
+	end
+	return n
 end
 
 -- Blocks above the floor the robot at pos may be, or nil when it can fly.

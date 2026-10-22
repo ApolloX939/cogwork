@@ -23,9 +23,9 @@ Craft a robot, place it (it looks the way you look), right-click it.
   area loaded while it works.
 - **Text tab**: the same program as plain text (two spaces per indent level).
   Edit it there and press Apply.
-- **Storage tab**: the robot's storage, 8 x 2 slots, 4 more for every Storage Upgrade (up to 36).
+- **Storage tab**: the robot's storage, 8 x 2 slots, 4 more for every Storage Upgrade (up to 40).
 - **Structure tab**: armor, armor modification, power cells, power augmentation and
-  the five upgrade slots (see below).
+  the six upgrade slots (see below).
 - **Packages tab**: browse packages, copy one (or your own functions) to a
   disk, install a disk in the robot.
 - **Settings tab**: name, public/private.
@@ -266,10 +266,10 @@ reached on the way, the robot keeps going but is no longer forceloaded.
 
 ### Upgrades
 
-Every robot has five upgrade slots (Structure tab). Without upgrades a robot can
+Every robot has six upgrade slots (Structure tab). Without upgrades a robot can
 be 1 block above the floor, the nearest block that is not free below it (`move`
 refuses to go higher, and so does the pathfinder, which plans within the same
-limit). A **Hover Upgrade** adds a block each (up to 6 with five), a **Flight
+limit). A **Hover Upgrade** adds a block each (up to 7 with six), a **Flight
 Upgrade** removes the limit. `height_limit` is the allowed number of blocks, `-1`
 when flying. Robots placed before upgrades existed get their slots when the
 Structure tab is opened, and fall under the limit like any other.
@@ -317,7 +317,9 @@ slot, two **power cell** slots and one **power augmentation** slot.
   least 5) seconds, also while the robot is off.
 - **Combat Upgrade** (an upgrade slot part, somewhat expensive): `punch` may hit
   players, never the owner, only where pvp and damage are on and with the owner
-  online (the owner is credited).
+  online (the owner is credited). Every Combat Upgrade after the first makes
+  the punch reach one block further in its direction (it stops at a block in
+  the way or a protected one), for players and other entities alike.
 
 A program can change parts from its own storage: `install "armor_mod"`,
 `install "augment"`, `install "cell"` (into a free cell slot) and the same with
@@ -373,8 +375,15 @@ comes out where the robot stood if it is dug.
   canvases. It works next to ggraffiti: its screen is its own entity, and the
   room is protected, so nobody sprays on the walls.
 - **Chest**: the robot's storage. **Structure bay**: armor, cells, augmentation and
-  upgrades. **Terminal**: the program, to program a robot in peace. (All three are
-  the editor, at its Storage, Structure and Program tab.)
+  upgrades. **Terminal**: the program, to program a robot in peace. **Settings
+  panel**: name, public, the allow list and the entrance lock. (All four are the
+  editor, at its Storage, Structure, Program and Settings tab.)
+- **Entrance lock** (Settings tab): who may go in with sneak + punch. *Anyone who
+  can use the robot* (the default, as before), *Owner and the players allowed
+  here* (the players of the allow list: `Player` and `Player/Robot` both let
+  `Player` in) or *Owner only*. Admins with `protection_bypass` always pass.
+  Locking the room puts out whoever it no longer lets in. The lock goes with the
+  robot when it is dug.
 - **Controller**: forward, back, up, down, turn left, right and around, and run or
   stop the program. It drives like a program does: power cost, cooldown, height
   limit, protection; it will not drive a running robot.
@@ -387,8 +396,8 @@ beside either of them. Rooms are protected from digging, building and painting.
 
 ### Storage
 
-A robot holds 16 stacks (8 x 2). A **Storage Upgrade** (upgrade slot, five at
-most) adds 4 stacks each: up to 36. It cannot be taken out while the slots it
+A robot holds 16 stacks (8 x 2). A **Storage Upgrade** (upgrade slot, six at
+most) adds 4 stacks each: up to 40. It cannot be taken out while the slots it
 gives hold items (empty them first); robots from before, which had 32 slots,
 keep the slots up to their last item and shrink once those are empty.
 Recipe: a chest between steel, copper and steel (matter plates, circuits and a

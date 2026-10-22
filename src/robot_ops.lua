@@ -667,6 +667,23 @@ function Bot:punch (dir, item)
 		and core.settings:get_bool("enable_pvp", true) and core.settings:get_bool("enable_damage", true)
 		and self.owner ~= nil and core.get_player_by_name(self.owner) ~= nil
 	local items, others = objects_at(pos, combat, self.owner)
+	-- every Combat Upgrade after the first reaches one block further along dir,
+	-- up to the first block in the way or protected one
+	local step = dir_vector(self:front_vec(), dir)
+	local cell = pos
+	for _ = 2, S.combat_count(self.pos) do
+		cell = V.add(cell, step)
+		if not passable(cell) or self:protected(cell) then break end
+		local _, more = objects_at(cell, combat, self.owner)
+		for _, obj in ipairs(more) do
+			local seen = false
+			for _, o in ipairs(others) do if o == obj then seen = true break end end
+			if not seen then others[#others + 1] = obj end
+		end
+	end
+	table.sort(others, function (a, b)
+		return V.distance(a:get_pos(), self.pos) < V.distance(b:get_pos(), self.pos)
+	end)
 
 	-- bare hands: pick up what lies there first
 	if not item then
