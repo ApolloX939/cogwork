@@ -1586,6 +1586,149 @@ for _x in range(8):
             spark.putpixel((_x, _y), (170, 215, 255, _a))
 spark.save(os.path.join(TEX, "cogwork_particle.png"))
 
+# ----------------------------------------------------------------- the robot's room
+
+
+def room_tex(name, painter):
+    im = Image.new("RGBA", (16, 16), P["m"])
+    painter(im, im.load())
+    im.save(os.path.join(TEX, "cogwork_room_%s.png" % name))
+
+
+def r_border(px, col=None):
+    for i in range(16):
+        for pos in ((i, 0), (i, 15), (0, i), (15, i)):
+            px[pos] = col or P["d"]
+
+
+def r_rivets(px):
+    for pos in ((2, 2), (13, 2), (2, 13), (13, 13)):
+        px[pos] = P["l"]
+
+
+def r_rect(px, x0, y0, x1, y1, col):
+    for x in range(x0, x1 + 1):
+        for y in range(y0, y1 + 1):
+            px[x, y] = col
+
+
+def p_wall(im, px):
+    r_border(px)
+    for y in range(1, 15):
+        px[8, y] = P["d"]
+    r_rivets(px)
+
+
+def p_floor(im, px):
+    for x in range(16):
+        for y in range(16):
+            px[x, y] = P["d"] if (x % 4 and y % 4) else P["m"]
+
+
+def p_light(im, px):
+    for x in range(16):
+        for y in range(16):
+            px[x, y] = (255, 250, 220, 255)
+    r_border(px, (205, 200, 160, 255))
+
+
+def p_frame(im, px):
+    for x in range(16):
+        for y in range(16):
+            px[x, y] = (40, 44, 58, 255)
+    r_border(px, P["o"])
+
+
+def p_screen(im, px):
+    for x in range(16):
+        for y in range(16):
+            px[x, y] = (16, 18, 26, 255) if y % 2 else (12, 14, 20, 255)
+
+
+def p_console(im, px):
+    r_border(px)
+    r_rect(px, 3, 4, 12, 8, P["d"])
+    for x, col in ((4, P["g"]), (7, P["y"]), (10, P["r"])):
+        r_rect(px, x, 11, x + 1, 12, col)
+
+
+def p_console_top(im, px):
+    r_border(px)
+    for i in range(2, 14, 3):
+        r_rect(px, i, 2, i + 1, 13, P["d"])
+
+
+def p_exit(im, px):
+    for x in range(16):
+        for y in range(16):
+            px[x, y] = P["d"]
+    for i in range(16):
+        for pos in ((i, 0), (i, 1), (i, 14), (i, 15), (0, i), (1, i), (14, i), (15, i)):
+            px[pos] = P["o"] if (i // 2) % 2 == 0 else P["k"]
+    # an arrow pointing out
+    for y in range(7, 9):
+        for x in range(4, 11):
+            px[x, y] = P["w"]
+    for k in range(4):
+        px[10 + 0, 4 + k] = P["w"] if k < 4 else P["d"]
+        px[10, 11 - k] = P["w"]
+        px[11 + (k // 2), 6 - k // 2 + 1] = P["w"]
+
+
+def p_chest(im, px):
+    r_border(px)
+    r_rect(px, 1, 6, 14, 6, P["d"])
+    r_rect(px, 6, 5, 9, 9, P["y"])
+    r_rect(px, 7, 7, 8, 8, P["k"])
+
+
+def p_chest_top(im, px):
+    r_border(px)
+    r_rect(px, 3, 3, 12, 12, P["l"])
+
+
+def p_bay(im, px):
+    r_border(px)
+    for x in range(2, 14, 3):
+        r_rect(px, x, 4, x + 1, 11, P["d"])
+        px[x, 13] = P["g"]
+
+
+def p_terminal(im, px):
+    r_border(px)
+    r_rect(px, 2, 2, 13, 10, P["k"])
+    for y in (4, 6, 8):
+        r_rect(px, 3, y, 3 + (y % 5) + 4, y, P["g"])
+    r_rect(px, 4, 12, 11, 13, P["d"])
+
+
+def p_terminal_top(im, px):
+    r_border(px)
+    r_rect(px, 4, 4, 11, 11, P["d"])
+
+
+def p_ctl(im, px):
+    r_border(px)
+    px[7, 4] = px[8, 4] = px[7, 5] = px[8, 5] = P["r"]
+    r_rect(px, 7, 6, 8, 9, P["d"])
+    for x, col in ((3, P["g"]), (6, P["y"]), (9, P["b"]), (12, P["o"])):
+        r_rect(px, x, 12, x + 1, 13, col)
+
+
+def p_ctl_top(im, px):
+    r_border(px)
+    r_rect(px, 7, 3, 8, 12, P["d"])
+    r_rect(px, 3, 7, 12, 8, P["d"])
+    r_rect(px, 7, 7, 8, 8, P["r"])
+
+
+for _name, _p in (("wall", p_wall), ("floor", p_floor), ("light", p_light), ("frame", p_frame),
+                  ("screen", p_screen), ("console", p_console), ("console_top", p_console_top),
+                  ("exit", p_exit), ("chest", p_chest), ("chest_top", p_chest_top), ("bay", p_bay),
+                  ("terminal", p_terminal), ("terminal_top", p_terminal_top), ("ctl", p_ctl),
+                  ("ctl_top", p_ctl_top)):
+    room_tex(_name, _p)
+
 # ----------------------------------------------------------------- icons.lua
 
 with open(os.path.join(MOD, "src", "icons.lua"), "w") as f:

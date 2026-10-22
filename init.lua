@@ -27,6 +27,12 @@ S.settings = {
 	-- the Self-Generator charges one cell by generator_amount every generator_interval seconds
 	generator_amount = math.max(1, tonumber(core.settings:get("cogwork_generator_amount")) or 10),
 	generator_interval = math.max(5, tonumber(core.settings:get("cogwork_generator_interval")) or 5),
+	-- the viewscreen inside a robot: picture size, how far it sees, seconds between pictures
+	view_width = math.max(16, math.floor(tonumber(core.settings:get("cogwork_view_width")) or 96)),
+	view_height = math.max(10, math.floor(tonumber(core.settings:get("cogwork_view_height")) or 60)),
+	view_range = math.max(16, tonumber(core.settings:get("cogwork_view_range")) or 160),
+	view_interval = math.max(0.5, tonumber(core.settings:get("cogwork_view_interval")) or 2),
+	rooms = core.settings:get_bool("cogwork_rooms", true),
 	chat_limit = math.max(1, math.floor(tonumber(core.settings:get("cogwork_chat_limit")) or 5)),
 	chat_window = math.max(1, tonumber(core.settings:get("cogwork_chat_window")) or 10),
 }
@@ -35,7 +41,7 @@ S.lang = assert(loadfile(modpath .. "/src/lang.lua"))()
 assert(loadfile(modpath .. "/src/commands.lua"))(S.lang)
 S.compat = assert(loadfile(modpath .. "/src/compat.lua"))()
 
-for _, file in ipairs({ "robot_ops", "upgrades", "structure", "machines", "runtime", "events", "pathfind", "api", "visual", "gravity", "packages", "robot", "editor",
+for _, file in ipairs({ "robot_ops", "upgrades", "structure", "machines", "viewscreen", "rooms", "room_nodes", "runtime", "events", "pathfind", "api", "visual", "gravity", "packages", "robot", "editor",
 	"cassette", "crafting", "structure_recipes", "charger", "chatcommands" }) do
 	assert(loadfile(modpath .. "/src/" .. file .. ".lua"))(S)
 end

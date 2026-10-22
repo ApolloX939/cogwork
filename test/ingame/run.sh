@@ -19,7 +19,14 @@ else
 fi
 [ -d "$GAMEDIR" ] || { echo "no game $GAMEDIR"; exit 1; }
 
-printf 'gameid = %s\nbackend = sqlite3\nmod_storage_backend = sqlite3\nauth_backend = sqlite3\nplayer_backend = sqlite3\nload_mod_cogwork = true\nload_mod_cogwork_test = true\n' "$GAME" > "$WORK/world/world.mt"
+# EXTRA_MODS="ggraffiti flow": other mods from ~/.minetest/mods to load next to Cogwork
+EXTRA_ARGS=""
+EXTRA_LOAD=""
+for m in $EXTRA_MODS; do
+    EXTRA_ARGS="$EXTRA_ARGS -v $HOME/.minetest/mods/$m:/minetest/mods/$m:ro"
+    EXTRA_LOAD="${EXTRA_LOAD}load_mod_$m = true\n"
+done
+printf 'gameid = %s\nbackend = sqlite3\nmod_storage_backend = sqlite3\nauth_backend = sqlite3\nplayer_backend = sqlite3\nload_mod_cogwork = true\nload_mod_cogwork_test = true\n'"$EXTRA_LOAD" "$GAME" > "$WORK/world/world.mt"
 printf 'server_announce = false\nmg_name = singlenode\nenable_damage = false\nmax_forceloaded_blocks = 200\ncogwork_move_delay = 0.1\ncogwork_action_delay = 0.1\n' > "$WORK/minetest.conf"
 [ "$GAME" = skyblock_zero ] && cat "$SERVER/data/minetest.conf" | grep -v '^mg_\|^server_announce\|^map-dir' >> "$WORK/minetest.conf" || true
 
@@ -29,6 +36,7 @@ docker run --rm --user 1000:1000 ${SBT_TRACE:+-e SBT_TRACE=1} \
     -v "$WORK/debug.txt:/minetest/debug.txt" \
     -v "$WORK/mod_data:/minetest/mod_data" \
     -v "$GAMEDIR:/minetest/games/$GAME:ro" \
+    $EXTRA_ARGS \
     -v "$MOD:/minetest/mods/cogwork:ro" \
     -v "$MOD/test/ingame/cogwork_test:/minetest/mods/cogwork_test:ro" \
     luanti ./bin/server --world /minetest/worlds/world --config /minetest/minetest.conf \

@@ -1579,6 +1579,242 @@ test("a robot's body is not an entity to the robots around it", function (done)
 	end)
 end)
 
+-- ---------------------------------------------------------------- inside a robot
+
+-- the pixel (x, y) of a finished picture, as r, g, b
+local function pixel (job, x, y)
+	local c = job.pixels[y * job.W + x + 1]
+	return math.floor(c / 65536) % 256, math.floor(c / 256) % 256, c % 256
+end
+
+test("the viewscreen draws what the robot sees, with the nodes' own colours", function (done)
+	clear_area()
+	-- a wall of a block with a known colour 6 blocks ahead of a robot facing +z
+	for x = -8, 8 do for y = -2, 2 do core.set_node(P(x, y, 7), { name = material }) end end
+	local want = S.view_node_color(material, "side")
+	local job = S.view_job(P(0, 1, 0), { x = 0, y = 0, z = 1 })
+	local t0 = os.clock()
+	while not S.view_step(job, 10) do end
+	local ms = (os.clock() - t0) * 1000
+
+	local cr, cg, cb = pixel(job, job.W / 2, job.H / 2)             -- straight ahead: the wall
+	local sr, sg, sb = pixel(job, job.W / 2, 1)                      -- up in the picture: the sky above it
+	local looks_like_wall = want and math.abs(cr - want[1] * 0.9) < want[1] * 0.35 + 25
+	local sky_is_blue = sb > sr and sb > 180
+	report("the viewscreen draws what the robot sees, with the nodes' own colours",
+		want ~= nil and looks_like_wall and sky_is_blue and ms < 4000 and #job.pixels == job.W * job.H,
+		("wall %d,%d,%d want ~%s sky %d,%d,%d %.0f ms"):format(cr, cg, cb, want and ("%d,%d,%d"):format(want[1], want[2], want[3]) or "?", sr, sg, sb, ms))
+	done()
+end)
+
+test("the viewscreen sees far, and unloaded terrain is haze, not an error", function (done)
+	clear_area()
+	-- a column 90 blocks ahead is seen as a column
+	for y = -3, 6 do core.set_node(P(0, y, 29), { name = material }) end
+	local job = S.view_job(P(0, 1, 0), { x = 0, y = 0, z = 1 })
+	while not S.view_step(job, 10) do end
+	-- the far column is within the loaded area: not the sky colour
+	local r, g, b = pixel(job, job.W / 2, job.H / 2)
+	-- look into terrain beyond what is loaded: no error, a picture
+	local far = S.view_job(P(0, 1, 0), { x = 1, y = 0, z = 0 })
+	far.ox = far.ox + 200
+	while not S.view_step(far, 10) do end
+	report("the viewscreen sees far, and unloaded terrain is haze, not an error",
+		#job.pixels == job.W * job.H and #far.pixels == far.W * far.H and not (b > r + 40),
+		("%d,%d,%d"):format(r, g, b))
+	done()
+end)
+
+test("a room is out of the way of the room container mods and nobody builds in it", function (done)
+	local o = S.room_origin(1)
+	local inside = { x = o.x + 5, y = o.y + 3, z = o.z + 5 }
+	local between = { x = o.x + 20, y = o.y + 3, z = o.z + 5 }       -- the gap between two rooms
+	local clear_of_sbz = not (o.y + 10 >= -28000 - 64 and o.y <= -15000 + 64)
+	local level = 16 * (tonumber(core.settings:get("area_containers_y_level_blocks")) or 1931)
+	local clear_of_area = not (o.y <= level + 16 and o.y + 10 >= level)
+	report("a room is out of the way of the room container mods and nobody builds in it",
+		S.room_at(inside) == 1 and S.room_at(between) == nil
+		-- the harness replaces core.is_protected on Mineclonia (see the top), which drops our hook
+		and (core.get_modpath("mcl_levelgen") or core.is_protected(inside, "tester"))
+		and clear_of_sbz and clear_of_area and S.room_origin(2).x ~= o.x,
+		("y=%d"):format(o.y))
+	done()
+end)
+
+test("the first room slot that clashes with Skyblock: Zero's rooms is skipped", function (done)
+	local blocked = S.room_next()
+	local o = S.room_origin(blocked)
+	local old = rawget(_G, "sbz_room_containers")
+	local store = AreaStore()
+	store:insert_area(o, vector.add(o, 15), "someone's room")
+	rawset(_G, "sbz_room_containers", { room_areastore = store })
+
+	clear_area()
+	core.set_node(P(0, 0, 0), { name = material })
+	local pos = make_robot(P(0, 1, 0), "stop", nil, {})
+	local fake = { get_player_name = function () return "tester" end, is_player = function () return true end,
+		get_meta = function () return { get_string = function () return "" end, set_string = function () end } end }
+	S.room_enter(pos, fake)
+	local id = core.get_meta(pos):get_int("room_id")
+	rawset(_G, "sbz_room_containers", old)
+	report("the first room slot that clashes with Skyblock: Zero's rooms is skipped",
+		id > blocked, ("blocked %d got %d"):format(blocked, id))
+	done()
+end)
+
+test("a room is built with a door, a chest, a bay, a terminal, a controller and a screen", function (done)
+	clear_area()
+	core.set_node(P(0, 0, 0), { name = material })
+	local pos = make_robot(P(0, 1, 0), "stop", nil, {})
+	local fake = { get_player_name = function () return "tester" end, is_player = function () return true end,
+		get_meta = function () return { get_string = function () return "" end, set_string = function () end } end }
+	S.room_enter(pos, fake)
+	local id = core.get_meta(pos):get_int("room_id")
+	S.room_prepare(id, function ()
+		local o = S.room_origin(id)
+		local function at (x, y, z) return core.get_node({ x = o.x + x, y = o.y + y, z = o.z + z }).name end
+		local ok = at(0, 5, 5) == "cogwork:room_wall" and at(7, 0, 7) == "cogwork:room_floor"
+			and at(7, 1, 0) == "cogwork:room_exit" and at(2, 1, 7) == "cogwork:room_chest"
+			and at(2, 1, 9) == "cogwork:room_bay" and at(13, 1, 7) == "cogwork:room_terminal"
+			and at(7, 1, 11) == "cogwork:room_controller" and at(7, 5, 15) == "cogwork:room_screen"
+			and at(3, 5, 15) == "cogwork:room_frame" and at(4, 9, 4) == "cogwork:room_light"
+			and at(7, 2, 2) == "air" and at(7, 1, 2) == "air"
+		report("a room is built with a door, a chest, a bay, a terminal, a controller and a screen",
+			ok, ("%s %s %s %s"):format(at(7, 1, 0), at(2, 1, 7), at(7, 5, 15), at(7, 1, 2)))
+		done()
+	end)
+end)
+
+test("the screen of a room shows pictures", function (done)
+	clear_area()
+	core.set_node(P(0, 0, 0), { name = material })
+	local pos = make_robot(P(0, 1, 0), "stop", nil, {})
+	local fake = { get_player_name = function () return "tester" end, is_player = function () return true end,
+		get_meta = function () return { get_string = function () return "" end, set_string = function () end } end }
+	S.room_enter(pos, fake)
+	local id = core.get_meta(pos):get_int("room_id")
+	S.room_prepare(id, function ()
+		-- with a player in the room its block is active; here the test keeps it so
+		local origin = S.room_origin(id)
+		core.forceload_block(origin, true)
+		S.room_open_view(id)
+		-- a busy server draws slowly (4 ms of every step): wait for the first picture
+		local waited = 0
+		local function look ()
+			local o = S.room_origin(id)
+			local sc = S.ROOM_SCREEN
+			local found
+			for _, obj in ipairs(core.get_objects_inside_radius({ x = o.x + sc.x, y = o.y + sc.y, z = o.z + sc.z }, 0.6)) do
+				local le = obj:get_luaentity()
+				if le and le.name == "cogwork:screen" then found = obj end
+			end
+			local tex = found and found:get_properties().textures[1] or ""
+			if (tex:sub(1, 5) == "[png:" and #tex > 200) or waited >= 25 then
+				local state = S.view_state(id)
+				S.view_unwatch(id)
+				core.forceload_free_block(origin, true)
+				report("the screen of a room shows pictures", found ~= nil and tex:sub(1, 5) == "[png:" and #tex > 200,
+					found and ("texture " .. #tex .. " chars after " .. waited .. " s, " .. state) or "no screen")
+				return done()
+			end
+			waited = waited + 0.5
+			core.after(0.5, look)
+		end
+		look()
+	end)
+end)
+
+test("the controller drives the robot, and costs power", function (done)
+	clear_area()
+	core.set_node(P(0, 0, 0), { name = material })
+	core.set_node(P(0, 0, 1), { name = material })
+	core.set_node(P(0, 0, 2), { name = material })
+	local pos = make_robot(P(0, 1, 0), "wait 100", nil, {})
+	-- a real room id: entering allocates it (the fake player never arrives)
+	local blank = { get_player_name = function () return "tester" end, is_player = function () return true end,
+		get_meta = function () return { get_string = function () return "" end, set_string = function () end } end }
+	S.room_enter(pos, blank)
+	local id = core.get_meta(pos):get_int("room_id")
+	local fake = { get_player_name = function () return "tester" end, is_player = function () return true end,
+		get_meta = function () return { get_string = function () return tostring(id) end, set_string = function () end } end }
+
+	local function press (button)
+		for _, f in ipairs(core.registered_on_player_receive_fields) do
+			pcall(f, fake, "cogwork:room_ctl", { [button] = "x" })
+		end
+	end
+	local start = cell_charge(pos)
+	press("ctl_fwd")
+	local moved = S.is_robot(name_at(P(0, 1, 1))) and not S.is_robot(name_at(P(0, 1, 0)))
+	local paid = math.abs(cell_charge(P(0, 1, 1)) - (start - 1)) < 0.01
+	local registry = S.room_robot(id) ~= nil and vector.equals(S.room_robot(id), P(0, 1, 1))
+
+	core.after(0.5, function ()
+		local before = core.get_node(P(0, 1, 1)).param2
+		press("ctl_left")
+		local turned = core.get_node(P(0, 1, 1)).param2 ~= before
+
+		-- while a program runs it will not be driven
+		assert(S.start(P(0, 1, 1)))
+		core.after(0.5, function ()
+			press("ctl_fwd")
+			local refused = S.is_robot(name_at(P(0, 1, 1))) and not S.is_robot(name_at(P(0, 1, 2)))
+			S.stop(P(0, 1, 1), "")
+			report("the controller drives the robot, and costs power", moved and paid and registry and turned and refused,
+				("moved=%s paid=%s registry=%s turned=%s refused=%s"):format(tostring(moved), tostring(paid), tostring(registry), tostring(turned), tostring(refused)))
+			done()
+		end)
+	end)
+end)
+
+test("the chest, the bay and the terminal open the robot at their own tab", function (done)
+	clear_area()
+	core.set_node(P(0, 0, 0), { name = material })
+	local pos = make_robot(P(0, 1, 0), "stop", nil, {})
+	local fake = { get_player_name = function () return "tester" end, is_player = function () return true end,
+		get_inventory = function () return nil end, get_player_control = function () return {} end,
+		get_meta = function () return { get_string = function () return "" end, set_string = function () end } end }
+	S.room_enter(pos, fake)
+	local id = core.get_meta(pos):get_int("room_id")
+	S.room_prepare(id, function ()
+		local o = S.room_origin(id)
+		local sess = S.editor_session(fake)
+		local result = {}
+		for kind, tab in pairs({ chest = "storage", bay = "structure", terminal = "program" }) do
+			local p = ({ chest = { 2, 1, 7 }, bay = { 2, 1, 9 }, terminal = { 13, 1, 7 } })[kind]
+			local np = { x = o.x + p[1], y = o.y + p[2], z = o.z + p[3] }
+			sess.tab, sess.pos = nil, nil
+			core.registered_nodes["cogwork:room_" .. kind].on_rightclick(np, core.get_node(np), fake)
+			result[#result + 1] = (sess.tab == tab and sess.pos and vector.equals(sess.pos, pos)) and "ok" or (kind .. ":" .. tostring(sess.tab))
+		end
+		table.sort(result)
+		report("the chest, the bay and the terminal open the robot at their own tab",
+			#result == 3 and result[1] == "ok" and result[2] == "ok" and result[3] == "ok", table.concat(result, " "))
+		done()
+	end)
+end)
+
+test("a robot keeps its room when dug and placed again, and digging it ejects nobody into the void", function (done)
+	clear_area()
+	local node = core.registered_nodes["cogwork:robot"]
+	local pos = P(0, 1, 0)
+	core.set_node(pos, { name = "cogwork:robot" })
+	core.get_meta(pos):set_int("room_id", 7)
+	local drop = ItemStack("cogwork:robot")
+	node.preserve_metadata(pos, { name = "cogwork:robot" }, { fields = { room_id = "7", no_emc = "true" }, inventory = {} }, { drop })
+	local carried = drop:get_meta():get_int("room_id") == 7
+
+	local pos2 = P(4, 1, 0)
+	core.set_node(pos2, { name = "cogwork:robot" })
+	node.after_place_node(pos2, nil, drop)
+	local again = core.get_meta(pos2):get_int("room_id") == 7 and S.room_robot_at ~= nil
+	-- no one inside: digging does nothing odd
+	local ok = pcall(S.room_robot_gone, pos2)
+	report("a robot keeps its room when dug and placed again, and digging it ejects nobody into the void",
+		carried and again and ok)
+	done()
+end)
+
 -- armor numbers: the lightest 24, 7 more every tier
 test("armor takes 24, 31 and 38", function (done)
 	local function max_of (name) return select(2, S.armor_info(ItemStack(name))) end

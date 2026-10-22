@@ -29,7 +29,7 @@ Craft a robot, place it (it looks the way you look), right-click it.
 - **Packages tab**: browse packages, copy one (or your own functions) to a
   disk, install a disk in the robot.
 - **Settings tab**: name, public/private.
-- Sneak + punch a running robot to stop it.
+- Sneak + punch a robot to go into it (see Inside a robot); stop a running one with the power button or the controller inside.
 - **Cassette**: punch a robot with it to copy its program; sneak + right-click
   a robot to load it; right-click in the air for label and read-only.
 
@@ -347,6 +347,43 @@ from. Every other charger is crafted from the plain Charger and a part of that
 power system (Technic cable and casing, Techage cables, a processor in
 Skyblock: Zero). The Technic and Techage chargers exist only when those mods
 are installed.
+
+### Inside a robot
+
+**Sneak + punch** a robot to go into it (you need access to it, as for the editor;
+with `cogwork_rooms` off, sneak + punch stops a running robot as before). Every
+robot you enter gets a room of its own: a lit steel chamber (16 x 10 x 16) far
+away in the map, that goes with the robot (its id is in the robot and in its item
+when dug) while the robot itself moves. The door leaves, next to the robot
+(`/leave_robot` too). Whoever is inside keeps the robot's block loaded, and
+comes out where the robot stood if it is dug.
+
+- **Viewscreen**, on the far wall (8 x 5 blocks): what the robot sees, drawn as a
+  picture. One ray per pixel from the robot's eye: every block exactly for the
+  first 36, then coarser steps (2, 4, 8 blocks) out to `cogwork_view_range`
+  (160), so far terrain shows. A hit takes the real average colour of the node's
+  texture (the mods' texture files are read once, with a small PNG reader in
+  `src/png.lua`), shaded by face, light and distance; sky above, haze where
+  nothing is loaded. Blocks nobody is near are loaded from disk (never generated)
+  as needed, and what was seen is kept for half a minute so the picture does not
+  flicker as the engine unloads blocks. The picture is drawn in slices of 4 ms
+  per server step, only while somebody is inside, every `cogwork_view_interval`
+  seconds (2), `cogwork_view_width` x `cogwork_view_height` (96 x 60) pixels, and
+  put on a screen entity as a `[png:` texture, the way ggraffiti draws its
+  canvases. It works next to ggraffiti: its screen is its own entity, and the
+  room is protected, so nobody sprays on the walls.
+- **Chest**: the robot's storage. **Structure bay**: armor, cells, augmentation and
+  upgrades. **Terminal**: the program, to program a robot in peace. (All three are
+  the editor, at its Storage, Structure and Program tab.)
+- **Controller**: forward, back, up, down, turn left, right and around, and run or
+  stop the program. It drives like a program does: power cost, cooldown, height
+  limit, protection; it will not drive a running robot.
+
+Rooms are out of the way of the room container mods. `area_containers` keeps its
+rooms at the top of the map and Skyblock: Zero's room containers between y -28000
+and -15000; Cogwork's are at the bottom (about y -29500), and each slot is checked
+against Skyblock: Zero's room list. The two never run together; Cogwork runs
+beside either of them. Rooms are protected from digging, building and painting.
 
 ### Storage
 

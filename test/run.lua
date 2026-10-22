@@ -314,6 +314,30 @@ do
 	check("listeners queries", q == "chat a/y", tostring(q))
 end
 
+-- the PNG reader behind the viewscreen's node colours (expected values from PIL)
+do
+	local png = assert(loadfile("src/png.lua"))()
+	local want = {
+		["gray.png"] = { 130, 130, 130 }, ["pal2bit.png"] = { 128, 121, 132 }, ["rgb.png"] = { 137, 123, 126 },
+		["rgb_key.png"] = { 125, 134, 136 },   -- one colour is transparent (tRNS)
+		["rgba.png"] = { 134, 138, 130 },      -- some pixels are transparent
+		["strip.png"] = { 124, 125, 130 },     -- an animated strip: the first frame
+	}
+	for file, rgb in pairs(want) do
+		local f = assert(io.open("test/fixtures/" .. file, "rb"))
+		local data = f:read("*a")
+		f:close()
+		local r, g, b = png.average(data)
+		check("png average " .. file, r == rgb[1] and g == rgb[2] and b == rgb[3],
+			tostring(r) .. "," .. tostring(g) .. "," .. tostring(b))
+	end
+	check("png: not a png", png.average("hello") == nil)
+	local f = assert(io.open("test/fixtures/rgb.png", "rb"))
+	local data = f:read("*a")
+	f:close()
+	check("png: too big is skipped", png.average(data, 10) == nil)
+end
+
 -- round trip
 do
 	local text = "fn f a\n  if a > 1\n    move up\n  else\n    move down\ncall f 2"

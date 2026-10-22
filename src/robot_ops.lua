@@ -253,6 +253,7 @@ function S.relocate (from, to, node)
 	end
 
 	S.on_robot_moved(from, to)
+	S.room_robot_moved(from, to)
 	S.refresh_structure_timer(to)
 	if S.update_infotext then S.update_infotext(to) end
 	S.refresh_variant(to)

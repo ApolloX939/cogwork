@@ -57,6 +57,7 @@ end
 
 local function on_destruct (pos)
 	if S.moving then return end
+	S.room_robot_gone(pos)
 	S.stop(pos)
 	if core.get_meta(pos):get_int("persist") == 1 then
 		core.forceload_free_block(pos, false)
@@ -87,6 +88,13 @@ local function after_place_node (pos, placer, itemstack)
 	end
 	meta:set_int("public", imeta:get_int("public"))
 
+	-- the room of a robot goes with it
+	local room = imeta:get_int("room_id")
+	if room > 0 then
+		meta:set_int("room_id", room)
+		S.room_robot_at(room, pos)
+	end
+
 	-- A robot item that was never placed (crafted, /give, creative) comes with a Basic
 	-- Armor and a full Small cell. From the first placement on the robot is marked
 	-- no_emc, and so is the item it is dug into: it carries parts that cost nothing, so it
@@ -116,6 +124,7 @@ local function preserve_metadata (pos, oldnode, oldmeta, drops)
 	imeta:set_int("public", tonumber(fields.public) or 0)
 	imeta:set_int("persist", tonumber(fields.persist) or 0)
 	if fields.no_emc == "true" then imeta:set_string("no_emc", "true") end
+	if tonumber(fields.room_id) and tonumber(fields.room_id) > 0 then imeta:set_int("room_id", tonumber(fields.room_id)) end
 	if fields.bot_name and fields.bot_name ~= "" then
 		imeta:set_string("description", T("Robot: @1", fields.bot_name))
 	end
@@ -191,10 +200,16 @@ local function on_punch (pos, node, puncher, pointed_thing)
 
 	if not S.can_access(pos, puncher) then return end
 
-	if puncher:get_player_control().sneak and S.is_running(pos) then
-		S.stop(pos, "")
-		core.chat_send_player(puncher:get_player_name(), T("Robot stopped."))
-		return
+	if puncher:get_player_control().sneak then
+		-- sneak + punch goes into the robot (its room); with rooms off it stops a running one
+		if S.settings.rooms then
+			S.room_enter(pos, puncher)
+			return
+		elseif S.is_running(pos) then
+			S.stop(pos, "")
+			core.chat_send_player(puncher:get_player_name(), T("Robot stopped."))
+			return
+		end
 	end
 
 	if S.cassette_save then S.cassette_save(pos, puncher) end

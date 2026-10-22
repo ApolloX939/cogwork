@@ -57,3 +57,16 @@ cogwork_generator_interval (Self-Generator interval) float 5 5 600
 
 # Thruster particles under robots that fly or hover
 cogwork_particles (Thruster particles) bool true
+
+# Let players enter a robot (sneak + punch): a room with a viewscreen, chest, controls
+cogwork_rooms (Rooms inside robots) bool true
+
+# Picture of the viewscreen inside a robot, in pixels (the screen is 8 x 5 blocks)
+cogwork_view_width (Viewscreen width) int 96 16 256
+cogwork_view_height (Viewscreen height) int 60 10 160
+
+# How far, in blocks, the viewscreen sees (loaded terrain only)
+cogwork_view_range (Viewscreen range) float 160 16 512
+
+# Seconds between two pictures of the viewscreen
+cogwork_view_interval (Viewscreen interval) float 2 0.5 60
