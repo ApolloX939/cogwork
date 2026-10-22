@@ -66,7 +66,7 @@ cogwork_view_width (Viewscreen width) int 96 16 256
 cogwork_view_height (Viewscreen height) int 60 10 160
 
 # How far, in blocks, the viewscreen sees (loaded terrain only)
-cogwork_view_range (Viewscreen range) float 160 16 512
+cogwork_view_range (Viewscreen range) float 96 16 256
 
 # Seconds between two pictures of the viewscreen
 cogwork_view_interval (Viewscreen interval) float 2 0.5 60

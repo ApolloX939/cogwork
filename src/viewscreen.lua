@@ -9,6 +9,8 @@
 -- the server, then encoded as a PNG and put on the screen entity as a texture,
 -- the same way ggraffiti's canvases are drawn.
 --
+-- Players and other entities are drawn as coloured boxes (blue: players).
+--
 -- Only rooms with a player in them are drawn, one picture every view_interval.
 
 local S = ...
@@ -213,6 +215,66 @@ local function unknown (dy)
 end
 
 -- the colour seen along a ray (dx, dy, dz: a unit vector) from the eye
+-- Players and other entities: boxes in the picture. They are collected once per
+-- picture (the nearest MAX_MARKS in range) and tested against every ray, in front of
+-- the terrain they are nearer than. Players are blue, the rest orange; the face
+-- shading and the haze are the terrain's.
+local MARK_PLAYER, MARK_ENTITY = { 70, 190, 255 }, { 255, 140, 50 }
+
+local function collect_marks (job, pos)
+	local range = settings.view_range
+	local marks = {}
+	for _, obj in ipairs(core.get_objects_inside_radius(pos, range)) do
+		local le = obj:get_luaentity()
+		if not S.is_visual(obj) and not (le and le.name == "__builtin:item") and not obj:get_attach() then
+			local props = obj:get_properties()
+			local p = obj:get_pos()
+			if p and props and props.is_visible ~= false then
+				local box = props.physical and props.collisionbox or props.selectionbox or props.collisionbox
+				box = box or { -0.3, -0.3, -0.3, 0.3, 0.3, 0.3 }
+				-- small things stay a few pixels big
+				local cx, cy, cz = (box[1] + box[4]) / 2, (box[2] + box[5]) / 2, (box[3] + box[6]) / 2
+				local hx, hy, hz = math.max((box[4] - box[1]) / 2, 0.3), math.max((box[5] - box[2]) / 2, 0.3), math.max((box[6] - box[3]) / 2, 0.3)
+				marks[#marks + 1] = {
+					x1 = p.x + cx - hx, x2 = p.x + cx + hx, y1 = p.y + cy - hy, y2 = p.y + cy + hy,
+					z1 = p.z + cz - hz, z2 = p.z + cz + hz,
+					color = obj:is_player() and MARK_PLAYER or MARK_ENTITY,
+					d = vector.distance(pos, p),
+				}
+			end
+		end
+	end
+	table.sort(marks, function (a, b) return a.d < b.d end)
+	for i = job.max_marks + 1, #marks do marks[i] = nil end
+	return marks
+end
+
+-- where the ray from (ox, oy, oz) along (dx, dy, dz) enters the box: t and the face, or nil
+local function hit_mark (m, ox, oy, oz, dx, dy, dz)
+	local t0, t1, face = 0, huge, nil
+	-- x
+	if dx ~= 0 then
+		local a, b = (m.x1 - ox) / dx, (m.x2 - ox) / dx
+		if a > b then a, b = b, a end
+		if a > t0 then t0, face = a, "side_x" end
+		if b < t1 then t1 = b end
+	elseif ox < m.x1 or ox > m.x2 then return nil end
+	if dy ~= 0 then
+		local a, b = (m.y1 - oy) / dy, (m.y2 - oy) / dy
+		if a > b then a, b = b, a end
+		if a > t0 then t0, face = a, dy < 0 and "top" or "bottom" end
+		if b < t1 then t1 = b end
+	elseif oy < m.y1 or oy > m.y2 then return nil end
+	if dz ~= 0 then
+		local a, b = (m.z1 - oz) / dz, (m.z2 - oz) / dz
+		if a > b then a, b = b, a end
+		if a > t0 then t0, face = a, "side_z" end
+		if b < t1 then t1 = b end
+	elseif oz < m.z1 or oz > m.z2 then return nil end
+	if t0 > t1 or not face then return nil end
+	return t0, face
+end
+
 local function cast (job, dx, dy, dz)
 	local ox, oy, oz = job.ox, job.oy, job.oz
 	local range = settings.view_range
@@ -240,8 +302,8 @@ local function cast (job, dx, dy, dz)
 		if t > range then break end
 		if not (own and x == own.x and y == own.y and z == own.z) then
 			local what = look(job, x, y, z)
-			if what == "unknown" then return unknown(dy) end
-			if what then return shade(what, face, px, py, pz, t, range) end
+			if what == "unknown" then return unknown(dy), huge end
+			if what then return shade(what, face, px, py, pz, t, range), t end
 		end
 	end
 
@@ -253,18 +315,18 @@ local function cast (job, dx, dy, dz)
 		if t > 112 then stride = 8 end
 		local cx, cy, cz = floor(ox + dx * t + 0.5), floor(oy + dy * t + 0.5), floor(oz + dz * t + 0.5)
 		local what = look(job, cx, cy, cz)
-		if what == "unknown" then return unknown(dy) end
+		if what == "unknown" then return unknown(dy), huge end
 		if what then
 			-- the face the ray came in by: the axis it travels along most
 			local face
 			if abs(dy) >= abs(dx) and abs(dy) >= abs(dz) then face = dy < 0 and "top" or "bottom"
 			elseif abs(dx) > abs(dz) then face = "side_x" else face = "side_z" end
-			return shade(what, face, cx, cy + (face == "top" and 1 or 0), cz, t, range)
+			return shade(what, face, cx, cy + (face == "top" and 1 or 0), cz, t, range), t
 		end
 	end
 
 	local sky = sky_color(dy)
-	return pack(sky[1], sky[2], sky[3])
+	return pack(sky[1], sky[2], sky[3]), huge
 end
 
 -- A picture to make: the eye and the way it looks.
@@ -279,20 +341,24 @@ function S.view_job (pos, front, remembers)
 		-- every half minute what was seen last time is forgotten
 		mem.old, mem.cur, mem.rotate = mem.cur, {}, now + 30
 	end
-	return {
+	local job = {
 		W = W, H = H, total = W * H, next = 0, pixels = {}, tried = {}, loads = 0, unknown = {},
 		cache = mem.cur, old = mem.old, failed = mem.failed, now = now,
 		ox = pos.x + front.x * 0.3, oy = pos.y + 0.3, oz = pos.z + front.z * 0.3,
 		fx = front.x, fz = front.z,
 		own = { x = pos.x, y = pos.y, z = pos.z },
 		tan = math.tan(math.rad(100 / 2)),
+		max_marks = 24,
 	}
+	job.marks = collect_marks(job, { x = job.ox, y = job.oy, z = job.oz })
+	return job
 end
 
 -- draw for up to budget seconds; true when the picture is finished
 function S.view_step (job, budget)
 	local W, H, pixels, tan = job.W, job.H, job.pixels, job.tan
 	local aspect = W / H
+	local range = settings.view_range
 	-- right of the facing direction
 	local rx, rz = job.fz, -job.fx
 	local t0 = os.clock()
@@ -304,7 +370,21 @@ function S.view_step (job, budget)
 		local v = (1 - (py + 0.5) / H * 2) * tan / aspect
 		local dx, dy, dz = job.fx + rx * u, v, job.fz + rz * u
 		local len = math.sqrt(dx * dx + dy * dy + dz * dz)
-		pixels[i + 1] = cast(job, dx / len, dy / len, dz / len)
+		dx, dy, dz = dx / len, dy / len, dz / len
+		local color, tt = cast(job, dx, dy, dz)
+		-- an entity nearer than the terrain hides it
+		for _, m in ipairs(job.marks) do
+			local te, face = hit_mark(m, job.ox, job.oy, job.oz, dx, dy, dz)
+			if te and te < tt and te <= range then
+				tt = te
+				local k = FACE_SHADE[face]
+				local f = math.min(1, (te / range) ^ 2) * 0.9
+				color = pack(m.color[1] * k + (HAZE[1] - m.color[1] * k) * f,
+					m.color[2] * k + (HAZE[2] - m.color[2] * k) * f,
+					m.color[3] * k + (HAZE[3] - m.color[3] * k) * f)
+			end
+		end
+		pixels[i + 1] = color
 		i = i + 1
 		-- a pixel that loaded a block from disk may have taken long: look at the clock at once
 		if (i % 8 == 0 or job.loads ~= loads) and os.clock() - t0 > budget then break end

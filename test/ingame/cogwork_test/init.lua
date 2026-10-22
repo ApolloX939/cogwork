@@ -486,6 +486,25 @@ test("the entrance lock lets in the owner, the allowed players or nobody else", 
 	done()
 end)
 
+test("the viewscreen draws an entity in front of the terrain", function (done)
+	clear_area()
+	for _, obj in ipairs(core.get_objects_inside_radius(P(0, 1, 5), 20)) do
+		if not obj:is_player() then obj:remove() end
+	end
+	local front = { x = 0, y = 0, z = 1 }
+	local empty = S.view_job(P(0, 1, 0), front)
+	while not S.view_step(empty, 10) do end
+	local mob = core.add_entity(P(0, 1, 5), "cogwork_test:mob")
+	local job = S.view_job(P(0, 1, 0), front)
+	while not S.view_step(job, 10) do end
+	local centre = (job.H / 2) * job.W + job.W / 2 + 1
+	local orange = job.pixels[centre] ~= empty.pixels[centre] and job.pixels[centre] % 256 < 128
+	mob:remove()
+	report("the viewscreen draws an entity in front of the terrain", #job.marks == 1 and orange,
+		("marks=%d centre=%x was %x"):format(#job.marks, job.pixels[centre], empty.pixels[centre]))
+	done()
+end)
+
 -- ---------------------------------------------------------------- pathfinding
 
 local function goto_program (target, extra)
@@ -1719,6 +1738,9 @@ end
 
 test("the viewscreen draws what the robot sees, with the nodes' own colours", function (done)
 	clear_area()
+	for _, obj in ipairs(core.get_objects_inside_radius(P(0, 1, 5), 30)) do
+		if not obj:is_player() and not S.is_visual(obj) then obj:remove() end
+	end
 	-- a wall of a block with a known colour 6 blocks ahead of a robot facing +z
 	for x = -8, 8 do for y = -2, 2 do core.set_node(P(x, y, 7), { name = material }) end end
 	local want = S.view_node_color(material, "side")

@@ -363,12 +363,14 @@ comes out where the robot stood if it is dug.
 - **Viewscreen**, on the far wall (8 x 5 blocks): what the robot sees, drawn as a
   picture. One ray per pixel from the robot's eye: every block exactly for the
   first 36, then coarser steps (2, 4, 8 blocks) out to `cogwork_view_range`
-  (160), so far terrain shows. A hit takes the real average colour of the node's
+  (96), so far terrain shows. A hit takes the real average colour of the node's
   texture (the mods' texture files are read once, with a small PNG reader in
   `src/png.lua`), shaded by face, light and distance; sky above, haze where
   nothing is loaded. Blocks nobody is near are loaded from disk (never generated)
   as needed, and what was seen is kept for half a minute so the picture does not
-  flicker as the engine unloads blocks. The picture is drawn in slices of 4 ms
+  flicker as the engine unloads blocks. Players (blue) and other entities
+  (orange) in range are drawn as boxes of their size, the 24 nearest, in front
+  of the terrain behind them; dropped items and robots' own bodies are not. The picture is drawn in slices of 4 ms
   per server step, only while somebody is inside, every `cogwork_view_interval`
   seconds (2), `cogwork_view_width` x `cogwork_view_height` (96 x 60) pixels, and
   put on a screen entity as a `[png:` texture, the way ggraffiti draws its
