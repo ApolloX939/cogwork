@@ -556,6 +556,92 @@ upgrade_test("height_limit reports it", { "cogwork:upgrade_hover" },
 	assert(vector.equals(find_robot(), P(0, 2, 0)), "limit not 2")
 end)
 
+-- moving (and falling) must carry every list along
+test("a moving robot keeps its inventory and upgrades", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "repeat 4\n  move forward", { material .. " 7", dirt .. " 3" },
+		{ "cogwork:upgrade_flight", "cogwork:upgrade_storage", "cogwork:upgrade_combat" })
+	local inv = core.get_meta(pos):get_inventory()
+	local before = { main = inv:get_size("main"), upgrades = inv:get_size("upgrades"), armor = inv:get_size("armor"), cells = inv:get_size("cells") }
+	assert(S.start(pos))
+	wait_for(pos, 40, function (timeout)
+		local ok, why = pcall(function ()
+			local at = find_robot()
+			assert(vector.equals(at, P(0, 1, 4)), "ended at " .. core.pos_to_string(vector.subtract(at, ORIGIN)))
+			local i2 = core.get_meta(at):get_inventory()
+			for list, size in pairs(before) do
+				assert(i2:get_size(list) == size, list .. " size " .. i2:get_size(list) .. " not " .. size)
+			end
+			assert(i2:contains_item("main", ItemStack(material .. " 7")), "stone lost")
+			assert(i2:contains_item("main", ItemStack(dirt .. " 3")), "dirt lost")
+			assert(S.has_upgrade(at, "cogwork:upgrade_storage") and S.has_upgrade(at, "cogwork:upgrade_combat"), "upgrades lost")
+			assert(i2:contains_item("armor", ItemStack("cogwork:armor_basic")), "armor lost")
+		end)
+		report("a moving robot keeps its inventory and upgrades", ok, not ok and why or nil)
+		done()
+	end)
+end)
+
+-- the room controller drives a forceloaded robot that has a room, then it falls
+test("a driven robot with a room keeps its lists, also when it falls", function (done)
+	clear_area()
+	core.set_node(P(0, 0, 0), { name = material })
+	local pos = make_robot(P(0, 1, 0), "stop", { material .. " 5" }, { "cogwork:upgrade_flight", "cogwork:upgrade_storage" })
+	local fake = { get_player_name = function () return "tester" end, is_player = function () return true end,
+		get_meta = function () return { get_string = function () return "" end, set_string = function () end } end }
+	S.set_persist(pos, true)
+	S.room_enter(pos, fake)
+	local id = core.get_meta(pos):get_int("room_id")
+	local sizes = {}
+	for _, l in ipairs({ "main", "upgrades", "armor", "cells", "augment", "armor_mod", "disk" }) do
+		sizes[l] = core.get_meta(pos):get_inventory():get_size(l)
+	end
+	local bot = S.Bot.new(pos, "tester")
+	for _, m in ipairs({ { "move", "up" }, { "move", "up" }, { "move", "forward" }, { "turn", "left" }, { "move", "forward" }, { "move", "back" } }) do
+		local ok = bot[m[1]](bot, m[2])
+		assert(ok ~= nil)
+	end
+	local at = bot.pos
+	-- take the flight upgrade out so it falls to the floor
+	core.get_meta(at):get_inventory():set_stack("upgrades", 1, ItemStack(""))
+	S.refresh_variant(at)
+	S.settle_later(at)
+	core.after(3, function ()
+		local ok, why = pcall(function ()
+			local now = find_robot()
+			assert(now and S.room_robot(id) and vector.equals(S.room_robot(id), now), "room lost the robot")
+			local inv = core.get_meta(now):get_inventory()
+			for l, n in pairs(sizes) do assert(inv:get_size(l) == n, l .. " size " .. inv:get_size(l) .. " not " .. n) end
+			assert(inv:contains_item("main", ItemStack(material .. " 5")), "items lost")
+			assert(S.has_upgrade(now, "cogwork:upgrade_storage"), "storage upgrade lost")
+			assert(inv:contains_item("armor", ItemStack("cogwork:armor_basic")), "armor lost")
+			assert(core.get_meta(now):get_int("room_id") == id, "room id lost")
+		end)
+		report("a driven robot with a room keeps its lists, also when it falls", ok, not ok and why or nil)
+		-- freeing the robot's forceload also freed the block the harness keeps loaded
+		for x = -16, 32, 16 do for y = -8, 16, 16 do for z = -16, 32, 16 do
+			core.forceload_block(P(x, y, z), true)
+		end end end
+		done()
+	end)
+end)
+
+-- the editor open on a robot goes with it, or its slots would show nothing
+test("an open editor follows the robot when it moves", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "stop", nil, { "cogwork:upgrade_flight" })
+	local fake = { get_player_name = function () return "editor_follower" end, is_player = function () return true end }
+	S.show_editor(pos, fake)
+	local bot = S.Bot.new(pos, "tester")
+	bot:move("forward")
+	bot:move("up")
+	local s = S.editor_session(fake)
+	local followed = s.pos and vector.equals(s.pos, bot.pos)
+	report("an open editor follows the robot when it moves", followed,
+		"stayed at " .. tostring(s.pos and core.pos_to_string(s.pos)))
+	done()
+end)
+
 test("upgrade slots only take upgrades", function (done)
 	clear_area()
 	local pos = make_robot(P(0, 1, 0), "stop", nil, {})

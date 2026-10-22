@@ -915,7 +915,28 @@ function S.show_editor (pos, player)
 	local s = session(player)
 	s.pos = vector.new(pos)
 	s.player = player
+	s.shown = FORMNAME
 	core.show_formspec(player:get_player_name(), FORMNAME, S.formspec(pos, s))
+end
+
+-- The robot moved: the windows open on it follow it. The slots in the window are
+-- tied to the place, so an editor left where it was would show empty lists. A program
+-- moves the robot often: the window is drawn again once it has stopped for a moment.
+function S.editor_robot_moved (from, to)
+	for name, s in pairs(sessions) do
+		if s.pos and vector.equals(s.pos, from) then
+			s.pos = vector.new(to)
+			if s.shown == FORMNAME then
+				s.redraw = (s.redraw or 0) + 1
+				local token = s.redraw
+				core.after(0.3, function ()
+					local player = core.get_player_by_name(name)
+					if not player or s.redraw ~= token or not s.pos or s.shown ~= FORMNAME then return end
+					S.show_editor(s.pos, player)
+				end)
+			end
+		end
+	end
 end
 
 --------------------------------------------------------------------------
@@ -940,6 +961,7 @@ S.on_editor_fields = function (player, formname, fields)
 
 	if fields.quit then
 		-- closed by the player: nothing reopens it
+		s.shown = nil
 		if not fields.op_runclose then s.pos = nil end
 		if not fields.op_runclose then return true end
 	end
@@ -1192,6 +1214,7 @@ function S.show_item_picker (pos, player)
 	local s = session(player)
 	s.pos = vector.new(pos)
 	s.player = player
+	s.shown = PICKFORM
 
 	local seen = {}
 	local robot, mine = {}, {}
