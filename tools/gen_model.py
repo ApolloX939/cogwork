@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Writes models/cogwork_robot.obj (a small robot) and models/cogwork_drone.obj
-(the same robot with a Flight Upgrade), both built from boxes.
+"""Writes models/cogwork_robot.obj (a small robot), cogwork_hover.obj (the same
+robot hovering, for when there is nothing under it) and cogwork_drone.obj (with a
+Flight Upgrade), all built from boxes.
 
     python3 tools/gen_model.py
 
 Materials, in tile order: 1 metal, 2 face, 3 tread, 4 accent, 5 grille.
 The robot's front is -Z in the file, like a node's front tile.
 """
+import math
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -34,14 +36,23 @@ FACES = {
 UV = [(0, 0), (1, 0), (1, 1), (0, 1)]
 
 
-def box(x0, y0, z0, x1, y1, z1, material="metal", **per_face):
+def spin(v, yaw):
+    """turn a point or direction around the up axis by yaw degrees"""
+    a = math.radians(yaw)
+    c, s = math.cos(a), math.sin(a)
+    return (v[0] * c - v[2] * s, v[1], v[0] * s + v[2] * c)
+
+
+def box(x0, y0, z0, x1, y1, z1, material="metal", yaw=0, **per_face):
     lo, hi = (x0, y0, z0), (x1, y1, z1)
     for name, (n, corners) in FACES.items():
         mat = per_face.get(name.replace("+", "p").replace("-", "m"), material)
-        ni = idx(norms, n)
+        ni = idx(norms, spin(n, yaw) if yaw else n)
         ids = []
         for (cx, cy, cz), uv in zip(corners, UV):
             p = tuple(hi[a] if s else lo[a] for a, s in enumerate((cx, cy, cz)))
+            if yaw:
+                p = spin(p, yaw)
             ids.append((idx(verts, p), idx(uvs, uv), ni))
         faces[mat].append(ids)
 
@@ -69,6 +80,27 @@ def robot():
 
 
 
+def hover():
+    # the robot without treads: a hover pad with four glowing nozzles under the body
+    box(-0.34, -0.40, -0.34, 0.34, -0.30, 0.34, "tread", my="accent")
+    for cx, cz in ((-0.24, -0.24), (0.24, -0.24), (-0.24, 0.24), (0.24, 0.24)):
+        box(cx - 0.06, -0.50, cz - 0.06, cx + 0.06, -0.40, cz + 0.06, "accent", my="metal")
+    # body
+    box(-0.32, -0.30, -0.30, 0.32, 0.10, 0.30, "metal", pz="grille", py="accent")
+    # chest panel on the front
+    box(-0.20, -0.22, -0.32, 0.20, -0.02, -0.30, "accent")
+    # arms
+    box(-0.46, -0.20, -0.08, -0.32, 0.02, 0.08, "metal")
+    box(0.32, -0.20, -0.08, 0.46, 0.02, 0.08, "metal")
+    # neck
+    box(-0.08, 0.10, -0.08, 0.08, 0.14, 0.08, "tread")
+    # head with the face on the front
+    box(-0.26, 0.14, -0.24, 0.26, 0.40, 0.24, "metal", mz="face", pz="grille")
+    # antenna
+    box(-0.025, 0.40, -0.025, 0.025, 0.46, 0.025, "tread")
+    box(-0.055, 0.44, -0.055, 0.055, 0.50, 0.055, "accent")
+
+
 def drone():
     # skids
     box(-0.26, -0.50, -0.30, -0.20, -0.36, 0.30, "tread")
@@ -77,11 +109,11 @@ def drone():
     box(-0.26, -0.40, 0.24, 0.26, -0.36, 0.30, "tread")
     # body with the face on the front and a grille behind
     box(-0.24, -0.36, -0.24, 0.24, -0.04, 0.24, "metal", mz="face", pz="grille", py="accent")
-    # four arms
-    box(-0.50, -0.22, -0.04, 0.50, -0.14, 0.04, "metal")
-    box(-0.04, -0.22, -0.50, 0.04, -0.14, 0.50, "metal")
+    # four arms in an X, like a quadcopter: two long bars across the corners
+    box(-0.62, -0.22, -0.04, 0.62, -0.14, 0.04, "metal", yaw=45)
+    box(-0.62, -0.22, -0.04, 0.62, -0.14, 0.04, "metal", yaw=-45)
     # a motor and a rotor at the end of each arm
-    for cx, cz in ((-0.40, 0.0), (0.40, 0.0), (0.0, -0.40), (0.0, 0.40)):
+    for cx, cz in ((-0.38, -0.38), (0.38, -0.38), (-0.38, 0.38), (0.38, 0.38)):
         box(cx - 0.05, -0.14, cz - 0.05, cx + 0.05, -0.04, cz + 0.05, "accent")
         box(cx - 0.10, -0.04, cz - 0.10, cx + 0.10, -0.02, cz + 0.10, "tread")
     # antenna on the back
@@ -102,7 +134,7 @@ def write(name, comment):
         for u in uvs:
             f.write("vt %.4f %.4f\n" % u)
         for n in norms:
-            f.write("vn %d %d %d\n" % n)
+            f.write("vn " + " ".join(("%d" % c) if float(c).is_integer() else ("%.4f" % c) for c in n) + "\n")
         for m in MATERIALS:
             if not faces[m]:
                 continue
@@ -122,4 +154,5 @@ def build(fn, name, comment):
 
 
 build(robot, "cogwork_robot.obj", "Cogwork robot")
+build(hover, "cogwork_hover.obj", "Cogwork hover robot (nothing under it)")
 build(drone, "cogwork_drone.obj", "Cogwork drone (a robot with a Flight Upgrade)")

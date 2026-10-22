@@ -16,8 +16,8 @@ local SHEET_W = 10.3
 local MAX_LINES = 200
 local MAX_TEXT = 20000
 
-local TABS = { "program", "text", "storage", "packages", "settings", "help" }
-local TAB_LABELS = { T("Program"), T("Text"), T("Storage"), T("Packages"), T("Settings"), T("Help") }
+local TABS = { "program", "text", "storage", "structure", "packages", "settings", "help" }
+local TAB_LABELS = { T("Program"), T("Text"), T("Storage"), T("Structure"), T("Packages"), T("Settings"), T("Help") }
 
 local sessions = {}
 
@@ -93,12 +93,12 @@ local CLASS_COLOR = {
 --------------------------------------------------------------------------
 -- palette
 
-local PALETTE_CATS = { "flow", "move", "world", "inventory", "var", "check", "fn" }
-local CAT_ICON = { flow = "if", move = "move", world = "dig", inventory = "pull",
-	var = "set", check = "detect", fn = "call" }
-local CAT_TIP = { flow = T("Flow"), move = T("Move"), world = T("World"),
-	inventory = T("Items"), var = T("Variables"), check = T("Values and conditions"),
-	fn = T("Functions and packages") }
+local PALETTE_CATS = { "flow", "chat", "move", "world", "inventory", "var", "check", "machine", "fn" }
+local CAT_ICON = { flow = "if", chat = "say", move = "move", world = "dig", inventory = "pull",
+	var = "set", check = "detect", machine = "machine_power", fn = "call" }
+local CAT_TIP = { flow = T("Flow"), chat = T("Chat and messages"), move = T("Move"), world = T("World"),
+	inventory = T("Items and parts"), var = T("Variables and values"), check = T("Conditions and checks"),
+	machine = T("Machines and structure"), fn = T("Functions and packages") }
 
 -- entries: { label, tokens, mode = "line" | "token", tip }
 local function palette_entries (cat, lines, view)
@@ -118,13 +118,14 @@ local function palette_entries (cat, lines, view)
 		add({ "break" }, "line", T("Leave the loop"))
 		add({ "continue" }, "line", T("Next loop turn"))
 		add({ "wait", "5" }, "line", T("Wait, in tenths of a second"))
+		add({ "stop" }, "line", T("Stop the program"))
+		add({ "#", "note" }, "line", T("A note, ignored by the robot"))
+	elseif cat == "chat" then
 		add({ "chat", '"hello"' }, "line", T("Chat message to the owner"))
 		add({ "say", '"hello"' }, "line", T("Public chat message (limited per player)"))
 		add({ "whisper", '"name"', '"hello"' }, "line", T("Private chat message to a player (limited per player)"))
 		add({ "tell_bot", '"name"', '"hello"' }, "line", T("Message a robot that allows this one"))
 		add({ "tell_bots", '"hello"' }, "line", T("Message every robot that allows this one"))
-		add({ "stop" }, "line", T("Stop the program"))
-		add({ "#", "note" }, "line", T("A note, ignored by the robot"))
 	elseif cat == "move" then
 		add({ "move", "forward" }, "line", T("Move one block"))
 		add({ "turn", "left" }, "line", T("Turn the robot"))
@@ -141,6 +142,8 @@ local function palette_entries (cat, lines, view)
 			"trash", "trash_stack" }) do
 			add({ v }, "line", T("@1 (an item name after it limits it)", v))
 		end
+		add({ "install", '"cell"' }, "line", T("Put a part from storage into the robot: cell, armor_mod or augment"))
+		add({ "uninstall", '"armor_mod"' }, "line", T("Take a part out into storage (a cell only while another stays)"))
 	elseif cat == "var" then
 		add({ "set", "x", "=", "0" }, "line", T("Set a variable"))
 		add({ "add", "x", "1" }, "line", T("Add to a variable"))
@@ -149,16 +152,27 @@ local function palette_entries (cat, lines, view)
 		add({ "div", "x", "2" }, "line", T("Divide a variable"))
 		add({ "mod", "x", "2" }, "line", T("Remainder of a variable"))
 		add({ "join", "s", '"text"' }, "line", T("Append text to a variable"))
-	elseif cat == "check" then
-		for _, v in ipairs({ "detect", "node", "entity", "machine_state", "machine_power", "machine_level",
-			"network_level", "node_timer", "node_stock", "height_limit", "contains", "fits", "count", "counter", "ok",
-			"listeners", "listener", "even", "odd", "random", "floor", "length", "pos_x", "pos_y", "pos_z", "facing" }) do
-			add({ v }, "token", T("@1", v))
-		end
-		for _, v in ipairs({ "true", "false", "not", "and", "or", "matches", "=", "!=",
-			"<", ">", "<=", ">=", "+", "-", "*", "/", "%", "(", ")" }) do
+		-- the values and the arithmetic that go with variables
+		for _, v in ipairs({ "counter", "ok", "random", "floor", "length", "true", "false",
+			"+", "-", "*", "/", "%", "(", ")" }) do
 			add({ v }, "token", v)
 		end
+	elseif cat == "check" then
+		for _, v in ipairs({ "detect", "node", "entity", "contains", "fits", "count", "even", "odd",
+			"pos_x", "pos_y", "pos_z", "facing" }) do
+			add({ v }, "token", T("@1", v))
+		end
+		for _, v in ipairs({ "not", "and", "or", "matches", "=", "!=", "<", ">", "<=", ">=" }) do
+			add({ v }, "token", v)
+		end
+	elseif cat == "machine" then
+		for _, v in ipairs({ "machine_state", "machine_power", "machine_capacity", "machine_level",
+			"machine_supply", "machine_demand", "network_level", "node_timer", "node_stock",
+			"height_limit", "battery_level", "armor_level", "cell_count", "structure_item",
+			"listeners", "listener" }) do
+			add({ v }, "token", T("@1", v))
+		end
+		add({ "machine_switch", "front", '"off"' }, "line", T("Turn the machine in the block on or off"))
 	elseif cat == "fn" then
 		for _, line in ipairs(lines) do
 			if line.indent == 0 and line.tokens[1] == "fn" and line.tokens[2] then
@@ -540,23 +554,31 @@ local function program_tab (fs, pos, s, lines)
 	local owner = meta:get_string("owner")
 	fs[#fs + 1] = ("label[%g,1.6;%s]"):format(rx + 3.9, esc(owner ~= "" and T("Owner: @1", owner) or ""))
 
-	-- palette categories
+	-- palette categories: a row that scrolls sideways when there are more than fit
+	local cat_w = 1.2
+	local content_w = #PALETTE_CATS * cat_w
+	fs[#fs + 1] = ("scroll_container[%g,2.1;%g,1.4;catscroll;horizontal;0.1]"):format(rx, rw)
 	for k, cat in ipairs(PALETTE_CATS) do
-		local x = rx + (k - 1) * 1.2
+		local x = (k - 1) * cat_w + 0.1
 		local name_ = "cat_" .. cat
 		if cat == s.cat then
-			fs[#fs + 1] = ("box[%g,2.2;1.2,1.2;#ffff00]"):format(x - 0.1)
+			fs[#fs + 1] = ("box[%g,0.05;1.2,1.2;#ffff00]"):format(x - 0.1)
 		end
-		fs[#fs + 1] = ("image_button[%g,2.3;1.0,1.0;%s;%s;]"):format(x, ICONS[CAT_ICON[cat]], name_)
+		fs[#fs + 1] = ("image_button[%g,0.15;1.0,1.0;%s;%s;]"):format(x, ICONS[CAT_ICON[cat]], name_)
 		fs[#fs + 1] = ("tooltip[%s;%s]"):format(name_, esc(CAT_TIP[cat]))
+	end
+	fs[#fs + 1] = "scroll_container_end[]"
+	if content_w > rw then
+		fs[#fs + 1] = ("scrollbaroptions[min=0;max=%d;smallstep=6;largestep=24]"):format(math.ceil((content_w - rw + 0.2) * 10))
+		fs[#fs + 1] = ("scrollbar[%g,3.5;%g,0.25;horizontal;catscroll;%d]"):format(rx, rw, s.cat_scroll or 0)
 	end
 
 	local entries = palette_entries(s.cat, lines, s.pkg_view)
 	s.entries = entries
 	local per_row = 7
-	local pw, ph = 1.05, 0.95
+	local pw, ph = 1.05, 0.88
 	local max_palette = 42
-	local palette_y = 3.6
+	local palette_y = 3.8
 	for k, e in ipairs(entries) do
 		if k > max_palette then break end
 		local col, row = (k - 1) % per_row, math.floor((k - 1) / per_row)
@@ -595,7 +617,7 @@ local function program_tab (fs, pos, s, lines)
 
 	-- value field
 	local vy = 9.1
-	fs[#fs + 1] = ("field[%g,%g;3.2,0.8;val;%s;]"):format(rx, vy + 0.2, esc(T("Number, text, name or item")))
+	fs[#fs + 1] = ("field[%g,%g;3.2,0.8;val;%s;]"):format(rx, vy + 0.2, esc(T("Value")))
 	fs[#fs + 1] = "field_close_on_enter[val;false]"
 	fs[#fs + 1] = ("button[%g,%g;1.0,0.8;val_set;%s]"):format(rx + 3.3, vy + 0.2, esc(T("Set")))
 	fs[#fs + 1] = ("button[%g,%g;1.7,0.8;val_ins;%s]"):format(rx + 4.4, vy + 0.2, esc(T("Add after")))
@@ -622,24 +644,101 @@ local function text_tab (fs, pos, s, lines)
 		esc(table.concat(names, "\n") .. "\n\n" .. T("Items: default:stone, or @stone for the game's own.\nAliases: @1", table.concat(S.compat.alias_names(), " @"))))
 end
 
+-- Returns the height the window needs: the storage grows with Storage Upgrades.
 local function storage_tab (fs, pos, s)
 	local spos = pos.x .. "," .. pos.y .. "," .. pos.z
-	fs[#fs + 1] = ("label[0.4,1.0;%s]"):format(esc(T("Robot storage")))
-	fs[#fs + 1] = slot_bg(0.4, 1.3, 8, 4)
-	fs[#fs + 1] = ("list[nodemeta:%s;main;0.4,1.3;8,4;]"):format(spos)
-	fs[#fs + 1] = ("label[0.4,6.3;%s]"):format(esc(T("Inventory")))
-	fs[#fs + 1] = slot_bg(0.4, 6.6, 8, 4)
-	fs[#fs + 1] = "list[current_player;main;0.4,6.6;8,4;]"
-	fs[#fs + 1] = ("listring[nodemeta:%s;main]listring[current_player;main]"):format(spos)
+	S.sync_storage(pos)
+	local size = core.get_meta(pos):get_inventory():get_size("main")
+	local rows = math.max(1, math.ceil(size / 8))
 
+	fs[#fs + 1] = ("label[0.4,1.0;%s]"):format(esc(T("Robot storage: @1 slots (a Storage Upgrade adds @2)", size, S.STORAGE_PER_UPGRADE)))
+	fs[#fs + 1] = slot_bg(0.4, 1.3, 8, rows)
+	fs[#fs + 1] = ("list[nodemeta:%s;main;0.4,1.3;8,%d;]"):format(spos, rows)
+
+	local inv_y = 1.3 + rows * 1.25 + 0.5
+	fs[#fs + 1] = ("label[0.4,%g;%s]"):format(inv_y, esc(T("Inventory")))
+	fs[#fs + 1] = slot_bg(0.4, inv_y + 0.3, 8, 4)
+	fs[#fs + 1] = ("list[current_player;main;0.4,%g;8,4;]"):format(inv_y + 0.3)
+	fs[#fs + 1] = ("listring[nodemeta:%s;main]listring[current_player;main]"):format(spos)
+	return math.max(12.2, inv_y + 0.3 + 5.0 + 0.4)
+end
+
+-- what the structure slots hold, in words
+local function structure_lines (pos)
+	local inv = core.get_meta(pos):get_inventory()
+	local armor = inv:get_stack("armor", 1)
+	local lines = {}
+
+	local durability, max = S.armor_info(armor)
+	lines.armor = durability
+		and T("@1: @2 / @3 durability", armor:get_definition().short_description or armor:get_name(), math.floor(durability), max)
+		or T("No armor: the robot will not run")
+	lines.armor_worn = durability and durability <= 0 and T("Worn out: protects nothing") or ""
+
+	local mod = inv:get_stack("armor_mod", 1)
+	lines.mod = mod:is_empty() and T("(none)") or (mod:get_definition().short_description or mod:get_name())
+
+	lines.cells = {}
+	for i = 1, 2 do
+		local charge, capacity = S.cell_info(inv:get_stack("cells", i))
+		lines.cells[i] = charge and T("Cell @1: @2 / @3", i, math.floor(charge), capacity) or T("Cell @1: empty slot", i)
+	end
+
+	local aug = inv:get_stack("augment", 1)
+	lines.augment = aug:is_empty() and T("(none)") or (aug:get_definition().short_description or aug:get_name())
+	lines.why = S.cannot_run(pos)
+	return lines
+end
+
+local function structure_tab (fs, pos, s)
+	S.ensure_structure(pos)
+	local spos = pos.x .. "," .. pos.y .. "," .. pos.z
+	local lines = structure_lines(pos)
+
+	fs[#fs + 1] = ("label[0.6,1.0;%s]"):format(esc(T("Armor")))
+	fs[#fs + 1] = slot_bg(0.6, 1.3, 1, 1)
+	fs[#fs + 1] = ("list[nodemeta:%s;armor;0.6,1.3;1,1;]"):format(spos)
+	fs[#fs + 1] = ("label[2.2,1.6;%s]"):format(esc(lines.armor))
+	fs[#fs + 1] = ("label[2.2,2.1;%s]"):format(esc(lines.armor_worn))
+
+	fs[#fs + 1] = ("label[0.6,3.0;%s]"):format(esc(T("Armor modification")))
+	fs[#fs + 1] = slot_bg(0.6, 3.3, 1, 1)
+	fs[#fs + 1] = ("list[nodemeta:%s;armor_mod;0.6,3.3;1,1;]"):format(spos)
+	fs[#fs + 1] = ("label[2.2,3.8;%s]"):format(esc(lines.mod))
+
+	fs[#fs + 1] = ("label[0.6,5.0;%s]"):format(esc(T("Power cells")))
+	fs[#fs + 1] = slot_bg(0.6, 5.3, 2, 1)
+	fs[#fs + 1] = ("list[nodemeta:%s;cells;0.6,5.3;2,1;]"):format(spos)
+	fs[#fs + 1] = ("label[3.4,5.6;%s]"):format(esc(lines.cells[1]))
+	fs[#fs + 1] = ("label[3.4,6.1;%s]"):format(esc(lines.cells[2]))
+
+	fs[#fs + 1] = ("label[0.6,7.0;%s]"):format(esc(T("Power augmentation")))
+	fs[#fs + 1] = slot_bg(0.6, 7.3, 1, 1)
+	fs[#fs + 1] = ("list[nodemeta:%s;augment;0.6,7.3;1,1;]"):format(spos)
+	fs[#fs + 1] = ("label[2.2,7.8;%s]"):format(esc(lines.augment))
+
+	local status = lines.why and core.colorize("#ff9060", lines.why) or core.colorize("#7fdf7f", T("Ready to run"))
+	fs[#fs + 1] = ("label[0.6,9.3;%s]"):format(esc(status))
+	fs[#fs + 1] = ("label[0.6,10.0;%s]"):format(esc(T("Runs only with armor and a charged cell.\nA Small cell lasts about 450 moves.")))
+
+	fs[#fs + 1] = ("label[9.6,1.0;%s]"):format(esc(T("Inventory")))
+	fs[#fs + 1] = slot_bg(9.6, 1.3, 8, 4)
+	fs[#fs + 1] = "list[current_player;main;9.6,1.3;8,4;]"
+	-- the upgrades: under the inventory, nothing else on this side below it
 	S.ensure_upgrade_slots(pos)
-	fs[#fs + 1] = ("label[9.6,1.0;%s]"):format(esc(T("Upgrades")))
-	fs[#fs + 1] = slot_bg(9.6, 1.3, S.UPGRADE_SLOTS, 1)
-	fs[#fs + 1] = ("list[nodemeta:%s;upgrades;9.6,1.3;%d,1;]"):format(spos, S.UPGRADE_SLOTS)
-	fs[#fs + 1] = ("label[9.6,2.9;%s]"):format(esc(S.height_text(pos)))
-	fs[#fs + 1] = ("label[9.6,3.4;%s]"):format(esc(T("Hover Upgrade: one more block above the floor.")))
-	fs[#fs + 1] = ("label[9.6,3.8;%s]"):format(esc(T("Flight Upgrade: no limit.")))
-	fs[#fs + 1] = ("label[9.6,4.2;%s]"):format(esc(T("Without upgrades: 1 block above the floor.")))
+	fs[#fs + 1] = ("label[9.6,6.9;%s]"):format(esc(T("Upgrades")))
+	fs[#fs + 1] = slot_bg(9.6, 7.2, S.UPGRADE_SLOTS, 1)
+	fs[#fs + 1] = ("list[nodemeta:%s;upgrades;9.6,7.2;%d,1;]"):format(spos, S.UPGRADE_SLOTS)
+	fs[#fs + 1] = ("label[9.6,8.8;%s]"):format(esc(S.height_text(pos)))
+	fs[#fs + 1] = ("label[9.6,9.3;%s]"):format(esc(T("Hover Upgrade: one more block above the floor.")))
+	fs[#fs + 1] = ("label[9.6,9.7;%s]"):format(esc(T("Flight Upgrade: no limit above the floor, a drone.")))
+	fs[#fs + 1] = ("label[9.6,10.1;%s]"):format(esc(T("Combat Upgrade: the punch can hit players.")))
+	fs[#fs + 1] = ("label[9.6,10.5;%s]"):format(esc(T("Storage Upgrade: 4 more storage slots.")))
+	fs[#fs + 1] = ("label[9.6,10.9;%s]"):format(esc(T("Without upgrades: 1 block above the floor.")))
+
+	for _, list in ipairs({ "armor", "armor_mod", "cells", "augment", "upgrades" }) do
+		fs[#fs + 1] = ("listring[current_player;main]listring[nodemeta:%s;%s]"):format(spos, list)
+	end
 end
 
 local function package_source (pos, name)
@@ -679,7 +778,7 @@ local function packages_tab (fs, pos, s)
 
 	fs[#fs + 1] = ("button[7.2,5.5;3.6,0.8;pkg_disk;%s]"):format(esc(T("Write to the disk")))
 	fs[#fs + 1] = ("field[11.0,5.7;3.8,0.7;pkg_name;%s;%s]"):format(esc(T("Name for the disk")), esc(s.pkg_new or ""))
-	fs[#fs + 1] = ("button[15.0,5.5;4.4,0.8;pkg_mine;%s]"):format(esc(T("Write my functions to the disk")))
+	fs[#fs + 1] = ("button[15.0,5.5;4.4,0.8;pkg_mine;%s]"):format(esc(T("My functions to disk")))
 	if s.msg ~= "" then
 		fs[#fs + 1] = ("label[0.4,6.55;%s]"):format(esc(s.msg))
 	end
@@ -766,6 +865,9 @@ local function help_text ()
 	p("<b>" .. esc(T("Events")) .. "</b>")
 	p(esc(T("use events, then call events.register_nodes / register_entities r / register_items r / register_chat / register_whisper / register_bot with the name of one of your functions in quotes, then call events.process. It handles events until a handler calls events.leave. Messages: chat (owner, no limit), say (everyone) and whisper (one player) are limited per player; tell_bot and tell_bots reach robots that allow this one in their Settings tab.")))
 	p("")
+	p("<b>" .. esc(T("Structure and power")) .. "</b>")
+	p(esc(T("A robot runs only with armor and a power cell that has charge (Structure tab); without them it stays off, and it stops when they go. Every action costs power, a Small cell lasts about 450 moves. Armor never breaks, at no durability it protects nothing and damage goes to the cells. install \"cell\" / \"armor_mod\" / \"augment\" and uninstall put parts from and to storage (a cell only while another stays; the armor is for players). battery_level and armor_level are percent, cell_count, structure_item \"cell1\".")))
+	p("")
 	p("<b>" .. esc(T("Machines, upgrades")) .. "</b>")
 	p(esc(T("The nodes event hands the handler: dir node change detail, where change is node, inventory, timer, state or power. machine_state/_power/_level/_capacity front, network_level front, node_timer front, node_stock front item read the block next to the robot (-1 when unknown); machine_switch front \"off\" turns a Skyblock: Zero, Technic or Techage machine on or off. A robot can be 1 block above the floor; each Hover Upgrade adds a block, a Flight Upgrade removes the limit (five upgrade slots in the Storage tab). height_limit is the limit, -1 flying.")))
 	p("")
@@ -789,17 +891,20 @@ function S.formspec (pos, s)
 	clamp_cursor(s, lines)
 
 	local fs = { "formspec_version[6]", "size[19.8,12.2]", "bgcolor[#1c1c24f0;true]" }
+	local height = 12.2
 	local idx = 1
 	for k, t in ipairs(TABS) do if t == s.tab then idx = k end end
 	fs[#fs + 1] = ("tabheader[0,0;ed_tab;%s;%d;false;true]"):format(table.concat(TAB_LABELS, ","), idx)
 
 	if s.tab == "program" then program_tab(fs, pos, s, lines)
 	elseif s.tab == "text" then text_tab(fs, pos, s, lines)
-	elseif s.tab == "storage" then storage_tab(fs, pos, s)
+	elseif s.tab == "storage" then height = storage_tab(fs, pos, s)
+	elseif s.tab == "structure" then structure_tab(fs, pos, s)
 	elseif s.tab == "packages" then packages_tab(fs, pos, s)
 	elseif s.tab == "settings" then settings_tab(fs, pos, s)
 	else help_tab(fs) end
 
+	fs[2] = ("size[19.8,%g]"):format(height)
 	return table.concat(fs)
 end
 
@@ -856,6 +961,8 @@ S.on_editor_fields = function (player, formname, fields)
 				s.line, s.tok = tonumber(name:sub(3)), 0
 			elseif name:match("^cat_") then
 				s.cat = name:sub(5)
+			elseif name == "catscroll" then
+				s.cat_scroll = tonumber(tostring(fields.catscroll):match(":(%d+)")) or s.cat_scroll
 			elseif name == "scroll_up" then
 				s.scroll = math.max(0, s.scroll - ROWS + 1)
 			elseif name == "scroll_down" then

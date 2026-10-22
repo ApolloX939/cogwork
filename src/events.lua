@@ -280,6 +280,8 @@ end
 
 -- how long process should sleep when it has nothing to do
 function Bot:event_idle (ctx)
+	-- waiting for something to happen is cheap, but not free
+	if ctx.spend and not ctx.spend(0.02) then lang.rt_error(ctx, "out of power") end
 	return math.max(settings.tick, 0.1)
 end
 

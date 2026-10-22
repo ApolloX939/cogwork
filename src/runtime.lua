@@ -39,6 +39,8 @@ function S.stop (pos, message)
 	if node and S.is_robot(node.name) then
 		set_variant(pos, false)
 		if message ~= nil then core.get_meta(pos):set_string("error", message) end
+		-- a robot that is off falls to the floor
+		if S.settle_later and not S.moving then S.settle_later(pos) end
 	end
 
 	return r ~= nil
@@ -50,6 +52,15 @@ function S.start (pos)
 	if running[hash(pos)] then return true end
 
 	local meta = core.get_meta(pos)
+
+	-- no armor, no cell, or nothing in the cells: the robot stays off
+	S.ensure_structure(pos)
+	local why = S.cannot_run(pos)
+	if why then
+		meta:set_string("error", why)
+		return false, why
+	end
+
 	local unit, err = S.compile_for(pos, meta:get_string("program"))
 	if not unit then
 		meta:set_string("error", err)
@@ -58,6 +69,7 @@ function S.start (pos)
 
 	local bot = S.Bot.new(pos, meta:get_string("owner"))
 	local ctx = lang.new_ctx({ bot = bot, budget = settings.step_budget })
+	ctx.spend = function (amount) return S.spend(bot.pos, amount) end
 	ctx.alias = function (tok)
 		local v = compat.alias(tok)
 		if not v then
@@ -112,8 +124,17 @@ core.register_globalstep(function (dt)
 		elseif not S.is_robot(node.name) then
 			running[hash(pos)] = nil
 		else
+			-- armor taken out, cells run dry: stop (and stay off)
+			r.check = (r.check or 0) - dt
+			local why
+			if r.check <= 0 then
+				r.check = 0.5
+				why = S.cannot_run(pos)
+				if why then S.stop(pos, why) end
+			end
+
 			r.wait = r.wait - dt
-			if r.wait <= 0 then
+			if not why and r.wait <= 0 then
 				-- Callbacks the program triggers (a placed item's on_place right-clicks the
 				-- node it is placed against: the robot) must not open the editor
 				S.acting = true
@@ -135,7 +156,7 @@ end)
 core.register_lbm({
 	label = "Cogwork resume",
 	name = "cogwork:resume",
-	nodenames = { "cogwork:robot_on", "cogwork:drone_on" },
+	nodenames = { "cogwork:robot_on", "cogwork:hover_on", "cogwork:drone_on" },
 	run_at_every_load = true,
 	action = function (pos)
 		if running[hash(pos)] then return end

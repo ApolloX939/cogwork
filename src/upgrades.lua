@@ -15,7 +15,12 @@ S.UPGRADE_SLOTS = 5
 S.BASE_HEIGHT = 1
 
 local HOVER, FLIGHT = "cogwork:upgrade_hover", "cogwork:upgrade_flight"
-S.UPGRADE_ITEMS = { [HOVER] = true, [FLIGHT] = true }
+local COMBAT = "cogwork:upgrade_combat"
+local STORAGE_UP = "cogwork:upgrade_storage"
+S.UPGRADE_ITEMS = { [HOVER] = true, [FLIGHT] = true, [COMBAT] = true, [STORAGE_UP] = true }
+
+S.STORAGE_BASE = 16        -- 8 x 2
+S.STORAGE_PER_UPGRADE = 4
 
 core.register_craftitem(HOVER, {
 	description = T("Hover Upgrade"),
@@ -32,6 +37,30 @@ core.register_craftitem(FLIGHT, {
 	inventory_image = "cogwork_upgrade_flight.png",
 	stack_max = 1,
 })
+
+core.register_craftitem(COMBAT, {
+	description = T("Combat Upgrade"),
+	short_description = T("Combat Upgrade"),
+	_tt_help = T("Robot upgrade: its punch can hit players (not its owner), where pvp is on"),
+	inventory_image = "cogwork_upgrade_combat.png",
+	stack_max = 1,
+})
+
+core.register_craftitem(STORAGE_UP, {
+	description = T("Storage Upgrade"),
+	short_description = T("Storage Upgrade"),
+	_tt_help = T("Robot upgrade: @1 more storage slots", S.STORAGE_PER_UPGRADE),
+	inventory_image = "cogwork_upgrade_storage.png",
+	stack_max = 1,
+})
+
+-- is this upgrade installed in the robot at pos?
+function S.has_upgrade (pos, name)
+	for _, stack in ipairs(core.get_meta(pos):get_inventory():get_list("upgrades") or {}) do
+		if stack:get_name() == name then return true end
+	end
+	return false
+end
 
 -- robots placed before upgrades existed get their slots on first use
 function S.ensure_upgrade_slots (pos)
@@ -53,14 +82,23 @@ function S.height_limit (pos)
 	return S.BASE_HEIGHT + hovers
 end
 
+-- Does the block at pos hold a robot up? Anything it cannot be in does; terrain
+-- nobody loaded does (it cannot be told); water does when robots can float,
+-- else a robot sinks through it.
+function S.is_floor (pos)
+	local node = core.get_node_or_nil(pos)
+	if node == nil or node.name == "ignore" then return true end
+	if S.water_source(node.name) then return S.settings.can_float end
+	return not S.node_passable(pos)
+end
+
 -- Free blocks between cell and the floor below it, counting no further than
--- limit + 1. Terrain nobody loaded counts as floor (it cannot be told).
+-- limit + 1.
 -- ignore: a position to read as free (the robot's own block).
 function S.gap_below (cell, limit, ignore)
 	for k = 0, limit do
 		local below = { x = cell.x, y = cell.y - 1 - k, z = cell.z }
-		if S.node_unknown(below) then return k end
-		if not (ignore and vector.equals(below, ignore)) and not S.node_passable(below) then
+		if not (ignore and vector.equals(below, ignore)) and S.is_floor(below) then
 			return k
 		end
 	end
@@ -108,4 +146,42 @@ end
 -- for programs: blocks above the floor allowed, -1 when flying
 function S.Bot:height_limit ()
 	return S.height_limit(self.pos) or -1
+end
+
+--------------------------------------------------------------------------
+-- storage: 16 slots, 4 more for every Storage Upgrade
+
+function S.storage_size (pos)
+	local n = 0
+	for _, stack in ipairs(core.get_meta(pos):get_inventory():get_list("upgrades") or {}) do
+		if stack:get_name() == STORAGE_UP then n = n + 1 end
+	end
+	return S.STORAGE_BASE + n * S.STORAGE_PER_UPGRADE
+end
+
+-- Make the storage the size the upgrades give. It never shrinks over items: a robot
+-- with more in it than it should hold (older robots had 32 slots) keeps the slots
+-- up to its last item, until they are emptied.
+function S.sync_storage (pos)
+	local inv = core.get_meta(pos):get_inventory()
+	local want, have = S.storage_size(pos), inv:get_size("main")
+	if have > want then
+		local last = 0
+		for i, stack in ipairs(inv:get_list("main") or {}) do
+			if not stack:is_empty() then last = i end
+		end
+		want = math.max(want, last)
+	end
+	if want ~= have then inv:set_size("main", want) end
+end
+
+-- Would taking this stack out of the upgrade slots cut slots that hold items?
+function S.storage_removal_blocked (pos, name)
+	if name ~= STORAGE_UP then return false end
+	local inv = core.get_meta(pos):get_inventory()
+	local after = S.storage_size(pos) - S.STORAGE_PER_UPGRADE
+	for i = after + 1, inv:get_size("main") do
+		if not inv:get_stack("main", i):is_empty() then return true end
+	end
+	return false
 end

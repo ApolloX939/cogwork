@@ -468,6 +468,305 @@ for tok in OPS:
     reg(tok, "op", text_painter(label, px))
 
 
+# ------------------------- icons for punching, chat, events, structure, machines, paths
+
+
+def bg_of(c):
+    return COLORS[c.kind][0]
+
+
+def g_bolt(c, ox=0, oy=0, s=1.0):
+    pts = [(18, 4), (8, 18), (15, 18), (13, 28), (24, 13), (17, 13)]
+    c.poly([(ox + x * s, oy + y * s) for x, y in pts])
+
+
+def g_battery(c, level=0.6, y=11):
+    c.rect(4, y, 25, y + 12, outline=c.ink, w=2.2, rad=2)
+    c.rect(25, y + 3.5, 28.5, y + 8.5, fill=c.ink)
+    if level > 0:
+        c.rect(6.5, y + 2.5, 6.5 + 16 * level, y + 9.5, fill=c.ink)
+
+
+def g_shield(c):
+    c.poly([(16, 4), (26, 8), (25, 18), (16, 28), (7, 18), (6, 8)])
+    c.poly([(16, 8), (22, 10.5), (21.5, 17), (16, 23.5), (10.5, 17), (10, 10.5)], fill=bg_of(c))
+
+
+def g_bubble(c, w=24, h=16, mark=None):
+    c.rect(4, 5, 4 + w, 5 + h, fill=c.ink, rad=4)
+    c.poly([(9, 4 + h), (9, 28), (16, 5 + h)])
+    if mark:
+        c.text(mark, 4 + w / 2, 5 + h / 2, 13, fill=bg_of(c))
+
+
+def g_whisper(c):
+    c.rect(5, 9, 23, 22, fill=c.ink, rad=4)
+    c.poly([(9, 21), (8, 28), (15, 22)])
+    for x in (10, 14, 18):
+        c.ellipse(x - 1.2, 14.3, x + 1.2, 16.7, fill=bg_of(c))
+    c.arc((17, 3, 30, 16), 280, 360, 2)
+    c.arc((20, 1, 34, 15), 280, 360, 2)
+
+
+def g_bell(c, ox=0, oy=0):
+    c.ellipse(11 + ox, 6 + oy, 21 + ox, 16 + oy)
+    c.poly([(8 + ox, 22 + oy), (24 + ox, 22 + oy), (21 + ox, 17 + oy), (21 + ox, 11 + oy),
+            (11 + ox, 11 + oy), (11 + ox, 17 + oy)])
+    c.ellipse(14 + ox, 23 + oy, 18 + ox, 27 + oy)
+
+
+def g_loop(c):
+    c.arc((6, 6, 26, 26), 200, 340, 3)
+    c.poly([(25, 11), (27, 19), (19, 15)])
+    c.arc((6, 6, 26, 26), 20, 160, 3)
+    c.poly([(7, 21), (5, 13), (13, 17)])
+
+
+def g_exit(c):
+    c.line([(18, 6), (6, 6), (6, 26), (18, 26)], 2.5)
+    c.arrow(19, 16, 0, length=16, w=3, head=7)
+
+
+def g_chip(c, y=17):
+    c.rect(7, y, 25, y + 10, outline=c.ink, w=2.2, rad=1.5)
+    for x in (11, 16, 21):
+        c.line([(x, y + 10), (x, y + 13)], 1.8)
+
+
+def g_pin(c, ox=0, oy=0):
+    c.ellipse(10 + ox, 4 + oy, 22 + ox, 16 + oy, outline=c.ink, w=2.6)
+    c.poly([(11.5 + ox, 14 + oy), (20.5 + ox, 14 + oy), (16 + ox, 27 + oy)])
+    c.ellipse(14 + ox, 8 + oy, 18 + ox, 12 + oy, fill=c.ink)
+
+
+def g_person(c, ox=0, oy=0):
+    c.ellipse(12 + ox, 4 + oy, 20 + ox, 12 + oy)
+    c.poly([(9 + ox, 27 + oy), (11 + ox, 15 + oy), (21 + ox, 15 + oy), (23 + ox, 27 + oy)])
+
+
+def g_foot(c):
+    c.ellipse(8, 5, 15, 16)
+    c.ellipse(17, 15, 24, 27)
+    c.ellipse(8, 18, 12, 22)
+    c.ellipse(20, 6, 24, 10)
+
+
+def g_x(c, ox=0, oy=0, s=1.0):
+    c.line([(ox + 4 * s, oy + 4 * s), (ox + 14 * s, oy + 14 * s)], 3 * s)
+    c.line([(ox + 14 * s, oy + 4 * s), (ox + 4 * s, oy + 14 * s)], 3 * s)
+
+
+def g_gauge(c):
+    c.arc((4, 7, 28, 31), 180, 360, 3)
+    c.line([(16, 19), (22, 11)], 2.8)
+    c.ellipse(13.5, 16.5, 18.5, 21.5, fill=c.ink)
+    c.line([(5, 25), (27, 25)], 2)
+
+
+def g_hourglass(c):
+    c.line([(7, 5), (25, 5)], 2.5)
+    c.line([(7, 27), (25, 27)], 2.5)
+    c.poly([(9, 7), (23, 7), (16, 16)])
+    c.poly([(9, 25), (23, 25), (16, 17)], fill=None)
+    c.line([(9, 25), (16, 17), (23, 25), (9, 25)], 1.8)
+
+
+def g_waves(c, both=True):
+    c.ellipse(13, 13, 19, 19)
+    c.arc((7, 7, 25, 25), 320, 40, 2.4)
+    c.arc((3, 3, 29, 29), 320, 40, 2.4)
+    if both:
+        c.arc((7, 7, 25, 25), 140, 220, 2.4)
+        c.arc((3, 3, 29, 29), 140, 220, 2.4)
+
+
+def g_cube(c):
+    c.line([(16, 5), (27, 11), (27, 22), (16, 28), (5, 22), (5, 11), (16, 5)], 2.4)
+    c.line([(5, 11), (16, 17), (27, 11)], 2.4)
+    c.line([(16, 17), (16, 28)], 2.4)
+
+
+def g_gem(c):
+    c.poly([(16, 5), (26, 13), (16, 28), (6, 13)])
+    c.line([(6, 13), (26, 13)], 1.6, fill=bg_of(c))
+
+
+def p_punch(c):
+    c.rect(7, 13, 19, 25, fill=c.ink, rad=3)
+    for y in (17, 21):
+        c.line([(7, y), (19, y)], 1.4, fill=bg_of(c))
+    c.line([(22, 11), (27, 6)], 2.5)
+    c.line([(23, 16), (29, 16)], 2.5)
+    c.line([(22, 21), (27, 26)], 2.5)
+
+
+def p_say(c):
+    g_bubble(c, mark="!")
+
+
+def p_tell_bot(c):
+    robot_head(c, 3, 8, 14)
+    c.arrow(24, 17, 0, length=11, w=2.8, head=6)
+
+
+def p_tell_bots(c):
+    robot_head(c, 2, 3, 12)
+    robot_head(c, 2, 17, 12)
+    c.arrow(23, 16, 0, length=12, w=2.8, head=6)
+
+
+def p_event_register(c):
+    g_bell(c, -2, 1)
+    c.line([(25, 4), (25, 12)], 2.6)
+    c.line([(21, 8), (29, 8)], 2.6)
+
+
+def p_machine_switch(c):
+    c.rect(4, 10, 28, 22, outline=c.ink, w=2.4, rad=6)
+    c.ellipse(16, 12, 26, 20, fill=c.ink)
+
+
+def p_install(c):
+    c.arrow(16, 9, 270, length=12, w=2.8, head=7)
+    g_chip(c, 17)
+
+
+def p_uninstall(c):
+    c.arrow(16, 9, 90, length=12, w=2.8, head=7)
+    g_chip(c, 17)
+
+
+def p_path_cancel(c):
+    c.line([(4, 26), (11, 17), (18, 21)], 2.4)
+    g_x(c, 15, 4, 1.15)
+
+
+def p_armor_level(c):
+    g_shield(c)
+
+
+def p_battery_level(c):
+    g_battery(c, 0.6)
+
+
+def p_cell_count(c):
+    g_battery(c, 0.9, y=5)
+    c.text("n", 16, 24, 12, fill=DARK)
+
+
+def p_structure_item(c):
+    c.rect(6, 6, 26, 26, outline=DARK, w=2.6, rad=2)
+    c.text("?", 16, 16, 18, fill=DARK)
+
+
+def p_entity(c):
+    g_person(c)
+
+
+def p_height_limit(c):
+    c.line([(4, 27), (28, 27)], 3)
+    c.line([(8, 5), (24, 5)], 3)
+    c.arrow(16, 16, 90, length=20, w=2.6, head=7)
+
+
+def p_listeners(c):
+    g_waves(c, True)
+
+
+def p_listener(c):
+    g_waves(c, False)
+
+
+def p_machine_state(c):
+    c.arc((6, 9, 26, 29), -50, 230, 3)
+    c.line([(16, 4), (16, 16)], 3)
+
+
+def p_machine_power(c):
+    g_bolt(c)
+
+
+def p_machine_capacity(c):
+    g_battery(c, 1.0)
+
+
+def p_machine_level(c):
+    g_gauge(c)
+
+
+def p_machine_supply(c):
+    g_bolt(c, 0, 5, 0.8)
+    c.arrow(24, 9, 45, length=10, w=2.4, head=5)
+
+
+def p_machine_demand(c):
+    g_bolt(c, 6, 0, 0.8)
+    c.arrow(8, 12, 225, length=10, w=2.4, head=5)
+
+
+def p_network_level(c):
+    for (x0, y0), (x1, y1) in (((16, 8), (6, 23)), ((16, 8), (26, 23)), ((6, 23), (26, 23))):
+        c.line([(x0, y0), (x1, y1)], 2)
+    for x, y in ((16, 8), (6, 23), (26, 23)):
+        c.ellipse(x - 4, y - 4, x + 4, y + 4)
+
+
+def p_node_stock(c):
+    chest(c, 5, 13, 22, 14)
+    c.text("#", 16, 7, 10, fill=DARK)
+
+
+def p_node_timer(c):
+    g_hourglass(c)
+
+
+def p_path_plan(c):
+    g_pin(c)
+
+
+def p_path_plan_entity(c):
+    g_person(c, -3, 0)
+    c.ellipse(21, 20, 27, 26, outline=DARK, w=2)
+
+
+def p_path_step(c):
+    g_foot(c)
+
+
+def p_path_left(c):
+    for x, w in ((5, 6), (13, 4), (21, 3)):
+        c.ellipse(x, 18 - w / 2, x + w, 18 + w / 2)
+    c.line([(5, 24), (27, 24)], 1.6)
+    c.line([(27, 24), (27, 6)], 2.4)
+    c.poly([(27, 5), (22, 8), (27, 11)])
+
+
+reg("punch", "world", p_punch)
+reg("say", "flow", p_say)
+reg("whisper", "flow", lambda c: g_whisper(c))
+reg("tell_bot", "flow", p_tell_bot)
+reg("tell_bots", "flow", p_tell_bots)
+reg("event_register", "flow", p_event_register)
+reg("event_process", "flow", lambda c: g_loop(c))
+reg("event_leave", "flow", lambda c: g_exit(c))
+reg("path_cancel", "flow", p_path_cancel)
+reg("machine_switch", "world", p_machine_switch)
+reg("install", "inventory", p_install)
+reg("uninstall", "inventory", p_uninstall)
+for _tok, _p in (("armor_level", p_armor_level), ("battery_level", p_battery_level),
+                 ("cell_count", p_cell_count), ("structure_item", p_structure_item),
+                 ("entity", p_entity), ("height_limit", p_height_limit),
+                 ("listeners", p_listeners), ("listener", p_listener),
+                 ("machine_state", p_machine_state), ("machine_power", p_machine_power),
+                 ("machine_capacity", p_machine_capacity), ("machine_level", p_machine_level),
+                 ("machine_supply", p_machine_supply), ("machine_demand", p_machine_demand),
+                 ("network_level", p_network_level), ("node_stock", p_node_stock),
+                 ("node_timer", p_node_timer), ("path_plan", p_path_plan),
+                 ("path_plan_entity", p_path_plan_entity), ("path_step", p_path_step),
+                 ("path_left", p_path_left)):
+    reg(_tok, "check", _p)
+
+
 def file_for(token):
     if token in OPS:
         return "cogwork_t_%s.png" % OPS[token]
@@ -670,8 +969,24 @@ for n, f in (("abs", fp_text("|x|", 15)), ("min", fp_text("min", 11)),
              ("clamp", fp_text("[x]", 17)), ("power", fp_text("xⁿ", 18))):
     fn_icon("math", n, f)
 
+# events and pathfind functions
+for n, f in (("register", lambda c: (g_bell(c, -2, 1), c.line([(25, 4), (25, 12)], 2.6), c.line([(21, 8), (29, 8)], 2.6))),
+             ("register_nodes", g_cube), ("register_entities", g_person), ("register_items", g_gem),
+             ("register_chat", lambda c: g_bubble(c)), ("register_whisper", g_whisper),
+             ("register_bot", lambda c: robot_head(c, 7, 8, 18)),
+             ("process", g_loop), ("leave", g_exit)):
+    fn_icon("events", n, f)
+for n, f in (("start", g_pin), ("start_entity", lambda c: (g_person(c, -3, 0), c.ellipse(21, 20, 27, 26, outline=c.ink, w=2))),
+             ("step", g_foot), ("left", lambda c: p_path_left(c)),
+             ("cancel", lambda c: p_path_cancel(c)),
+             ("goto", lambda c: (g_pin(c, -3, -1), c.arrow(24, 24, 0, length=9, w=2.4, head=5))),
+             ("goto_entity", lambda c: (g_person(c, -4, -1), c.arrow(25, 23, 0, length=9, w=2.4, head=5)))):
+    fn_icon("pathfind", n, f)
+
+
 PKG_PAINTERS = {"movement": g_boot, "mining": g_pick, "building": g_brick,
                 "farming": g_sprout, "storage": g_chest, "math": g_pi,
+                "events": g_bell, "pathfind": g_pin,
                 "default": lambda c: (c.rect(6, 12, 26, 28, fill=c.ink, rad=2),
                                       c.rect(6, 8, 15, 14, fill=c.ink, rad=1),
                                       c.text("pkg", 16, 21, 8, fill=COLORS["pkg"][0]))}
@@ -1098,6 +1413,168 @@ flight = [
     "................",
 ]
 sprite(flight, "cogwork_upgrade_flight.png")
+
+# ----------------------------------------------------------------- structure items
+
+
+def sprite_x(rows, name, extra):
+    """sprite() with extra palette letters"""
+    saved = dict(P)
+    P.update(extra)
+    try:
+        sprite(rows, name)
+    finally:
+        P.clear()
+        P.update(saved)
+
+
+CELL_COLORS = {
+    "small": ((88, 224, 107, 255), (32, 110, 50, 255)),
+    "medium": ((240, 210, 60, 255), (150, 120, 20, 255)),
+    "large": ((224, 133, 43, 255), (150, 82, 20, 255)),
+    "huge": ((210, 70, 60, 255), (120, 30, 30, 255)),
+    "colossal": ((170, 90, 230, 255), (90, 40, 140, 255)),
+}
+
+
+def cell_rows():
+    rows = ["................", ".....kkkkkk.....", ".....kllllk.....", "....kkkkkkkk...."]
+    for patt in ["CccccC", "cccyyc", "ccyycc", "cyyyyc", "cccyyc", "ccyycc", "cccccc", "cccccc", "CccccC"]:
+        rows.append("...kd" + patt + "dk...")
+    rows.append("...kkkkkkkkkk...")
+    rows.append("................")
+    return rows
+
+
+for tier, (c, cd) in CELL_COLORS.items():
+    extra = {"c": c, "C": cd}
+    if tier == "medium":
+        extra["y"] = (40, 44, 60, 255)   # the bolt would vanish into the yellow
+    sprite_x(cell_rows(), "cogwork_cell_%s.png" % tier, extra)
+
+ARMOR_COLORS = {
+    "basic": ((150, 162, 184, 255), (96, 106, 126, 255)),
+    "reinforced": ((88, 150, 230, 255), (50, 90, 160, 255)),
+    "heavy": ((224, 133, 43, 255), (150, 82, 20, 255)),
+}
+
+
+def shield_rows():
+    widths = {1: 12, 2: 12, 3: 12, 4: 12, 5: 12, 6: 12, 7: 12, 8: 12, 9: 10, 10: 8, 11: 6, 12: 4, 13: 2}
+    fill = set()
+    for y, w in widths.items():
+        x0 = 8 - w // 2
+        for x in range(x0, x0 + w):
+            fill.add((x, y))
+    grid = [["."] * 16 for _ in range(16)]
+    for (x, y) in fill:
+        edge = any((x + dx, y + dy) not in fill for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+        inner = not edge and any((x + dx, y + dy) in fill and any(
+            (x + dx + ex, y + dy + ey) not in fill for ex, ey in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+            for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)))
+        grid[y][x] = "k" if edge else ("C" if inner else "c")
+    for x, y in ((4, 3), (5, 3), (4, 4), (5, 4), (4, 5)):
+        grid[y][x] = "w"
+    for y in range(4, 9):
+        grid[y][8] = "d"
+    return ["".join(r) for r in grid]
+
+
+for tier, (c, cd) in ARMOR_COLORS.items():
+    sprite_x(shield_rows(), "cogwork_armor_%s.png" % tier, {"c": c, "C": cd})
+
+
+def chip(interior):
+    rows = ["................", ".kkkkkkkkkkkkkk.", ".kddddddddddddk."]
+    for patt in interior:
+        rows.append(".kd" + patt + "dk.")
+    rows += [".kddddddddddddk.", ".kkkkkkkkkkkkkk.", "................", "................"]
+    return rows
+
+
+sprite(chip(["mmmmmmmmmm", "mmmmggmmmm", "mmmmggmmmm", "mggggggggm", "mggggggggm",
+             "mmmmggmmmm", "mmmmggmmmm", "mmmmmmmmmm", "mmmmmmmmmm"]), "cogwork_armor_mod_repair.png")
+
+sprite_x(chip(["mmmmmmmmmm", "mmoooooomm", "mmoooooomm", "mmddyyddmm", "mmoooooomm",
+               "mmoooooomm", "mmmmmmmmmm", "mmmmmmmmmm", "mmmmmmmmmm"]), "cogwork_upgrade_storage.png", {})
+
+sprite(chip(["mmmmmmmmmm", "mmmmrrmmmm", "mmmmrrmmmm", "mmmmmmmmmm", "rrrmmmmrrr",
+             "rrrmmmmrrr", "mmmmmmmmmm", "mmmmrrmmmm", "mmmmrrmmmm"][:9]), "cogwork_upgrade_combat.png")
+
+sprite(chip(["mmmmmmmmmm", "mmoooooomm", "mooOOOOoom", "moOkkkkOom", "moOkkkkOom",
+             "mooOOOOoom", "mmoooooomm", "mmmmmmmmmm", "mmmmmmmmmm"]), "cogwork_augment_generator.png")
+
+capacitor = [
+    "................",
+    ".....kkkkkk.....",
+    "....kvvvvvvk....",
+    "...kvppppppvk...",
+    "...kpppyyyppk...",
+    "...kppyyyyppk...",
+    "...kpppyyyppk...",
+    "...kppppyyppk...",
+    "...kppyyppppk...",
+    "...kpppppppPk...",
+    "...kPPPPPPPPk...",
+    "....kkkkkkkk....",
+    ".....kmmmmk.....",
+    ".....kkkkkk.....",
+    "................",
+    "................",
+]
+sprite_x(capacitor, "cogwork_augment_capacitor.png",
+         {"p": (170, 90, 230, 255), "P": (90, 40, 140, 255), "v": (220, 170, 255, 255)})
+
+# ----------------------------------------------------------------- charger
+
+CHARGER_COLORS = {
+    "base": (80, 200, 230, 255),
+    "lv": (240, 210, 60, 255),
+    "mv": (224, 133, 43, 255),
+    "techage": (60, 140, 230, 255),
+    "sbz": (170, 90, 230, 255),
+}
+
+
+def charger_textures(variant, accent):
+    from PIL import Image
+    dark, steel, light = P["d"], P["m"], P["l"]
+    # side: steel panel with a band in the accent colour
+    side = Image.new("RGBA", (16, 16), steel)
+    for x in range(16):
+        for y in range(16):
+            if x in (0, 15) or y in (0, 15):
+                side.putpixel((x, y), dark)
+    for x in range(1, 15):
+        for y in (6, 7, 8, 9):
+            side.putpixel((x, y), accent)
+    for x, y in ((2, 2), (13, 2), (2, 13), (13, 13)):
+        side.putpixel((x, y), light)
+    side.save(os.path.join(TEX, "cogwork_charger_side_%s.png" % variant))
+
+    # top: a pad with a lightning bolt where the robot stands
+    top = Image.new("RGBA", (16, 16), steel)
+    for x in range(16):
+        for y in range(16):
+            if x in (0, 15) or y in (0, 15):
+                top.putpixel((x, y), dark)
+            elif x in (1, 14) or y in (1, 14):
+                top.putpixel((x, y), accent)
+            elif 2 <= x <= 13 and 2 <= y <= 13:
+                top.putpixel((x, y), P["d"] if (x + y) % 2 == 0 else (66, 72, 88, 255))
+    bolt = [(9, 3), (8, 4), (8, 5), (7, 6), (7, 7), (8, 7), (6, 8), (6, 9), (7, 9), (5, 10), (6, 11), (6, 12),
+            (9, 4), (8, 6), (9, 7), (7, 8), (8, 9), (7, 10), (7, 11)]
+    for x, y in bolt:
+        top.putpixel((x, y), P["y"])
+    top.save(os.path.join(TEX, "cogwork_charger_top_%s.png" % variant))
+
+
+for _variant, _accent in CHARGER_COLORS.items():
+    charger_textures(_variant, _accent)
+
+bottom = Image.new("RGBA", (16, 16), P["d"]) if "Image" in globals() else None
+if bottom is not None:
+    bottom.save(os.path.join(TEX, "cogwork_charger_bottom.png"))
 
 # ----------------------------------------------------------------- icons.lua
 

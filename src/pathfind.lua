@@ -249,6 +249,8 @@ function Bot:path_step (ctx)
 
 	local cell = st.cells[st.idx + 1]
 	local loading = S.node_unknown(cell)
+	-- a step costs what a move does
+	if not loading and ctx.spend and not ctx.spend(1) then lang.rt_error(ctx, "out of power") end
 	local ok, delay = self:step_to(cell)
 
 	if ok then

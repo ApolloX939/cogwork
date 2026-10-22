@@ -13,8 +13,9 @@ aliases adapt to the game).
 Craft a robot, place it (it looks the way you look), right-click it.
 
 - **Program tab**: the program is a sheet of lines made of blocks. Pick a
-  command from the palette on the right (flow, move, world, items,
-  variables, values, functions), click a block to select it, change it with the
+  command from the palette on the right: the category row scrolls sideways
+  (flow, chat, move, world, items and parts, variables and values, conditions,
+  machines and structure, functions), click a block to select it, change it with the
   options row or by typing into the value field (`Set` replaces the selected
   block, `Add after` inserts), or click an item to use it as a block. The
   toolbar under the sheet inserts, deletes, duplicates, indents and moves
@@ -22,7 +23,9 @@ Craft a robot, place it (it looks the way you look), right-click it.
   area loaded while it works.
 - **Text tab**: the same program as plain text (two spaces per indent level).
   Edit it there and press Apply.
-- **Storage tab**: the robot's 32 slots.
+- **Storage tab**: the robot's storage, 8 x 2 slots, 4 more for every Storage Upgrade (up to 36).
+- **Structure tab**: armor, armor modification, power cells, power augmentation and
+  the five upgrade slots (see below).
 - **Packages tab**: browse packages, copy one (or your own functions) to a
   disk, install a disk in the robot.
 - **Settings tab**: name, public/private.
@@ -130,8 +133,8 @@ available; `call mining.tunnel 5` works without `use`. Built in:
 `/cogwork packages`, `/cogwork package <name>`, `/cogwork items` list them.
 
 Players make their own: write functions in a program, open the Packages tab,
-name it, put a blank Package Disk in the robot's disk slot and press *Write my
-functions to the disk* (it writes onto the disk in the slot and uses no extra
+name it, put a blank Package Disk in the robot's disk slot and press *My
+functions to disk* (it writes onto the disk in the slot and uses no extra
 disk). Put the disk in another robot's slot and *Install it*. A package may only contain `fn` and `use` lines.
 
 ### Events
@@ -263,13 +266,13 @@ reached on the way, the robot keeps going but is no longer forceloaded.
 
 ### Upgrades
 
-Every robot has five upgrade slots (Storage tab). Without upgrades a robot can
+Every robot has five upgrade slots (Structure tab). Without upgrades a robot can
 be 1 block above the floor, the nearest block that is not free below it (`move`
 refuses to go higher, and so does the pathfinder, which plans within the same
 limit). A **Hover Upgrade** adds a block each (up to 6 with five), a **Flight
 Upgrade** removes the limit. `height_limit` is the allowed number of blocks, `-1`
 when flying. Robots placed before upgrades existed get their slots when the
-Storage tab is opened, and fall under the limit like any other.
+Structure tab is opened, and fall under the limit like any other.
 
 A robot with a **Flight Upgrade** looks like a drone (its own model; it changes
 as the upgrade goes in or out). The limit never keeps a robot from going down,
@@ -281,6 +284,105 @@ climbs back out with `mining.climb`. The pathfinder plans with the same moves.
 |---|---|
 | Hover | Skyblock: Zero: matter plates, a Simple Processor, an Emitter and circuits. Other games: glass, steel and coal |
 | Flight | Skyblock: Zero: four Hover Upgrades around two antimatter plates, two retaining circuits and an emittrium circuit. Other games: four Hover Upgrades, gold, diamonds and steel |
+
+### Structure: armor, power and parts
+
+Open the **Structure** tab: one **armor** slot, one **armor modification**
+slot, two **power cell** slots and one **power augmentation** slot.
+
+- **A robot only runs with armor and a power cell that has charge.** Without
+  them it stays off (the power button and a program's start refuse, with the
+  reason), and a running robot stops when the armor is taken out or the cells
+  run dry. A robot item that was never placed (crafted, `/give`, creative) comes
+  with a Basic Armor and one full Small cell the first time it is placed, and
+  from then on the robot (and the item it is dug into) carries `no_emc` so the
+  free parts cannot be turned into EMC; placing it again gives nothing more.
+  Robots placed before this existed get the same starter parts, once.
+- **Power cells** (tools, so the wear bar is the charge): Small 450, Medium 950,
+  Large 1400, Huge 2200, Colossal 3200 operations. Every action costs power: a
+  move 1, turn 0.5, dig 2, place 1, punch 2, craft 3, pull/put/drop 0.5, chat 0.2,
+  a pathfinding step 1, waiting for events a trickle; queries are free. A new
+  cell is full; the charge stays with the item.
+- **Armor** (Basic 24, Reinforced 31, Heavy 38 durability) takes damage
+  from other players' weapons (the weapon's damage, a sword hit of 6 costs 6; the
+  owner's punches and cassettes do none) and **never breaks**: at no durability it protects nothing
+  and the damage goes to the power cells. Liquids never hurt a robot.
+- **Self-Repair Module** (armor modification) mends 1 durability every 5 seconds
+  for 1 power (the lightest armor is whole again after two minutes).
+- **Power augmentation:** the **Creative Capacitor** (creative only, no recipe)
+  fills the cells at once and keeps them full, free power. The **Self-Generator**
+  (very, very, very expensive: a Colossal cell wrapped in emittrium and
+  antimatter, or six diamonds) charges **one** cell, the first that is not full,
+  by `cogwork_generator_amount` (10) every `cogwork_generator_interval` (5, at
+  least 5) seconds, also while the robot is off.
+- **Combat Upgrade** (an upgrade slot part, somewhat expensive): `punch` may hit
+  players, never the owner, only where pvp and damage are on and with the owner
+  online (the owner is credited).
+
+A program can change parts from its own storage: `install "armor_mod"`,
+`install "augment"`, `install "cell"` (into a free cell slot) and the same with
+`uninstall`. It can take out **one** cell only while another stays in, and never
+the armor. `battery_level` and `armor_level` are percent (`armor_level` is -1
+without armor), `cell_count`, `structure_item "armor"` (also `armor_mod`,
+`augment`, `cell1`, `cell2`) the name in a slot.
+
+### Chargers
+
+A **Charger** is a block: a robot standing on top gets its power cells
+charged, whether it runs or not. Every cell that is not full takes 25 units a
+second, and a charger draws that for each cell it charges, so two cells draw
+twice as much. A Creative Capacitor already keeps its cells full.
+
+| charger | power comes from |
+|---|---|
+| **Charger** (`cogwork:charger`) | its source slot: a spare Power Cell (a tenth is lost moving the charge), or, with Technic, a **battery or energy crystal item** (1 EU is 0.1 units). No network needed |
+| **LV Charger** | Technic LV network, 150 EU a second per cell: the network's batteries feed it |
+| **MV Charger** | Technic MV network, 100 EU a second per cell: less for the same charge |
+| **TA Charger** | Techage electric cable, 4 units per 2 second cycle per cell, from the network's pool |
+| **Power Charger** | Skyblock: Zero power network, 12 a second per cell; with little power to spare it charges fewer cells |
+
+Techage's batteries (Akkus) have no way to charge an item directly: they only
+feed the network's pool through its cables, which is what the TA Charger takes
+from. Every other charger is crafted from the plain Charger and a part of that
+power system (Technic cable and casing, Techage cables, a processor in
+Skyblock: Zero). The Technic and Techage chargers exist only when those mods
+are installed.
+
+### Storage
+
+A robot holds 16 stacks (8 x 2). A **Storage Upgrade** (upgrade slot, five at
+most) adds 4 stacks each: up to 36. It cannot be taken out while the slots it
+gives hold items (empty them first); robots from before, which had 32 slots,
+keep the slots up to their last item and shrink once those are empty.
+Recipe: a chest between steel, copper and steel (matter plates, circuits and a
+processor in Skyblock: Zero).
+
+### Hover model, gravity and water
+
+A robot that is not a drone and has a free block under it is drawn with the
+**hover model** (no treads, thrusters under it); it goes back to the rolling
+model as soon as there is a block under it again. The model follows moves, a
+dug or placed floor, start and stop.
+
+**Gravity.** A robot that is not running falls to the floor, a block at a time.
+It only falls when there is a floor (or water to float in) within
+`cogwork_fall_range` blocks (128) below it: robots over the void stay where they
+are. Turn it off with `cogwork_gravity`. A running robot stays where its program
+puts it.
+
+**Liquids.** A robot may be in any liquid (water, lava, oil, the chemicals of Skyblock: Zero;
+liquids never hurt it); it is then *flooded*, like a waterlogged block (the
+robot's infotext says so). It remembers the water of its block, puts
+it back when it moves on and when it is dug, and an empty bucket right-clicked
+on a flooded robot fills with that liquid instead of opening the robot (Minetest
+Game's `bucket`, Mineclonia's and VoxeLibre's `mcl_buckets`, Skyblock: Zero's
+empty Fluid Cell, for every liquid those know; another bucket mod
+can call `cogwork.register_bucket({ empty = "mod:empty", filled = function
+(source) return "mod:full" end })`). 
+
+`robots_can_float` (`cogwork_robots_can_float`, on by default): a stopped robot
+drops into the liquid and floats in it, not above it. Off, it sinks to the
+bottom. In the height limit, water holds a robot up only when robots can float.
 
 ### Item aliases
 

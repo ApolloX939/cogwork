@@ -23,6 +23,7 @@ local TOUR = {
 	{ tab = "program", cat = "check", line = 7, tok = 3 },
 	{ tab = "text" },
 	{ tab = "storage" },
+	{ tab = "structure" },
 	{ tab = "packages", pkg = "mining" },
 	{ tab = "settings" },
 	{ tab = "packages", pkg = "movement" },
@@ -48,7 +49,7 @@ core.register_on_joinplayer(function (player)
 			local pos = vector.add(base, { x = 0, y = 0, z = 0 })
 			core.set_node(pos, { name = "cogwork:robot", param2 = core.dir_to_facedir({ x = 0, y = 0, z = -1 }) })
 			local meta = core.get_meta(pos)
-			meta:get_inventory():set_size("main", 32)
+			meta:get_inventory():set_size("main", 16)
 			meta:get_inventory():set_size("disk", 1)
 			meta:set_string("owner", name)
 			meta:set_string("bot_name", "Digger")

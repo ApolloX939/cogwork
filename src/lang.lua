@@ -653,6 +653,12 @@ local function parse_statement (lines, i, indent, st)
 
 		return { line = i, run = function(ctx)
 			local vals = p:eval_args(argfns, names, ctx)
+			-- every action costs power (ctx.spend is the robot's cells)
+			if ctx.spend then
+				local cost = def.cost
+				if cost == nil then cost = 1 end
+				if cost > 0 and not ctx.spend(cost) then rt_error(ctx, "out of power") end
+			end
 			local ok, delay = def.run(ctx, unpack(vals, 1, #argfns))
 			ctx.ok = ok ~= false
 			if delay and delay > 0 then ctx.yield(delay) end

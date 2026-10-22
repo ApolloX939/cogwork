@@ -185,12 +185,26 @@ function Bot:turn (dir)
 	return true, settings.action_delay
 end
 
+-- The liquid source a node stands for (the source itself, or what a flowing
+-- liquid belongs to), nil when it is no liquid. Any liquid: water, lava, oil, the
+-- chemicals of Skyblock: Zero ...
+local function liquid_source (name)
+	local def = core.registered_nodes[name]
+	if not def or def.liquidtype == nil or def.liquidtype == "none" then return nil end
+	if def.liquidtype == "source" then return name end
+	return def.liquid_alternative_source
+end
+S.liquid_source = liquid_source
+S.water_source = liquid_source   -- the old name
+
+-- may a robot be in this block: air, plants and the like, a liquid (it is "flooded")
 local function passable (pos)
 	local node = core.get_node_or_nil(pos)
 	if not node or node.name == "ignore" then return false end
 	if node.name == "air" then return true end
 	local def = core.registered_nodes[node.name]
-	return def and def.buildable_to and def.liquidtype == "none"
+	if def and def.buildable_to and def.liquidtype == "none" then return true end
+	return liquid_source(node.name) ~= nil
 end
 
 S.node_passable = passable
@@ -201,6 +215,45 @@ local function unknown (pos)
 	return node == nil or node.name == "ignore"
 end
 S.node_unknown = unknown
+
+-- Move the robot node (with everything in it) from one block to the next.
+-- A robot in water is "flooded": it remembers the water source of its block,
+-- puts that water back when it leaves and picks up the water of the block it
+-- enters.
+function S.relocate (from, to, node)
+	local meta = core.get_meta(from)
+	local data = meta:to_table()
+	local persistent = meta:get_int("persist") == 1
+	local entering = liquid_source(core.get_node(to).name) or ""
+	local leaving = data.fields and data.fields.flooded or ""
+
+	if persistent then core.forceload_free_block(from, false) end
+
+	core.set_node(to, node)
+	local moved = core.get_meta(to)
+	moved:from_table(data)
+	moved:set_string("flooded", entering)
+
+	-- removing the old node must not stop the program or free the forceload
+	S.moving = true
+	if leaving ~= "" then
+		core.set_node(from, { name = leaving })
+	else
+		core.remove_node(from)
+	end
+	S.moving = false
+	core.check_for_falling(from)
+
+	-- the forceload follows the robot; past the server's limit it is lost
+	if persistent and core.forceload_block(to, false) == false then
+		moved:set_int("persist", 0)
+	end
+
+	S.on_robot_moved(from, to)
+	S.refresh_structure_timer(to)
+	if S.update_infotext then S.update_infotext(to) end
+	S.refresh_variant(to)
+end
 
 function Bot:move (dir)
 	local node = self:node_info()
@@ -229,26 +282,9 @@ function Bot:move (dir)
 		return false, settings.action_delay
 	end
 
-	local data = meta:to_table()
-
-	if persistent then core.forceload_free_block(from, false) end
-
-	core.set_node(to, node)
-	core.get_meta(to):from_table(data)
-
-	-- removing the old node must not stop the program or free the forceload
-	S.moving = true
-	core.remove_node(from)
-	S.moving = false
-	core.check_for_falling(from)
-
-	-- the forceload follows the robot; past the server's limit it is lost
-	if persistent and core.forceload_block(to, false) == false then
-		core.get_meta(to):set_int("persist", 0)
-	end
+	S.relocate(from, to, node)
 
 	self.pos = to
-	S.on_robot_moved(from, to)
 	return true, settings.move_delay
 end
 
@@ -580,14 +616,16 @@ end
 -- punching: pick up dropped items, or hit an entity
 
 -- objects around the middle of the block in dir: items, other entities
-local function objects_at (pos)
+local function objects_at (pos, hit_players, owner)
 	local items, others = {}, {}
 	for _, obj in ipairs(core.get_objects_inside_radius(pos, 1.25)) do
 		local le = obj:get_luaentity()
 		if le and le.name == "__builtin:item" then
 			items[#items + 1] = obj
-		elseif not obj:is_player() then
-			-- players are never hit by a robot
+		elseif obj:is_player() then
+			-- players are only hit by a robot with the Combat Upgrade (never its owner)
+			if hit_players and obj:get_player_name() ~= owner then others[#others + 1] = obj end
+		else
 			others[#others + 1] = obj
 		end
 	end
@@ -617,7 +655,11 @@ function Bot:punch (dir, item)
 	if self:protected(pos) then return false, delay end
 
 	item = stack_name(item)
-	local items, others = objects_at(pos)
+	-- the Combat Upgrade lets it hit players, for its online owner, where pvp is on
+	local combat = S.has_upgrade(self.pos, "cogwork:upgrade_combat")
+		and core.settings:get_bool("enable_pvp", true) and core.settings:get_bool("enable_damage", true)
+		and self.owner ~= nil and core.get_player_by_name(self.owner) ~= nil
+	local items, others = objects_at(pos, combat, self.owner)
 
 	-- bare hands: pick up what lies there first
 	if not item then

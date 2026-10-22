@@ -74,6 +74,15 @@ action("machine_switch", "world", { DIR8, VAL }, function (ctx, dir, state)
 	return ctx.bot:machine_switch(dir, on)
 end)
 
+-- the robot's own structure: put a part from storage in (armor_mod, augment, cell),
+-- or take one out; a power cell only while another stays (the armor is a player's)
+action("install", "inventory", { VAL, OPTVAL }, function (ctx, slot, item)
+	return ctx.bot:install(lang.tostr(slot), item)
+end)
+action("uninstall", "inventory", { VAL }, function (ctx, slot)
+	return ctx.bot:uninstall(lang.tostr(slot))
+end)
+
 action("craft", "inventory", { VAL }, function (ctx, item)
 	return ctx.bot:craft(item)
 end)
@@ -194,6 +203,14 @@ query("node_stock", "check", { DIR8, OPTVAL }, function (ctx, dir, item)
 end)
 query("height_limit", "check", {}, function (ctx) return ctx.bot:height_limit() end)
 
+-- the robot's structure: power in percent, armor in percent (-1 none), cells, parts
+query("battery_level", "check", {}, function (ctx) return ctx.bot:battery_level() end)
+query("armor_level", "check", {}, function (ctx) return ctx.bot:armor_level() end)
+query("cell_count", "check", {}, function (ctx) return ctx.bot:cell_count() end)
+query("structure_item", "check", { VAL }, function (ctx, slot)
+	return ctx.bot:structure_item(lang.tostr(slot))
+end)
+
 -- name of the entity (not an item or a player) in the block in dir, "" if none
 query("entity", "check", { DIR8 }, function (ctx, dir) return ctx.bot:entity_at(dir) end)
 
@@ -216,5 +233,19 @@ query("random", "check", { VAL }, function (ctx, n)
 	if n < 1 then lang.rt_error(ctx, "'random' needs a number above zero") end
 	return ctx.bot:random(n)
 end)
+
+-- Power an action costs: about 450 of these empty a Small power cell. Queries are
+-- free; what is not listed costs 1.
+local COSTS = {
+	move = 1, turn = 0.5, dig = 2, place = 1, interact = 1, punch = 2, craft = 3,
+	pull = 0.5, pull_stack = 0.5, put = 0.5, put_stack = 0.5, drop = 0.5, drop_stack = 0.5,
+	trash = 0.25, trash_stack = 0.25,
+	chat = 0.2, say = 0.2, whisper = 0.2, tell_bot = 0.2, tell_bots = 0.2,
+	machine_switch = 1, install = 2, uninstall = 2,
+	wait = 0, stop = 0, event_register = 0, event_process = 0, event_leave = 0, path_cancel = 0,
+}
+for name, cost in pairs(COSTS) do
+	if cmds[name] then cmds[name].cost = cost end
+end
 
 return cmds

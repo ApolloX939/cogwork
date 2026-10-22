@@ -39,3 +39,18 @@ cogwork_path_replan (Path re-plan interval) float 5 0.5 120
 
 # How far, in blocks, a robot looks for the entity it was told to walk to
 cogwork_path_entity_radius (Pathfinding entity search radius) float 48 1 200
+
+# Robots that are not running fall to the floor
+cogwork_gravity (Gravity) bool true
+
+# A robot in water floats in it (it can be flooded, like a waterlogged block). When off it sinks to the bottom
+cogwork_robots_can_float (Robots can float) bool true
+
+# How far a stopped robot looks for a floor to fall to, in blocks (none found: it stays where it is)
+cogwork_fall_range (Fall range) int 128 1 1000
+
+# Power a Self-Generator puts into one power cell per interval
+cogwork_generator_amount (Self-Generator power) float 10 1 1000
+
+# Seconds between a Self-Generator's charges (never under 5)
+cogwork_generator_interval (Self-Generator interval) float 5 5 600
