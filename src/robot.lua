@@ -311,7 +311,13 @@ local dig_progress = {}
 local function dig_by_punching (pos, node, puncher, tflp)
 	local def = core.registered_nodes[node.name]
 	local wielded = puncher:get_wielded_item()
-	local params = core.get_dig_params(def and def.groups or {}, wielded:get_tool_capabilities())
+	-- the tool or the bare hand, whichever digs it
+	local groups = def and def.groups or {}
+	local params = core.get_dig_params(groups, wielded:get_tool_capabilities())
+	local hand = core.get_dig_params(groups, ItemStack(""):get_tool_capabilities())
+	if hand.diggable and (not params.diggable or hand.time < params.time) then
+		params, wielded = hand, ItemStack("")
+	end
 	if not params.diggable then return end
 
 	local key = core.hash_node_position(pos)
@@ -321,15 +327,31 @@ local function dig_by_punching (pos, node, puncher, tflp)
 	progress.last = now
 	progress.time = progress.time + math.min(math.max(tflp or 0, 0.2), 1)
 	dig_progress[key] = progress
-	if progress.time < params.time then return end
+	if progress.time < params.time then
+		-- say how far it is (once a second)
+		if now - (progress.said or 0) >= 1 then
+			progress.said = now
+			core.chat_send_player(puncher:get_player_name(),
+				S("Picking up the robot: @1%", math.floor(progress.time / params.time * 100)))
+		end
+		return
+	end
 
 	dig_progress[key] = nil
 	if core.is_protected(pos, puncher:get_player_name()) or not can_dig(pos, puncher) then return end
 	core.node_dig(pos, node, puncher)
-	if not core.is_creative_enabled(puncher:get_player_name()) then
+	if not wielded:is_empty() and not core.is_creative_enabled(puncher:get_player_name()) then
 		wielded:add_wear(params.wear)
 		puncher:set_wielded_item(wielded)
 	end
+end
+
+-- Pick the robot up (the Settings tab button): as if dug, by anyone who may use it
+function cogwork.pick_up (pos, player)
+	local node = core.get_node_or_nil(pos)
+	if not node or not cogwork.is_robot(node.name) then return false end
+	if not can_dig(pos, player) or core.is_protected(pos, player:get_player_name()) then return false end
+	return core.node_dig(pos, node, player) ~= false
 end
 
 -- Punching the robot (its node, or its entity: then `from_entity` and tflp, the time

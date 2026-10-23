@@ -109,7 +109,8 @@ function cogwork.control_start (player, kind, id)
 	end
 
 	local po = player:get_physics_override()
-	states[name] = { kind = kind, id = id, hold = 0, saved = { speed = po.speed, jump = po.jump }, hud_time = 0 }
+	states[name] = { kind = kind, id = id, hold = 0, saved = { speed = po.speed, jump = po.jump }, hud_time = 0,
+		anchor = player:get_pos() }
 	player:set_physics_override({ speed = 0, jump = 0 })
 	if kind == "drive" then cogwork.mark_controlled(id) end
 	core.chat_send_player(name, kind == "drive"
@@ -132,8 +133,26 @@ local function status (st, rp)
 	return S("Robot at @1, power @2%", core.pos_to_string(rp), power) .. fly .. " (" .. S("hold Space + Shift to stop") .. ")"
 end
 
+-- Hold the player where they started. The physics override alone is not enough: a
+-- sprint mod (hbsprint in Skyblock: Zero) sets the speed again whenever it is used.
+local function hold_still (player, st)
+	local po = player:get_physics_override()
+	if po.speed ~= 0 or po.jump ~= 0 then
+		player:set_physics_override({ speed = 0, jump = 0 })
+	end
+	if st.anchor then
+		local pos = player:get_pos()
+		local dx, dz = pos.x - st.anchor.x, pos.z - st.anchor.z
+		if dx * dx + dz * dz > 0.01 or math.abs(pos.y - st.anchor.y) > 0.3 then
+			player:set_pos(st.anchor)
+			player:add_velocity(vector.multiply(player:get_velocity(), -1))
+		end
+	end
+end
+
 -- one step of the keys for the controlling player (st: its state, ctl: its keys)
 function cogwork.control_step (player, st, ctl, dt)
+	hold_still(player, st)
 	if ctl.jump and ctl.sneak then
 		st.hold = st.hold + dt
 		if st.hold >= HOLD then

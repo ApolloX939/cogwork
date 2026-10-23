@@ -819,6 +819,7 @@ local function settings_tab (fs, pos, s)
 	fs[#fs + 1] = ("checkbox[0.5,3;public;%s;%s]"):format(esc(S("Public: anyone can use this robot")), meta:get_int("public") == 1 and "true" or "false")
 	fs[#fs + 1] = ("label[0.5,4.2;%s]"):format(esc(S("Owner: @1", meta:get_string("owner"))))
 	fs[#fs + 1] = ("label[0.5,5;%s]"):format(esc(S("Position: @1", core.pos_to_string(pos))))
+	fs[#fs + 1] = ("button[0.5,8.2;4,0.8;pick_up;%s]"):format(esc(S("Pick up this robot")))
 
 	-- who may go into the robot's room (sneak + right-click)
 	local lock = cogwork.room_lock(pos)
@@ -1231,6 +1232,14 @@ cogwork.on_editor_fields = function (player, formname, fields)
 		end
 		if fields.public ~= nil then
 			meta:set_int("public", fields.public == "true" and 1 or 0)
+		end
+
+		if fields.pick_up then
+			if cogwork.pick_up(pos, player) then
+				s.pos, s.shown = nil, nil
+				core.close_formspec(pname, FORMNAME)
+			end
+			return true
 		end
 
 		local mode = fields.room_lock and cogwork.ROOM_LOCKS[tonumber(fields.room_lock)]

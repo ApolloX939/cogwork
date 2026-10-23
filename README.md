@@ -8,6 +8,8 @@ Works in Minetest Game style games, **Mineclonia**, **VoxeLibre**,
 **Hades Revisited** and **Skyblock: Zero** (the recipe and the `@name` item
 aliases adapt to the game).
 
+Needs Luanti 5.9.0 or newer (`min_minetest_version` in `mod.conf`).
+
 ## Using a robot
 
 Craft a robot, place it (it looks the way you look), right-click it.
@@ -31,7 +33,7 @@ Craft a robot, place it (it looks the way you look), right-click it.
 - **Packages tab**: browse packages, copy one (or your own functions) to a
   disk, install a disk in the robot.
 - **Settings tab**: name, public/private.
-- You point at a robot's model: its hitbox is the shape of the robot, hover pad or drone. Right-click opens it. To pick one up, punch it with a tool that can dig it (a few punches in a row, like digging a block).
+- You point at a robot's model: its hitbox is the shape of the robot, hover pad or drone. Right-click opens it. To pick one up, keep punching it (bare hand or a tool that digs it, a progress message shows), or press **Pick up this robot** in its Settings tab.
 - Sneak + right-click a robot to go into it (see Inside a robot); sneak + punch a running one to stop it.
 - **Cassette**: punch a robot with it to copy its program; sneak + right-click
   a robot to load it; right-click in the air for label and read-only.

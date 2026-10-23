@@ -2388,14 +2388,48 @@ test("forceloading stops when the owner has been offline for a while", function 
 	end)
 end)
 
+test("punching the robot's entity with a bare hand picks it up after a while", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "stop", nil, {})
+	core.get_meta(pos):set_string("owner", "tester")
+	local fake = { get_player_name = function () return "tester" end, is_player = function () return true end,
+		get_wielded_item = function () return ItemStack("") end, set_wielded_item = function () end,
+		get_player_control = function () return {} end }
+	local dug
+	local real = core.node_dig
+	core.node_dig = function (p) dug = p end
+	for _ = 1, 12 do cogwork.robot_punch(pos, fake, true, 0.2) end
+	core.node_dig = real
+	report("punching the robot's entity with a bare hand picks it up after a while", dug ~= nil and vector.equals(dug, pos),
+		tostring(dug and core.pos_to_string(dug)))
+	done()
+end)
+
 -- ---------------------------------------------------------------- controls
+
+test("the Settings tab picks the robot up", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "stop", nil, {})
+	core.get_meta(pos):set_string("owner", "tester")
+	local fake = { get_player_name = function () return "tester" end, is_player = function () return true end }
+	local real = core.node_dig
+	local dug
+	core.node_dig = function (p) dug = p return true end
+	local ok = cogwork.pick_up(pos, fake)
+	core.node_dig = real
+	report("the Settings tab picks the robot up", ok and dug ~= nil and vector.equals(dug, pos))
+	done()
+end)
+
 
 -- a player that is in a room, as far as the controls care
 local function control_player (pos)
 	local fake = { get_player_name = function () return "tester" end, is_player = function () return true end,
 		get_meta = function () return { get_string = function () return "" end, set_string = function () end } end,
 		hud_add = function () return 1 end, hud_change = function () end, hud_remove = function () end,
-		set_physics_override = function () end, get_physics_override = function () return { speed = 1, jump = 1 } end }
+		set_physics_override = function () end, get_physics_override = function () return { speed = 1, jump = 1 } end,
+		get_pos = function () return { x = 0, y = 0, z = 0 } end, set_pos = function () end,
+		get_velocity = function () return { x = 0, y = 0, z = 0 } end, add_velocity = function () end }
 	cogwork.room_enter(pos, fake)
 	return fake, core.get_meta(pos):get_int("room_id")
 end
