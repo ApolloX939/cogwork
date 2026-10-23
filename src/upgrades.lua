@@ -10,6 +10,7 @@
 
 local cogwork = ...
 local S = cogwork.S
+local settings = cogwork.settings
 
 cogwork.UPGRADE_SLOTS = 6
 cogwork.BASE_HEIGHT = 1
@@ -90,6 +91,21 @@ function cogwork.height_limit (pos)
 		if name == HOVER then hovers = hovers + 1 end
 	end
 	return cogwork.BASE_HEIGHT + hovers
+end
+
+-- Power a second the robot at pos uses to stay above the floor: 0 on the floor (or with
+-- no Hover or Flight Upgrade, or fly mode), else a Flight Upgrade or fly mode costs
+-- flight_drain and each Hover Upgrade hover_drain.
+function cogwork.lift_drain (pos)
+	if cogwork.gap_below(pos, 1) < 1 then return 0 end
+	local hovers = 0
+	for _, stack in ipairs(core.get_meta(pos):get_inventory():get_list("upgrades") or {}) do
+		local name = stack:get_name()
+		if name == FLIGHT then return settings.flight_drain end
+		if name == HOVER then hovers = hovers + 1 end
+	end
+	if cogwork.fly_held and cogwork.fly_held(pos) then return settings.flight_drain end
+	return hovers * settings.hover_drain
 end
 
 -- Does the block at pos hold a robot up? Anything it cannot be in does; terrain

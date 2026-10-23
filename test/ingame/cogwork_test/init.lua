@@ -2312,6 +2312,38 @@ test("package disk round trip", function (done)
 	done()
 end)
 
+test("a robot above the floor uses power for hovering and flying", function (done)
+	clear_area()
+	local old_hover, old_flight = cogwork.settings.hover_drain, cogwork.settings.flight_drain
+	cogwork.settings.hover_drain, cogwork.settings.flight_drain = 0.3, 1
+	core.set_node(P(0, 0, 0), { name = material })
+	local grounded = make_robot(P(0, 1, 0), "stop", nil, { "cogwork:upgrade_flight" })
+	local high = make_robot(P(3, 5, 0), "stop", nil, { "cogwork:upgrade_hover", "cogwork:upgrade_hover" })
+	local flying = make_robot(P(6, 5, 0), "stop", nil, { "cogwork:upgrade_flight" })
+	local bare = make_robot(P(9, 5, 0), "stop", nil, {})
+	local ok = cogwork.lift_drain(grounded) == 0 and math.abs(cogwork.lift_drain(high) - 0.6) < 1e-6
+		and cogwork.lift_drain(flying) == 1 and cogwork.lift_drain(bare) == 0
+	cogwork.settings.hover_drain, cogwork.settings.flight_drain = old_hover, old_flight
+	report("a robot above the floor uses power for hovering and flying", ok)
+	done()
+end)
+
+test("a robot draws power from the chosen cell first", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "stop", nil, {})
+	local inv = inv_of(pos)
+	local a = ItemStack("cogwork:cell_small"); cogwork.set_cell_charge(a, 100); inv:set_stack("cells", 1, a)
+	local b = ItemStack("cogwork:cell_small"); cogwork.set_cell_charge(b, 100); inv:set_stack("cells", 2, b)
+	cogwork.spend(pos, 10)
+	local first = cell_charge(pos, 1) == 90 and cell_charge(pos, 2) == 100
+	core.get_meta(pos):set_int("cell_active", 2)
+	cogwork.spend(pos, 10)
+	local second = cell_charge(pos, 1) == 90 and cell_charge(pos, 2) == 90
+	report("a robot draws power from the chosen cell first", first and second,
+		("%s %s"):format(cell_charge(pos, 1), cell_charge(pos, 2)))
+	done()
+end)
+
 -- ---------------------------------------------------------------- controls
 
 -- a player that is in a room, as far as the controls care

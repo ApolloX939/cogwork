@@ -297,6 +297,8 @@ local function inventory_changed (pos, listname)
 		cogwork.sync_storage(pos)
 	end
 	cogwork.structure_changed(pos, listname)
+	-- an editor open on the robot shows what is in the slots now
+	cogwork.editor_refresh(pos)
 end
 local function on_inventory_put (pos, listname) inventory_changed(pos, listname) end
 local function on_inventory_take (pos, listname) inventory_changed(pos, listname) end

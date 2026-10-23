@@ -163,6 +163,17 @@ function cogwork.control_step (player, st, ctl, dt)
 		if moved then cogwork.camera_set(rp, st.id, yaw, pitch) end
 	else
 		cogwork.mark_controlled(st.id)
+		-- fly mode (or an upgrade) keeps it up: that costs power
+		st.since = (st.since or 0) + dt
+		if st.since >= 0.5 then
+			local drain = cogwork.lift_drain(rp)
+			local owed = st.since
+			st.since = 0
+			if drain > 0 and not cogwork.spend(rp, drain * owed) then
+				cogwork.control_stop(player, S("Out of power: every power cell is empty"))
+				return
+			end
+		end
 		local kind, dir
 		if ctl.up then kind, dir = "move", "forward"
 		elseif ctl.down then kind, dir = "move", "back"

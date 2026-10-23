@@ -25,7 +25,9 @@ Craft a robot, place it (it looks the way you look), right-click it.
   Edit it there and press Apply.
 - **Storage tab**: the robot's storage, 8 x 2 slots, 4 more for every Storage Upgrade (up to 40).
 - **Structure tab**: armor, armor modification, power cells, power augmentation and
-  the six upgrade slots (see below).
+  the six upgrade slots (see below). The text beside the slots follows what you put
+  in or take out, and the charge as it changes. The **Draw from it** buttons choose
+  which of the two cells the robot draws power from first (the other when that one is empty).
 - **Packages tab**: browse packages, copy one (or your own functions) to a
   disk, install a disk in the robot.
 - **Settings tab**: name, public/private.
@@ -272,7 +274,11 @@ be 1 block above the floor, the nearest block that is not free below it (`move`
 refuses to go higher, and so does the pathfinder, which plans within the same
 limit). A **Hover Upgrade** adds a block each (up to 7 with six), a **Flight
 Upgrade** removes the limit. `height_limit` is the allowed number of blocks, `-1`
-when flying. Robots placed before upgrades existed get their slots when the
+when flying. A robot **above the floor** (not standing on it) uses power while it runs:
+`cogwork_hover_drain` (0.3) a second for every Hover Upgrade, `cogwork_flight_drain`
+(1) with a Flight Upgrade or controller fly mode; the program stops when the cells are
+empty. A Self-Generator gives 0.6 a second, so it keeps one or two Hover Upgrades
+up but not a Flight Upgrade. Robots placed before upgrades existed get their slots when the
 Structure tab is opened, and fall under the limit like any other.
 
 A robot with a **Flight Upgrade** looks like a drone (its own model; it changes
@@ -314,7 +320,7 @@ slot, two **power cell** slots and one **power augmentation** slot.
   fills the cells at once and keeps them full, free power. The **Self-Generator**
   (very, very, very expensive: a Colossal cell wrapped in emittrium and
   antimatter, or six diamonds) charges **one** cell, the first that is not full,
-  by `cogwork_generator_amount` (10) every `cogwork_generator_interval` (5, at
+  by `cogwork_generator_amount` (3) every `cogwork_generator_interval` (5, at
   least 5) seconds, also while the robot is off.
 - **Combat Upgrade** (an upgrade slot part, somewhat expensive): `punch` may hit
   players, never the owner, only where pvp and damage are on and with the owner

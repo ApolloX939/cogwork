@@ -229,6 +229,18 @@ function cogwork.cannot_run (pos)
 	if not cogwork.has_power(pos) then return S("Out of power: every power cell is empty") end
 end
 
+-- The cell the robot draws power from first (chosen in the Structure tab; the other one
+-- when that slot holds no cell).
+function cogwork.active_cell (pos)
+	local want = core.get_meta(pos):get_int("cell_active")
+	if want ~= 2 then want = 1 end
+	local inv = inv_of(pos)
+	if cogwork.cell_info(inv:get_stack("cells", want)) then return want end
+	local other = want == 1 and 2 or 1
+	if cogwork.cell_info(inv:get_stack("cells", other)) then return other end
+	return want
+end
+
 -- Use power. With a Creative Capacitor it is free. When there is not enough, the
 -- cells are emptied and this is false: the robot stops.
 function cogwork.spend (pos, amount)
@@ -240,6 +252,12 @@ function cogwork.spend (pos, amount)
 
 	local inv = inv_of(pos)
 	local cells = cogwork.cells_of(pos)
+	-- the chosen cell first
+	local first = cogwork.active_cell(pos)
+	table.sort(cells, function (a, b)
+		if (a.index == first) ~= (b.index == first) then return a.index == first end
+		return a.index < b.index
+	end)
 	local left = amount
 	for _, cell in ipairs(cells) do
 		local take = math.min(cell.charge, left)

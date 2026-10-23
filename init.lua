@@ -24,7 +24,10 @@ cogwork.settings = {
 	can_float = core.settings:get_bool("cogwork_robots_can_float", core.settings:get_bool("robots_can_float", true)),
 	fall_range = math.max(1, math.floor(tonumber(core.settings:get("cogwork_fall_range")) or 128)),
 	-- the Self-Generator charges one cell by generator_amount every generator_interval seconds
-	generator_amount = math.max(1, tonumber(core.settings:get("cogwork_generator_amount")) or 10),
+	generator_amount = math.max(1, tonumber(core.settings:get("cogwork_generator_amount")) or 3),
+	-- power a second a robot uses while it is above the floor: per Hover Upgrade, flying
+	hover_drain = math.max(0, tonumber(core.settings:get("cogwork_hover_drain")) or 0.3),
+	flight_drain = math.max(0, tonumber(core.settings:get("cogwork_flight_drain")) or 1),
 	generator_interval = math.max(5, tonumber(core.settings:get("cogwork_generator_interval")) or 5),
 	-- the viewscreen inside a robot: picture size, how far it sees, seconds between pictures
 	view_width = math.max(16, math.floor(tonumber(core.settings:get("cogwork_view_width")) or 64)),

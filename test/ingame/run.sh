@@ -27,7 +27,7 @@ for m in $EXTRA_MODS; do
     EXTRA_LOAD="${EXTRA_LOAD}load_mod_$m = true\n"
 done
 printf 'gameid = %s\nbackend = sqlite3\nmod_storage_backend = sqlite3\nauth_backend = sqlite3\nplayer_backend = sqlite3\nload_mod_cogwork = true\nload_mod_cogwork_test = true\n'"$EXTRA_LOAD" "$GAME" > "$WORK/world/world.mt"
-printf 'server_announce = false\nmg_name = singlenode\nenable_damage = false\nmax_forceloaded_blocks = 200\ncogwork_move_delay = 0.1\ncogwork_action_delay = 0.1\n' > "$WORK/minetest.conf"
+printf 'server_announce = false\nmg_name = singlenode\nenable_damage = false\nmax_forceloaded_blocks = 200\ncogwork_move_delay = 0.1\ncogwork_action_delay = 0.1\ncogwork_hover_drain = 0\ncogwork_flight_drain = 0\ncogwork_generator_amount = 10\n' > "$WORK/minetest.conf"
 [ "$GAME" = skyblock_zero ] && cat "$SERVER/data/minetest.conf" | grep -v '^mg_\|^server_announce\|^map-dir' >> "$WORK/minetest.conf" || true
 
 docker run --rm --user 1000:1000 ${SBT_TRACE:+-e SBT_TRACE=1} \

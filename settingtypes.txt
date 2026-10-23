@@ -50,7 +50,13 @@ cogwork_robots_can_float (Robots can float) bool true
 cogwork_fall_range (Fall range) int 128 1 1000
 
 # Power a Self-Generator puts into one power cell per interval
-cogwork_generator_amount (Self-Generator power) float 10 1 1000
+cogwork_generator_amount (Self-Generator power) float 3 1 1000
+
+# Power a second a running robot uses while it is above the floor: for every Hover Upgrade
+cogwork_hover_drain (Hover power use) float 0.3 0 100
+
+# ... and with a Flight Upgrade (or fly mode on the controller)
+cogwork_flight_drain (Flight power use) float 1 0 100
 
 # Seconds between a Self-Generator's charges (never under 5)
 cogwork_generator_interval (Self-Generator interval) float 5 5 600

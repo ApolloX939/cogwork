@@ -2,6 +2,7 @@
 
 local cogwork = ...
 local lang, compat, settings = cogwork.lang, cogwork.compat, cogwork.settings
+local S = cogwork.S
 
 local running = {}   -- pos hash -> run record
 cogwork.running = running
@@ -126,10 +127,19 @@ core.register_globalstep(function (dt)
 		else
 			-- armor taken out, cells run dry: stop (and stay off)
 			r.check = (r.check or 0) - dt
+			r.since = (r.since or 0) + dt
 			local why
 			if r.check <= 0 then
 				r.check = 0.5
 				why = cogwork.cannot_run(pos)
+				if not why then
+					-- staying above the floor costs power (hover and flight upgrades)
+					local drain = cogwork.lift_drain(pos)
+					if drain > 0 and not cogwork.spend(pos, drain * r.since) then
+						why = S("Out of power: every power cell is empty")
+					end
+				end
+				r.since = 0
 				if why then cogwork.stop(pos, why) end
 			end
 

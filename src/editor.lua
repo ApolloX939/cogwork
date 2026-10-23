@@ -690,10 +690,19 @@ local function structure_lines (pos)
 	return lines
 end
 
+-- what the side text of the Structure tab says, in one string (to see it changed)
+function cogwork.structure_signature (pos)
+	local lines = structure_lines(pos)
+	return table.concat({ lines.armor, lines.armor_worn, lines.mod, lines.cells[1], lines.cells[2], lines.augment,
+		lines.why or "", cogwork.height_text(pos), tostring(cogwork.active_cell(pos)) }, "|")
+end
+
 local function structure_tab (fs, pos, s)
 	cogwork.ensure_structure(pos)
 	local spos = pos.x .. "," .. pos.y .. "," .. pos.z
 	local lines = structure_lines(pos)
+	s.signature = cogwork.structure_signature(pos)
+	local active = cogwork.active_cell(pos)
 
 	fs[#fs + 1] = ("label[0.6,1.0;%s]"):format(esc(S("Armor")))
 	fs[#fs + 1] = slot_bg(0.6, 1.3, 1, 1)
@@ -709,8 +718,12 @@ local function structure_tab (fs, pos, s)
 	fs[#fs + 1] = ("label[0.6,5.0;%s]"):format(esc(S("Power cells")))
 	fs[#fs + 1] = slot_bg(0.6, 5.3, 2, 1)
 	fs[#fs + 1] = ("list[nodemeta:%s;cells;0.6,5.3;2,1;]"):format(spos)
-	fs[#fs + 1] = ("label[3.4,5.6;%s]"):format(esc(lines.cells[1]))
-	fs[#fs + 1] = ("label[3.4,6.1;%s]"):format(esc(lines.cells[2]))
+	-- the cell the robot draws its power from first (the other one when it is empty)
+	for i = 1, 2 do
+		fs[#fs + 1] = ("label[3.4,%g;%s]"):format(5.45 + (i - 1) * 0.65, esc(lines.cells[i]))
+		fs[#fs + 1] = ("button[6.4,%g;2.8,0.55;cell_use_%d;%s]"):format(5.2 + (i - 1) * 0.65, i,
+			esc(active == i and S("Drawing from it") or S("Draw from it")))
+	end
 
 	fs[#fs + 1] = ("label[0.6,7.0;%s]"):format(esc(S("Power augmentation")))
 	fs[#fs + 1] = slot_bg(0.6, 7.3, 1, 1)
@@ -926,6 +939,42 @@ function cogwork.show_editor (pos, player)
 	s.shown = FORMNAME
 	core.show_formspec(player:get_player_name(), FORMNAME, cogwork.formspec(pos, s))
 end
+
+-- Parts went in or out of the robot, or its power changed: the Storage and Structure tabs
+-- open on it are drawn again (the side text shows what is in the slots).
+local function redraw_later (name, s, delay)
+	s.redraw = (s.redraw or 0) + 1
+	local token = s.redraw
+	core.after(delay, function ()
+		local player = core.get_player_by_name(name)
+		if not player or s.redraw ~= token or not s.pos or s.shown ~= FORMNAME then return end
+		cogwork.show_editor(s.pos, player)
+	end)
+end
+
+function cogwork.editor_refresh (pos)
+	for name, s in pairs(sessions) do
+		if s.pos and vector.equals(s.pos, pos) and s.shown == FORMNAME and (s.tab == "structure" or s.tab == "storage") then
+			redraw_later(name, s, 0.05)
+		end
+	end
+end
+
+-- a charge that changed while the Structure tab is open (the generator, the repair module)
+local refresh_clock = 0
+core.register_globalstep(function (dt)
+	refresh_clock = refresh_clock + dt
+	if refresh_clock < 2 then return end
+	refresh_clock = 0
+	for name, s in pairs(sessions) do
+		if s.pos and s.shown == FORMNAME and s.tab == "structure" and s.signature then
+			local node = core.get_node_or_nil(s.pos)
+			if node and cogwork.is_robot(node.name) and cogwork.structure_signature(s.pos) ~= s.signature then
+				redraw_later(name, s, 0)
+			end
+		end
+	end
+end)
 
 -- The robot moved: the windows open on it follow it. The slots in the window are
 -- tied to the place, so an editor left where it was would show empty lists. A program
@@ -1161,6 +1210,16 @@ cogwork.on_editor_fields = function (player, formname, fields)
 			s.msg = S("Removed '@1'.", s.pkg)
 		end
 
+		cogwork.show_editor(pos, player)
+		return true
+	end
+
+	if s.tab == "structure" then
+		for i = 1, 2 do
+			if fields["cell_use_" .. i] then
+				core.get_meta(pos):set_int("cell_active", i)
+			end
+		end
 		cogwork.show_editor(pos, player)
 		return true
 	end

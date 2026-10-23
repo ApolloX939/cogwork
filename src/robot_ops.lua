@@ -182,6 +182,9 @@ function Bot:turn (dir)
 
 	local p2 = core.dir_to_facedir(V.multiply(new, -1))
 	core.swap_node(self.pos, { name = node.name, param2 = p2 })
+	-- the robot you see turns now (it was only refreshed by other events: a turn showed
+	-- late, two turns together, or not at all)
+	cogwork.update_visual(self.pos)
 	return true, settings.action_delay
 end
 
