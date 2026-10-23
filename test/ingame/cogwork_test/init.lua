@@ -525,6 +525,20 @@ test("the viewscreen shows a block dug since the last picture, at once", functio
 	done()
 end)
 
+test("Skyblock: Zero's fall-off teleport leaves players inside a room alone", function (done)
+	local api = rawget(_G, "sbz_api")
+	if not (api and api.activate_safetynet) then
+		report("Skyblock: Zero's fall-off teleport leaves players inside a room alone", true, "not Skyblock: Zero")
+		return done()
+	end
+	local o = cogwork.room_origin(1)
+	local inside = api.activate_safetynet("tester", { x = o.x + 7, y = o.y + 1, z = o.z + 7 })
+	local outside = api.activate_safetynet("tester", { x = 0, y = -500, z = 0 })
+	report("Skyblock: Zero's fall-off teleport leaves players inside a room alone",
+		inside == false and outside == true, ("inside=%s outside=%s"):format(tostring(inside), tostring(outside)))
+	done()
+end)
+
 -- ---------------------------------------------------------------- pathfinding
 
 local function goto_program (target, extra)

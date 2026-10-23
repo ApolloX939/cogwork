@@ -512,3 +512,18 @@ cogwork.room_occupants = occupants
 cogwork.room_prepare = ready            -- the chamber exists and is built, then call back
 cogwork.room_open_view = watch          -- draw the screen of a room
 cogwork.room_next = function () return reg.next end
+
+--------------------------------------------------------------------------
+-- Skyblock: Zero sends every player below y -300 back to the core (the "you fell off
+-- the platform" safety net), and the rooms are far below that. Its own room
+-- container mod exempts its rooms by wrapping sbz_api.activate_safetynet (false: leave
+-- the player alone); so do we, once every mod has loaded (our wrapper goes on top).
+core.register_on_mods_loaded(function ()
+	local api = rawget(_G, "sbz_api")
+	if not (api and api.activate_safetynet) then return end
+	local previous = api.activate_safetynet
+	api.activate_safetynet = function (player_name, pos)
+		if pos and cogwork.room_at(pos) then return false end
+		return previous(player_name, pos)
+	end
+end)
