@@ -204,11 +204,16 @@ local function after_place_node (pos, placer, itemstack)
 		cogwork.room_robot_at(room, pos)
 	end
 
+	-- A robot dug up takes everything in it along (storage, armor, cells, augmentation,
+	-- upgrades, disk), and puts it back when it is placed.
+	local saved = imeta:get_string("inventory")
+	local restored = saved ~= "" and cogwork.restore_inventory(pos, saved)
+
 	-- A robot item that was never placed (crafted, /give, creative) comes with a Basic
 	-- Armor and a full Small cell. From the first placement on the robot is marked
 	-- no_emc, and so is the item it is dug into: it carries parts that cost nothing, so it
 	-- must not be turned into EMC, and placing it again gives nothing more.
-	if imeta:get_string("no_emc") ~= "true" then
+	if not restored and imeta:get_string("no_emc") ~= "true" then
 		local inv = meta:get_inventory()
 		inv:set_stack("armor", 1, ItemStack("cogwork:armor_basic"))
 		inv:set_stack("cells", 1, ItemStack("cogwork:cell_small"))
@@ -216,6 +221,12 @@ local function after_place_node (pos, placer, itemstack)
 	meta:set_string("no_emc", "true")
 
 	meta:set_string("infotext", display_name(meta))
+	if restored then
+		-- the upgrades decide the model and the storage size, the structure the clock
+		cogwork.sync_storage(pos)
+		cogwork.refresh_structure_timer(pos)
+		cogwork.refresh_variant(pos)
+	end
 
 	if imeta:get_int("persist") == 1 then
 		local ok, why = cogwork.set_persist(pos, true)
@@ -224,11 +235,57 @@ local function after_place_node (pos, placer, itemstack)
 	cogwork.ensure_visual(pos)
 end
 
+-- The lists of a robot, to and from a string (an item's metadata). Each stack keeps its
+-- own metadata: the charge of a cell, the wear of an armor.
+local SAVED_LISTS = { "main", "armor", "armor_mod", "cells", "augment", "upgrades", "disk" }
+local MAX_SAVED = 60000          -- longer than this does not fit an item's metadata
+
+local function save_inventory (pos)
+	local inv = core.get_meta(pos):get_inventory()
+	local saved, empty = {}, true
+	for _, list in ipairs(SAVED_LISTS) do
+		local items = {}
+		for i, stack in ipairs(inv:get_list(list) or {}) do
+			items[i] = stack:to_string()
+			if not stack:is_empty() then empty = false end
+		end
+		saved[list] = items
+	end
+	if empty then return "" end
+	local text = core.serialize(saved)
+	return #text <= MAX_SAVED and text or nil
+end
+
+-- Put a saved inventory in the robot at pos; false when it cannot be read.
+function cogwork.restore_inventory (pos, text)
+	local saved = core.deserialize(text)
+	if type(saved) ~= "table" then return false end
+	local inv = core.get_meta(pos):get_inventory()
+	for _, list in ipairs(SAVED_LISTS) do
+		local items = saved[list]
+		if type(items) == "table" then
+			if inv:get_size(list) < #items then inv:set_size(list, #items) end
+			for i = 1, inv:get_size(list) do
+				inv:set_stack(list, i, ItemStack(items[i] or ""))
+			end
+		end
+	end
+	return true
+end
+
+local carried = {}      -- hash of a position -> its contents went into the item
+
 local function preserve_metadata (pos, oldnode, oldmeta, drops)
 	local stack = drops[1]
 	if not stack then return end
 	local imeta = stack:get_meta()
 	local fields = oldmeta.fields or oldmeta
+
+	local saved = save_inventory(pos)
+	if saved then
+		if saved ~= "" then imeta:set_string("inventory", saved) end
+		carried[core.hash_node_position(pos)] = true
+	end
 
 	for _, key in ipairs({ "program", "bot_name", "packages", "bot_allow", "room_lock" }) do
 		if fields[key] and fields[key] ~= "" then imeta:set_string(key, fields[key]) end
@@ -249,6 +306,12 @@ end
 -- whatever was inside comes out with the robot
 local function after_dig_node (pos, oldnode, oldmetadata, digger)
 	cogwork.restore_water(pos, oldmetadata and oldmetadata.fields)
+	-- the contents went into the item (unless there were too many to fit)
+	local key = core.hash_node_position(pos)
+	if carried[key] then
+		carried[key] = nil
+		return
+	end
 	local lists = oldmetadata and oldmetadata.inventory or {}
 	for _, list in pairs(lists) do
 		for _, item in pairs(list) do

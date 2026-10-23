@@ -16,6 +16,7 @@
 
 local cogwork = ...
 local settings = cogwork.settings
+local S = cogwork.S
 local png = assert(loadfile(cogwork.modpath .. "/src/png.lua"))()
 
 local floor, abs, huge = math.floor, math.abs, math.huge
@@ -504,6 +505,55 @@ function cogwork.view_set (pos, texture, size)
 end
 
 --------------------------------------------------------------------------
+-- the line under the screen: where the robot is and which way the camera looks
+
+local COMPASS = {
+	{ "N", "+Z" }, { "NE", "+X +Z" }, { "E", "+X" }, { "SE", "+X -Z" },
+	{ "S", "-Z" }, { "SW", "-X -Z" }, { "W", "-X" }, { "NW", "-X +Z" },
+}
+
+-- "N (+Z), level" for a viewing direction (north is +Z, east +X)
+function cogwork.direction_text (front)
+	if front.x * front.x + front.z * front.z < 1e-6 then
+		return front.y > 0 and "straight up" or "straight down"
+	end
+	local bearing = math.deg(math.atan2(front.x, front.z))
+	local at = COMPASS[(math.floor((bearing + 22.5) / 45) % 8) + 1]
+	local pitch = math.floor(math.deg(math.asin(math.max(-1, math.min(1, front.y or 0)))) + 0.5)
+	local tilt = pitch > 2 and ("up %d°"):format(pitch) or (pitch < -2 and ("down %d°"):format(-pitch) or "level")
+	return ("%s (%s), %s"):format(at[1], at[2], tilt)
+end
+
+function cogwork.view_info_text (pos, front)
+	-- plain text: a nametag is not translated for each player
+	return ("Robot at %d, %d, %d  |  Looking %s"):format(pos.x, pos.y, pos.z, cogwork.direction_text(front))
+end
+
+core.register_entity("cogwork:screen_text", {
+	initial_properties = {
+		visual = "sprite", textures = { "blank.png" }, visual_size = { x = 0.01, y = 0.01 },
+		physical = false, pointable = false, static_save = false,
+		nametag = "", nametag_color = "#ffffff", nametag_bgcolor = "#000000b0",
+	},
+})
+
+-- the text under the screen at screen_pos (made when there is none)
+function cogwork.view_info (screen_pos, text)
+	local at = { x = screen_pos.x, y = screen_pos.y - 4.05, z = screen_pos.z - 0.06 }
+	local found
+	for _, obj in ipairs(core.get_objects_inside_radius(at, 0.5)) do
+		local le = obj:get_luaentity()
+		if le and le.name == "cogwork:screen_text" then found = obj end
+	end
+	found = found or core.add_entity(at, "cogwork:screen_text")
+	local le = found and found:get_luaentity()
+	if le and le.text ~= text then
+		le.text = text
+		found:set_properties({ nametag = text })
+	end
+end
+
+--------------------------------------------------------------------------
 -- the rooms being watched: each has a screen position and a way to find its robot
 
 local watched = {}     -- room id -> { screen = pos, robot = function () -> pos, front, job, due }
@@ -558,13 +608,16 @@ core.register_globalstep(function (dt)
 				w.remembers = w.remembers or {}
 				w.job = cogwork.view_job(pos, front, w.remembers)
 				w.started = now
+				w.info = cogwork.view_info_text(pos, front)
 			else
 				cogwork.view_set(w.screen, cogwork.view_static(), w.size)
+				cogwork.view_info(w.screen, "No signal")
 				w.due = now + settings.view_interval
 			end
 		end
 		if w.job and cogwork.view_step(w.job, each) then
 			cogwork.view_set(w.screen, cogwork.view_texture(w.job), w.size)
+			cogwork.view_info(w.screen, w.info or "")
 			w.job = nil
 			-- the interval counts from the start of the picture
 			w.due = w.started + settings.view_interval

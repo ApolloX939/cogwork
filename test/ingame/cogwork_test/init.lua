@@ -2049,11 +2049,12 @@ test("a new robot comes with armor and a cell, and is marked no_emc", function (
 	node.preserve_metadata(pos, { name = "cogwork:robot" }, { fields = { no_emc = "true" }, inventory = {} }, { drop })
 	local marked = drop:get_meta():get_string("no_emc") == "true"
 
-	-- placed again: nothing more is given
+	-- placed again: what it carried is back, and nothing new is given (one armor, one cell)
 	local pos2 = P(3, 1, 0)
 	core.set_node(pos2, { name = "cogwork:robot" })
+	node.on_construct(pos2)
 	node.after_place_node(pos2, nil, drop)
-	local again = not cogwork.has_armor(pos2) and #cogwork.cells_of(pos2) == 0 and core.get_meta(pos2):get_string("no_emc") == "true"
+	local again = cogwork.has_armor(pos2) and #cogwork.cells_of(pos2) == 1 and core.get_meta(pos2):get_string("no_emc") == "true"
 	report("a new robot comes with armor and a cell, and is marked no_emc", fresh and marked and again,
 		tostring(fresh) .. " " .. tostring(marked) .. " " .. tostring(again))
 	done()
@@ -2406,6 +2407,81 @@ test("punching the robot's entity with a bare hand picks it up after a while", f
 end)
 
 -- ---------------------------------------------------------------- controls
+
+test("the line under the viewscreen gives the position and the looking direction", function (done)
+	local function has (front, text) return cogwork.direction_text(front):find(text, 1, true) ~= nil end
+	local ok = has({ x = 0, y = 0, z = 1 }, "N (+Z)") and has({ x = 1, y = 0, z = 0 }, "E (+X)")
+		and has({ x = 0, y = 0, z = -1 }, "S (-Z)") and has({ x = -1, y = 0, z = 0 }, "W (-X)")
+		and has({ x = 0.7, y = 0, z = 0.7 }, "NE") and has({ x = 0, y = 0.5, z = 0.87 }, "up 30")
+	local text = cogwork.view_info_text({ x = 3, y = 40, z = -5 }, { x = 0, y = 0, z = 1 })
+	local screen = { x = 0, y = 41, z = 0 }
+	cogwork.view_info(screen, text)
+	local shown
+	for _, obj in ipairs(core.get_objects_inside_radius({ x = 0, y = 41 - 4.05, z = -0.06 }, 0.5)) do
+		local le = obj:get_luaentity()
+		if le and le.name == "cogwork:screen_text" then shown = obj:get_properties().nametag end
+	end
+	report("the line under the viewscreen gives the position and the looking direction",
+		ok and shown == text and text:find("3, 40, -5", 1, true), tostring(shown))
+	done()
+end)
+
+
+test("a robot takes its inventory along in its item and puts it back when placed", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "stop", nil, { "cogwork:upgrade_storage", "cogwork:upgrade_hover" })
+	local meta = core.get_meta(pos)
+	meta:set_string("no_emc", "true")
+	local inv = inv_of(pos)
+	local cell = ItemStack("cogwork:cell_small"); cogwork.set_cell_charge(cell, 123); inv:set_stack("cells", 1, cell)
+	inv:set_stack("armor_mod", 1, ItemStack("cogwork:armor_mod_repair"))
+	inv:set_stack("main", 20, ItemStack(material .. " 7"))
+	local armor_before = inv:get_stack("armor", 1):to_string()
+	local def = core.registered_nodes[core.get_node(pos).name]
+	local drops = { ItemStack("cogwork:robot") }
+	def.preserve_metadata(pos, core.get_node(pos), meta:to_table(), drops)
+	local carried = drops[1]:get_meta():get_string("inventory") ~= ""
+
+	local placed = P(5, 1, 0)
+	core.set_node(placed, { name = "cogwork:robot" })
+	def.on_construct(placed)
+	def.after_place_node(placed, nil, drops[1])
+	local back = inv_of(placed)
+	local ok = cogwork.cell_info(back:get_stack("cells", 1)) == 123
+		and back:get_stack("armor_mod", 1):get_name() == "cogwork:armor_mod_repair"
+		and back:get_stack("main", 20):get_count() == 7
+		and back:get_stack("upgrades", 1):get_name() == "cogwork:upgrade_storage"
+		and back:get_size("main") == 20
+		and back:get_stack("armor", 1):to_string() == armor_before      -- no new starter armor
+		and back:get_stack("cells", 2):is_empty()
+	report("a robot takes its inventory along in its item and puts it back when placed", carried and ok,
+		("carried=%s cell=%s size=%d armor=%s"):format(tostring(carried), tostring(cogwork.cell_info(back:get_stack("cells", 1))), back:get_size("main"), back:get_stack("armor", 1):get_name()))
+	done()
+end)
+
+
+test("a player inside a room sees the robot's slots through a copy of its inventory", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "stop", nil, {})
+	inv_of(pos):set_stack("main", 1, ItemStack(material .. " 5"))
+	local fake = { get_player_name = function () return "tester" end, is_player = function () return true end,
+		get_meta = function () return { get_string = function () return "" end, set_string = function () end } end }
+	local outside = cogwork.inventory_location(pos, fake)
+	cogwork.room_enter(pos, fake)
+	-- the room-of-player check reads the player's meta: stand in for a player inside
+	fake.get_meta = function () return { get_string = function () return tostring(core.get_meta(pos):get_int("room_id")) end, set_string = function () end } end
+	local inside = cogwork.inventory_location(pos, fake)
+	local det = core.get_inventory({ type = "detached", name = "cogwork_ed_tester" })
+	local copy_ok = det and det:get_stack("main", 1):get_name() == material and det:get_size("upgrades") == cogwork.UPGRADE_SLOTS
+	inv_of(pos):set_stack("main", 2, ItemStack(material))
+	local changed = cogwork.proxy_changed(fake)
+	local same = det:get_stack("main", 2):get_name() == material
+	report("a player inside a room sees the robot's slots through a copy of its inventory",
+		outside:find("^nodemeta:") and inside == "detached:cogwork_ed_tester" and copy_ok and changed and same,
+		("%s %s %s %s %s"):format(outside, inside, tostring(copy_ok), tostring(changed), tostring(same)))
+	done()
+end)
+
 
 test("the Settings tab picks the robot up", function (done)
 	clear_area()

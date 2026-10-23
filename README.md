@@ -388,8 +388,17 @@ comes out where the robot stood if it is dug.
   per server step, only while somebody is inside, every `cogwork_view_interval`
   seconds (2), `cogwork_view_width` x `cogwork_view_height` (64 x 40) pixels, and
   put on a screen entity as a `[png:` texture, the way ggraffiti draws its
-  canvases. It works next to ggraffiti: its screen is its own entity, and the
+  canvases. A line under the screen gives the robot's place and the way the camera
+  looks (north is +Z, east +X, south -Z, west -X; with the camera's tilt). It works next to ggraffiti: its screen is its own entity, and the
   room is protected, so nobody sprays on the walls.
+- A robot dug up takes its whole inventory along in its item (storage, armor, cells with
+  their charge, augmentation, upgrades, disk) and has it back when placed: nothing is
+  handed out when it is dug, and placing it gives no new armor or cell. (Contents too
+  big for an item are handed to the digger as before.)
+- The slots in the chest, bay and terminal windows are a copy of the robot's inventory
+  made for you (the game only knows the robot's own slots near it, and the room is far
+  away); what you move is checked by the robot's rules and done in the robot, and the
+  window follows the robot when a program moves items or the cells run down.
 - **Chest**: the robot's storage. **Structure bay**: armor, cells, augmentation and
   upgrades. **Terminal**: the program, to program a robot in peace. **Settings
   panel**: name, public, the allow list and the entrance lock. (All four are the

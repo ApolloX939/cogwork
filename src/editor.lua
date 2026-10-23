@@ -646,20 +646,20 @@ end
 
 -- Returns the height the window needs: the storage grows with Storage Upgrades.
 local function storage_tab (fs, pos, s)
-	local spos = pos.x .. "," .. pos.y .. "," .. pos.z
+	local spos = cogwork.inventory_location(pos, s.player)
 	cogwork.sync_storage(pos)
 	local size = core.get_meta(pos):get_inventory():get_size("main")
 	local rows = math.max(1, math.ceil(size / 8))
 
 	fs[#fs + 1] = ("label[0.4,1.0;%s]"):format(esc(S("Robot storage: @1 slots (a Storage Upgrade adds @2)", size, cogwork.STORAGE_PER_UPGRADE)))
 	fs[#fs + 1] = slot_bg(0.4, 1.3, 8, rows)
-	fs[#fs + 1] = ("list[nodemeta:%s;main;0.4,1.3;8,%d;]"):format(spos, rows)
+	fs[#fs + 1] = ("list[%s;main;0.4,1.3;8,%d;]"):format(spos, rows)
 
 	local inv_y = 1.3 + rows * 1.25 + 0.5
 	fs[#fs + 1] = ("label[0.4,%g;%s]"):format(inv_y, esc(S("Inventory")))
 	fs[#fs + 1] = slot_bg(0.4, inv_y + 0.3, 8, 4)
 	fs[#fs + 1] = ("list[current_player;main;0.4,%g;8,4;]"):format(inv_y + 0.3)
-	fs[#fs + 1] = ("listring[nodemeta:%s;main]listring[current_player;main]"):format(spos)
+	fs[#fs + 1] = ("listring[%s;main]listring[current_player;main]"):format(spos)
 	return math.max(12.2, inv_y + 0.3 + 5.0 + 0.4)
 end
 
@@ -699,25 +699,25 @@ end
 
 local function structure_tab (fs, pos, s)
 	cogwork.ensure_structure(pos)
-	local spos = pos.x .. "," .. pos.y .. "," .. pos.z
+	local spos = cogwork.inventory_location(pos, s.player)
 	local lines = structure_lines(pos)
 	s.signature = cogwork.structure_signature(pos)
 	local active = cogwork.active_cell(pos)
 
 	fs[#fs + 1] = ("label[0.6,1.0;%s]"):format(esc(S("Armor")))
 	fs[#fs + 1] = slot_bg(0.6, 1.3, 1, 1)
-	fs[#fs + 1] = ("list[nodemeta:%s;armor;0.6,1.3;1,1;]"):format(spos)
+	fs[#fs + 1] = ("list[%s;armor;0.6,1.3;1,1;]"):format(spos)
 	fs[#fs + 1] = ("label[2.2,1.6;%s]"):format(esc(lines.armor))
 	fs[#fs + 1] = ("label[2.2,2.1;%s]"):format(esc(lines.armor_worn))
 
 	fs[#fs + 1] = ("label[0.6,3.0;%s]"):format(esc(S("Armor modification")))
 	fs[#fs + 1] = slot_bg(0.6, 3.3, 1, 1)
-	fs[#fs + 1] = ("list[nodemeta:%s;armor_mod;0.6,3.3;1,1;]"):format(spos)
+	fs[#fs + 1] = ("list[%s;armor_mod;0.6,3.3;1,1;]"):format(spos)
 	fs[#fs + 1] = ("label[2.2,3.8;%s]"):format(esc(lines.mod))
 
 	fs[#fs + 1] = ("label[0.6,5.0;%s]"):format(esc(S("Power cells")))
 	fs[#fs + 1] = slot_bg(0.6, 5.3, 2, 1)
-	fs[#fs + 1] = ("list[nodemeta:%s;cells;0.6,5.3;2,1;]"):format(spos)
+	fs[#fs + 1] = ("list[%s;cells;0.6,5.3;2,1;]"):format(spos)
 	-- the cell the robot draws its power from first (the other one when it is empty)
 	for i = 1, 2 do
 		fs[#fs + 1] = ("label[3.4,%g;%s]"):format(5.45 + (i - 1) * 0.65, esc(lines.cells[i]))
@@ -727,7 +727,7 @@ local function structure_tab (fs, pos, s)
 
 	fs[#fs + 1] = ("label[0.6,7.0;%s]"):format(esc(S("Power augmentation")))
 	fs[#fs + 1] = slot_bg(0.6, 7.3, 1, 1)
-	fs[#fs + 1] = ("list[nodemeta:%s;augment;0.6,7.3;1,1;]"):format(spos)
+	fs[#fs + 1] = ("list[%s;augment;0.6,7.3;1,1;]"):format(spos)
 	fs[#fs + 1] = ("label[2.2,7.8;%s]"):format(esc(lines.augment))
 
 	local status = lines.why and core.colorize("#ff9060", lines.why) or core.colorize("#7fdf7f", S("Ready to run"))
@@ -741,7 +741,7 @@ local function structure_tab (fs, pos, s)
 	cogwork.ensure_upgrade_slots(pos)
 	fs[#fs + 1] = ("label[9.6,6.9;%s]"):format(esc(S("Upgrades")))
 	fs[#fs + 1] = slot_bg(9.6, 7.2, cogwork.UPGRADE_SLOTS, 1)
-	fs[#fs + 1] = ("list[nodemeta:%s;upgrades;9.6,7.2;%d,1;]"):format(spos, cogwork.UPGRADE_SLOTS)
+	fs[#fs + 1] = ("list[%s;upgrades;9.6,7.2;%d,1;]"):format(spos, cogwork.UPGRADE_SLOTS)
 	fs[#fs + 1] = ("label[9.6,8.8;%s]"):format(esc(cogwork.height_text(pos)))
 	fs[#fs + 1] = ("label[9.6,9.3;%s]"):format(esc(S("Hover Upgrade: one more block above the floor.")))
 	fs[#fs + 1] = ("label[9.6,9.7;%s]"):format(esc(S("Flight Upgrade: no limit above the floor, a drone.")))
@@ -750,7 +750,7 @@ local function structure_tab (fs, pos, s)
 	fs[#fs + 1] = ("label[9.6,10.9;%s]"):format(esc(S("Without upgrades: 1 block above the floor.")))
 
 	for _, list in ipairs({ "armor", "armor_mod", "cells", "augment", "upgrades" }) do
-		fs[#fs + 1] = ("listring[current_player;main]listring[nodemeta:%s;%s]"):format(spos, list)
+		fs[#fs + 1] = ("listring[current_player;main]listring[%s;%s]"):format(spos, list)
 	end
 end
 
@@ -800,16 +800,16 @@ local function packages_tab (fs, pos, s)
 	fs[#fs + 1] = slot_bg(0.4, 7.1, 8, 4)
 	fs[#fs + 1] = "list[current_player;main;0.4,7.1;8,4;]"
 
-	local spos = ("%d,%d,%d"):format(pos.x, pos.y, pos.z)
+	local spos = cogwork.inventory_location(pos, s.player)
 	fs[#fs + 1] = ("label[10.8,7.1;%s]"):format(esc(S("Disk slot:")))
 	fs[#fs + 1] = slot_bg(10.8, 7.4, 1, 1)
-	fs[#fs + 1] = ("list[nodemeta:%s;disk;10.8,7.4;1,1;]"):format(spos)
+	fs[#fs + 1] = ("list[%s;disk;10.8,7.4;1,1;]"):format(spos)
 	fs[#fs + 1] = ("button[12.2,7.5;3.6,0.8;pkg_install;%s]"):format(esc(S("Install it")))
 	if mine then
 		fs[#fs + 1] = ("button[12.2,8.5;3.6,0.8;pkg_remove;%s]"):format(esc(S("Remove from robot")))
 	end
 	fs[#fs + 1] = ("label[10.8,9.7;%s]"):format(esc(S("Shift-click moves a disk between\nyour inventory and the slot.")))
-	fs[#fs + 1] = ("listring[nodemeta:%s;disk]listring[current_player;main]"):format(spos)
+	fs[#fs + 1] = ("listring[%s;disk]listring[current_player;main]"):format(spos)
 end
 
 local function settings_tab (fs, pos, s)
@@ -968,7 +968,11 @@ core.register_globalstep(function (dt)
 	if refresh_clock < 2 then return end
 	refresh_clock = 0
 	for name, s in pairs(sessions) do
-		if s.pos and s.shown == FORMNAME and s.tab == "structure" and s.signature then
+		local online = core.get_player_by_name(name)
+		if s.pos and s.shown == FORMNAME and online and cogwork.room_of_player(online)
+			and (s.tab == "structure" or s.tab == "storage" or s.tab == "packages") and cogwork.proxy_changed(online) then
+			redraw_later(name, s, 0)
+		elseif s.pos and s.shown == FORMNAME and s.tab == "structure" and s.signature then
 			local node = core.get_node_or_nil(s.pos)
 			if node and cogwork.is_robot(node.name) and cogwork.structure_signature(s.pos) ~= s.signature then
 				redraw_later(name, s, 0)
