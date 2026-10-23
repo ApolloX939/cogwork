@@ -356,7 +356,8 @@ local function cast (job, dx, dy, dz)
 end
 
 -- A picture to make: the eye and the way it looks.
--- pos: the robot's block, front: its facing vector (a unit vector in the horizontal plane)
+-- pos: the robot's block, front: the way the camera looks (a unit vector: the robot's
+-- facing, turned and tilted by the camera controller)
 -- remembers: a table kept between the pictures of one screen (blocks that would not load)
 function cogwork.view_job (pos, front, remembers)
 	local W, H = settings.view_width, settings.view_height
@@ -373,14 +374,21 @@ function cogwork.view_job (pos, front, remembers)
 	local emin, emax = vm:read_from_map({ x = ex - NEAR, y = ey - NEAR, z = ez - NEAR },
 		{ x = ex + NEAR, y = ey + NEAR, z = ez + NEAR })
 	mem.buffer = mem.buffer or {}
+	-- the horizontal part of the view, as a unit vector (the eye sits a little ahead)
+	local hlen = math.sqrt(front.x * front.x + front.z * front.z)
+	local hx, hz = 0, 1
+	if hlen > 1e-6 then hx, hz = front.x / hlen, front.z / hlen end
 	local job = {
 		data = vm:get_data(mem.buffer),
 		ex1 = emin.x, ex2 = emax.x, ey1 = emin.y, ey2 = emax.y, ez1 = emin.z, ez2 = emax.z,
 		ys = emax.x - emin.x + 1, zs = (emax.x - emin.x + 1) * (emax.y - emin.y + 1),
 		W = W, H = H, total = W * H, next = 0, pixels = {}, tried = {}, loads = 0, unknown = {},
 		cache = mem.cur, old = mem.old, failed = mem.failed, now = now,
-		ox = pos.x + front.x * 0.3, oy = pos.y + 0.3, oz = pos.z + front.z * 0.3,
-		fx = front.x, fz = front.z,
+		ox = pos.x + hx * 0.3, oy = pos.y + 0.3, oz = pos.z + hz * 0.3,
+		fx = front.x, fy = front.y or 0, fz = front.z,
+		-- right of the view (horizontal) and up from it
+		rx = hz, rz = -hx,
+		ux = -(front.y or 0) * hx, uy = front.x * hx + front.z * hz, uz = -(front.y or 0) * hz,
 		own = { x = pos.x, y = pos.y, z = pos.z },
 		tan = math.tan(math.rad(100 / 2)),
 		max_marks = 24,
@@ -394,8 +402,9 @@ function cogwork.view_step (job, budget)
 	local W, H, pixels, tan = job.W, job.H, job.pixels, job.tan
 	local aspect = W / H
 	local range = settings.view_range
-	-- right of the facing direction
-	local rx, rz = job.fz, -job.fx
+	-- right of the view, and up from it
+	local rx, rz = job.rx, job.rz
+	local ux, uy, uz = job.ux, job.uy, job.uz
 	local t0 = os.clock()
 	local i = job.next
 	local loads = job.loads
@@ -403,7 +412,7 @@ function cogwork.view_step (job, budget)
 		local px, py = i % W, floor(i / W)
 		local u = ((px + 0.5) / W * 2 - 1) * tan
 		local v = (1 - (py + 0.5) / H * 2) * tan / aspect
-		local dx, dy, dz = job.fx + rx * u, v, job.fz + rz * u
+		local dx, dy, dz = job.fx + rx * u + ux * v, job.fy + uy * v, job.fz + rz * u + uz * v
 		local len = math.sqrt(dx * dx + dy * dy + dz * dz)
 		dx, dy, dz = dx / len, dy / len, dz / len
 		local color, tt = cast(job, dx, dy, dz)
@@ -511,6 +520,12 @@ function cogwork.view_state (rid)
 	local w = watched[rid]
 	if not w then return "not watched" end
 	return w.job and ("drawing %d/%d"):format(w.job.next, w.job.total) or ("waiting, due in %.1f s"):format(w.due - core.get_us_time() / 1e6)
+end
+
+-- the picture of a room should be drawn again at once (the camera was moved)
+function cogwork.view_poke (rid)
+	local w = watched[rid]
+	if w and not w.job then w.due = 0 end
 end
 
 function cogwork.view_unwatch (rid)

@@ -52,7 +52,7 @@ local function settle_step (pos)
 	local node = core.get_node_or_nil(pos)
 	if not node or not cogwork.is_robot(node.name) then return end
 	cogwork.refresh_variant(pos)
-	if not settings.gravity or cogwork.is_running(pos) then return end
+	if not settings.gravity or cogwork.is_running(pos) or cogwork.fly_held(pos) then return end
 	if supported(pos) or not floor_within(pos, settings.fall_range) then return end
 
 	local under = below(pos)

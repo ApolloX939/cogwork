@@ -1721,6 +1721,21 @@ def p_settings_top(im, px):
     r_rect(px, 7, 7, 8, 8, P["o"])
 
 
+def p_cam(im, px):
+    r_border(px)
+    r_rect(px, 3, 3, 12, 11, P["d"])
+    r_rect(px, 5, 4, 10, 10, P["k"])
+    r_rect(px, 6, 5, 9, 9, P["b"])
+    px[7, 6] = px[8, 6] = P["w"]
+    r_rect(px, 4, 13, 11, 13, P["d"])
+
+
+def p_cam_top(im, px):
+    r_border(px)
+    r_rect(px, 4, 4, 11, 11, P["d"])
+    r_rect(px, 6, 6, 9, 9, P["b"])
+
+
 def p_ctl(im, px):
     r_border(px)
     px[7, 4] = px[8, 4] = px[7, 5] = px[8, 5] = P["r"]
@@ -1740,7 +1755,7 @@ for _name, _p in (("wall", p_wall), ("floor", p_floor), ("light", p_light), ("fr
                   ("screen", p_screen), ("console", p_console), ("console_top", p_console_top),
                   ("exit", p_exit), ("chest", p_chest), ("chest_top", p_chest_top), ("bay", p_bay),
                   ("terminal", p_terminal), ("terminal_top", p_terminal_top), ("settings", p_settings),
-                  ("settings_top", p_settings_top), ("ctl", p_ctl),
+                  ("settings_top", p_settings_top), ("cam", p_cam), ("cam_top", p_cam_top), ("ctl", p_ctl),
                   ("ctl_top", p_ctl_top)):
     room_tex(_name, _p)
 

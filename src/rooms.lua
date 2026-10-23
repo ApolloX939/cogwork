@@ -169,7 +169,8 @@ local SPOTS = {
 	terminal = { { 13, 1, 7 } },
 	settings = { { 13, 1, 9 } },
 	controller = { { 7, 1, 11 } },
-	console = { { 6, 1, 11 }, { 8, 1, 11 } },
+	camera = { { 9, 1, 11 } },
+	console = { { 6, 1, 11 }, { 8, 1, 11 }, { 10, 1, 11 } },
 	light = { { 4, 9, 4 }, { 11, 9, 4 }, { 4, 9, 11 }, { 11, 9, 11 }, { 2, 0, 2 }, { 13, 0, 2 }, { 2, 0, 13 }, { 13, 0, 13 } },
 }
 cogwork.ROOM_SPAWN = { x = 7.5, y = 1, z = 2.5 }
@@ -251,6 +252,18 @@ function cogwork.room_of_player (player)
 end
 
 -- the viewscreen of a room: shown while somebody is in it
+-- The way the camera looks: the robot's front (horizontal unit vector), turned right by
+-- the camera's yaw and tilted up by its pitch (degrees, set with the camera controller).
+function cogwork.camera_direction (rp, front)
+	local meta = core.get_meta(rp)
+	local yaw, pitch = math.rad(meta:get_float("view_yaw")), math.rad(meta:get_float("view_pitch"))
+	if yaw == 0 and pitch == 0 then return front end
+	local right = { x = front.z, z = -front.x }
+	local fx = front.x * math.cos(yaw) + right.x * math.sin(yaw)
+	local fz = front.z * math.cos(yaw) + right.z * math.sin(yaw)
+	return { x = fx * math.cos(pitch), y = math.sin(pitch), z = fz * math.cos(pitch) }
+end
+
 local function watch (id)
 	local o = cogwork.room_origin(id)
 	local sc = cogwork.ROOM_SCREEN
@@ -261,7 +274,7 @@ local function watch (id)
 		local rp = cogwork.room_robot(id)
 		if not rp then return nil end
 		local node = core.get_node(rp)
-		return rp, vector.multiply(core.facedir_to_dir(node.param2 % 32), -1)
+		return rp, cogwork.camera_direction(rp, vector.multiply(core.facedir_to_dir(node.param2 % 32), -1))
 	end, size)
 end
 
@@ -394,6 +407,7 @@ function cogwork.room_exit (player)
 	local id = cogwork.room_of_player(player)
 	if not id then return false end
 	local pos = cogwork.room_robot(id)
+	if cogwork.control_stop then cogwork.control_stop(player) end
 	set_outside(player)
 	if pos then
 		teleport_out(player, pos)

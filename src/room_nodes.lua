@@ -5,7 +5,8 @@
 --   bay         armor, cells, augmentation and upgrades (the Structure tab)
 --   terminal    the program (the Program tab): program a robot in peace
 --   settings    the Settings tab: name, public, allow list and the entrance lock
---   controller  move and turn the robot
+--   controller  drive the robot with the keys (control.lua); sneak: the buttons
+--   camera      turn and tilt the viewscreen's camera with the keys
 -- The screen (an entity) is drawn in front of the screen panels; see viewscreen.lua.
 
 local cogwork = ...
@@ -97,6 +98,23 @@ local MOVES = {
 local COST = { move = 1, turn = 0.5 }
 local next_ok = {}
 
+-- One move or turn of the robot of room id, for the buttons and for the keys (control.lua).
+-- Returns the robot's position now and a complaint, if any.
+function cogwork.drive_robot (rp, id, kind, dir)
+	if cogwork.is_running(rp) then return rp, S("Stop the program first.") end
+	cogwork.mark_controlled(id)
+	local now = core.get_us_time() / 1e6
+	local why = cogwork.cannot_run(rp)
+	if why then return rp, why end
+	if (next_ok[id] or 0) > now then return rp end
+	if not cogwork.spend(rp, COST[kind]) then return rp, S("Out of power.") end
+
+	local bot = cogwork.Bot.new(rp, core.get_meta(rp):get_string("owner"))
+	local ok, delay = bot[kind](bot, dir)
+	next_ok[id] = now + (delay or 0.2)
+	return bot.pos, (not ok) and S("Something is in the way.") or nil
+end
+
 local function controller_form (rp)
 	local meta = core.get_meta(rp)
 	local running = cogwork.is_running(rp)
@@ -107,7 +125,7 @@ local function controller_form (rp)
 	local why = cogwork.cannot_run(rp)
 
 	local fs = {
-		"formspec_version[6]", "size[11,8.4]", "bgcolor[#1c1c24f0;true]",
+		"formspec_version[6]", "size[11,9]", "bgcolor[#1c1c24f0;true]",
 		("label[0.5,0.6;%s]"):format(esc(S("Robot controller") .. (name ~= "" and (": " .. name) or ""))),
 		("label[0.5,1.1;%s]"):format(esc(S("At @1, power @2%", core.pos_to_string(rp), power))),
 		("label[0.5,1.6;%s]"):format(esc(running and S("Running its program: stop it to drive.") or (why or S("Ready.")))),
@@ -119,8 +137,10 @@ local function controller_form (rp)
 		("button[0.5,2.2;3,1;ctl_up;%s]"):format(esc(S("Up"))),
 		("button[0.5,4.8;3,1;ctl_down;%s]"):format(esc(S("Down"))),
 		("button[7.5,2.2;3,1;ctl_power;%s]"):format(esc(running and S("Stop the program") or S("Run the program"))),
-		("label[0.5,6.5;%s]"):format(esc(S("Moves cost power like the program's, and the height limit holds."))),
-		("label[0.5,7.0;%s]"):format(esc(armor and S("Armor: @1", math.floor(armor)) or S("No armor"))),
+		("button[7.5,4.8;3,1;ctl_keys;%s]"):format(esc(S("Drive with the keys"))),
+		("checkbox[0.5,6.1;ctl_fly;%s;%s]"):format(esc(S("Fly mode: no falling while controlled")), core.get_meta(rp):get_int("control_fly") == 1 and "true" or "false"),
+		("label[0.5,7.0;%s]"):format(esc(S("Keys: W S forward and back, A D turn, Space up, Shift down; hold both to stop.\nMoves cost power like the program's, and the height limit holds."))),
+		("label[0.5,8.2;%s]"):format(esc(armor and S("Armor: @1", math.floor(armor)) or S("No armor"))),
 	}
 	return table.concat(fs)
 end
@@ -133,12 +153,79 @@ register("controller", {
 	end,
 })
 
+--------------------------------------------------------------------------
+-- the camera controller
+
+local CAMFORM = "cogwork:room_cam"
+local CAMERA_STEP = 15      -- degrees a button turns the camera
+
+local function camera_form (rp)
+	local yaw, pitch = cogwork.camera_get(rp)
+	return table.concat({
+		"formspec_version[6]", "size[11,7.4]", "bgcolor[#1c1c24f0;true]",
+		("label[0.5,0.6;%s]"):format(esc(S("Camera controller"))),
+		("label[0.5,1.1;%s]"):format(esc(S("Turned @1, tilted @2 degrees", math.floor(yaw + 0.5), math.floor(pitch + 0.5)))),
+		("button[4.0,1.8;3,1;cam_up;%s]"):format(esc(S("Look up"))),
+		("button[0.5,3.1;3,1;cam_left;%s]"):format(esc(S("Turn left"))),
+		("button[4.0,3.1;3,1;cam_center;%s]"):format(esc(S("To the front"))),
+		("button[7.5,3.1;3,1;cam_right;%s]"):format(esc(S("Turn right"))),
+		("button[4.0,4.4;3,1;cam_down;%s]"):format(esc(S("Look down"))),
+		("button[7.5,1.8;3,1;cam_keys;%s]"):format(esc(S("Move it with the keys"))),
+		("label[0.5,5.8;%s]"):format(esc(S("Keys: A D turn the camera, W S tilt it, Space to the front;\nhold Space and Shift to stop."))),
+	})
+end
+
+register("camera", {
+	description = S("Camera controller"), tiles = { tex("cam_top"), tex("wall"), tex("cam") },
+	on_rightclick = function (pos, node, player)
+		local rp = robot_of(pos, player)
+		if rp then core.show_formspec(player:get_player_name(), CAMFORM, camera_form(rp)) end
+	end,
+})
+
+core.register_on_player_receive_fields(function (player, formname, fields)
+	if formname ~= CAMFORM then return end
+	local id = cogwork.room_of_player(player)
+	local rp = id and cogwork.room_robot(id)
+	if not rp or not cogwork.can_access(rp, player) then return true end
+
+	if fields.cam_keys then
+		core.close_formspec(player:get_player_name(), CAMFORM)
+		cogwork.control_start(player, "camera", id)
+		return true
+	end
+	local yaw, pitch = cogwork.camera_get(rp)
+	if fields.cam_left then yaw = yaw - CAMERA_STEP
+	elseif fields.cam_right then yaw = yaw + CAMERA_STEP
+	elseif fields.cam_up then pitch = pitch + CAMERA_STEP
+	elseif fields.cam_down then pitch = pitch - CAMERA_STEP
+	elseif fields.cam_center then yaw, pitch = 0, 0
+	end
+	cogwork.camera_set(rp, id, yaw, pitch)
+
+	if not fields.quit then
+		core.show_formspec(player:get_player_name(), CAMFORM, camera_form(rp))
+	end
+	return true
+end)
+
 core.register_on_player_receive_fields(function (player, formname, fields)
 	if formname ~= FORM then return end
 	local id = cogwork.room_of_player(player)
 	local rp = id and cogwork.room_robot(id)
 	if not rp or not cogwork.can_access(rp, player) then return true end
 	local name = player:get_player_name()
+
+	if fields.ctl_fly ~= nil then
+		core.get_meta(rp):set_int("control_fly", fields.ctl_fly == "true" and 1 or 0)
+		if fields.ctl_fly ~= "true" then cogwork.settle_later(rp) end
+	end
+
+	if fields.ctl_keys then
+		core.close_formspec(name, FORM)
+		cogwork.control_start(player, "drive", id)
+		return true
+	end
 
 	if fields.ctl_power then
 		if cogwork.is_running(rp) then
@@ -151,25 +238,9 @@ core.register_on_player_receive_fields(function (player, formname, fields)
 
 	for button, move in pairs(MOVES) do
 		if fields[button] then
-			if cogwork.is_running(rp) then
-				core.chat_send_player(name, S("Stop the program first."))
-			else
-				local now = core.get_us_time() / 1e6
-				local why = cogwork.cannot_run(rp)
-				if why then
-					core.chat_send_player(name, why)
-				elseif (next_ok[id] or 0) <= now then
-					if cogwork.spend(rp, COST[move[1]]) then
-						local bot = cogwork.Bot.new(rp, core.get_meta(rp):get_string("owner"))
-						local ok, delay = bot[move[1]](bot, move[2])
-						next_ok[id] = now + (delay or 0.2)
-						if not ok then core.chat_send_player(name, S("Something is in the way.")) end
-						rp = bot.pos
-					else
-						core.chat_send_player(name, S("Out of power."))
-					end
-				end
-			end
+			local at, complaint = cogwork.drive_robot(rp, id, move[1], move[2])
+			rp = at
+			if complaint then core.chat_send_player(name, complaint) end
 		end
 	end
 

@@ -389,7 +389,17 @@ comes out where the robot stood if it is dug.
   robot when it is dug.
 - **Controller**: forward, back, up, down, turn left, right and around, and run or
   stop the program. It drives like a program does: power cost, cooldown, height
-  limit, protection; it will not drive a running robot.
+  limit, protection; it will not drive a running robot. **Drive with the keys**
+  closes the window and lets you drive with W S (forward, back), A D (turn), Space
+  (up) and Shift (down); hold Space and Shift together for a moment to let go
+  (so does the door, `/leave_robot` and leaving the game). While you do, you stand
+  still and a line at the bottom shows the robot's place and power. **Fly mode**
+  (a checkbox on the controller) keeps the robot from falling while it is being
+  controlled (until 20 s after the last move); it falls again after that.
+- **Camera controller**: turns and tilts the viewscreen's camera, by buttons or by
+  the keys (A D turn, W S tilt, Space back to the front, hold Space + Shift to let
+  go). The camera is saved with the robot (`view_yaw`, `view_pitch`) and looks up
+  to 85 degrees up or down; the robot's own front, digging and moving do not change.
 
 Rooms are out of the way of the room container mods. `area_containers` keeps its
 rooms at the top of the map and Skyblock: Zero's room containers between y -28000

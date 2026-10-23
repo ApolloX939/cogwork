@@ -2312,6 +2312,101 @@ test("package disk round trip", function (done)
 	done()
 end)
 
+-- ---------------------------------------------------------------- controls
+
+-- a player that is in a room, as far as the controls care
+local function control_player (pos)
+	local fake = { get_player_name = function () return "tester" end, is_player = function () return true end,
+		get_meta = function () return { get_string = function () return "" end, set_string = function () end } end,
+		hud_add = function () return 1 end, hud_change = function () end, hud_remove = function () end,
+		set_physics_override = function () end, get_physics_override = function () return { speed = 1, jump = 1 } end }
+	cogwork.room_enter(pos, fake)
+	return fake, core.get_meta(pos):get_int("room_id")
+end
+
+test("the camera controller turns and tilts the camera with the keys", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "stop", nil, {})
+	local fake, id = control_player(pos)
+	local st = { kind = "camera", id = id, hold = 0, hud_time = 0, saved = {} }
+	cogwork.control_step(fake, st, { right = true, up = true }, 0.5)
+	local yaw, pitch = cogwork.camera_get(pos)
+	local moved = math.abs(yaw - 35) < 0.1 and math.abs(pitch - 35) < 0.1
+	cogwork.control_step(fake, st, { jump = true }, 0.1)
+	local yaw2, pitch2 = cogwork.camera_get(pos)
+	report("the camera controller turns and tilts the camera with the keys", moved and yaw2 == 0 and pitch2 == 0,
+		("%s %s then %s %s"):format(yaw, pitch, yaw2, pitch2))
+	done()
+end)
+
+test("holding Space and Shift stops controlling", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "stop", nil, {})
+	local fake, id = control_player(pos)
+	local st = { kind = "camera", id = id, hold = 0, hud_time = 0, saved = { speed = 1, jump = 1 } }
+	cogwork.control_step(fake, st, { jump = true, sneak = true }, 0.3)
+	local early = st.stopped
+	cogwork.control_step(fake, st, { jump = true, sneak = true }, 0.4)
+	report("holding Space and Shift stops controlling", not early and st.stopped == true)
+	done()
+end)
+
+test("the keys drive the robot", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "stop")
+	local fake, id = control_player(pos)
+	local st = { kind = "drive", id = id, hold = 0, hud_time = 0, saved = {} }
+	cogwork.control_step(fake, st, { up = true }, 0.05)
+	local forward = vector.equals(cogwork.room_robot(id), P(0, 1, 1))
+	core.after(1, function ()
+		cogwork.control_step(fake, st, { jump = true }, 0.05)
+		local up = vector.equals(cogwork.room_robot(id), P(0, 2, 1))
+		report("the keys drive the robot", forward and up, ("forward=%s up=%s at %s"):format(tostring(forward), tostring(up), core.pos_to_string(cogwork.room_robot(id) or P(0, 0, 0))))
+		done()
+	end)
+end)
+
+test("fly mode holds the robot up only while it is controlled", function (done)
+	clear_area()
+	core.set_node(P(0, 0, 0), { name = "air" })
+	local pos = make_robot(P(0, 5, 0), "stop", nil, {})
+	local meta = core.get_meta(pos)
+	local _, id = control_player(pos)
+	local off = not cogwork.fly_held(pos)
+	meta:set_int("control_fly", 1)
+	local idle = not cogwork.fly_held(pos)
+	cogwork.mark_controlled(id)
+	local held = cogwork.fly_held(pos)
+	meta:set_int("control_fly", 0)
+	local without = not cogwork.fly_held(pos)
+	report("fly mode holds the robot up only while it is controlled", off and idle and held and without,
+		("off=%s idle=%s held=%s without=%s"):format(tostring(off), tostring(idle), tostring(held), tostring(without)))
+	done()
+end)
+
+test("the camera looks up: a ceiling shows when it is tilted and not when it is level", function (done)
+	clear_area()
+	for _, obj in ipairs(core.get_objects_inside_radius(P(0, 1, 5), 30)) do
+		if not obj:is_player() and not cogwork.is_visual(obj) then obj:remove() end
+	end
+	for x = -8, 8 do for z = 0, 14 do core.set_node(P(x, 5, z), { name = material }) end end
+	local level = cogwork.view_job(P(0, 1, 0), { x = 0, y = 0, z = 1 })
+	while not cogwork.view_step(level, 10) do end
+	local rp = make_robot(P(20, 1, 0), "stop", nil, {})
+	core.get_meta(rp):set_float("view_pitch", 40)
+	local up = cogwork.view_job(P(0, 1, 0), cogwork.camera_direction(rp, { x = 0, y = 0, z = 1 }))
+	while not cogwork.view_step(up, 10) do end
+	local function centre (job)
+		local c = job.pixels[(job.H / 2) * job.W + job.W / 2 + 1]
+		return math.floor(c / 65536) % 256, math.floor(c / 256) % 256, c % 256
+	end
+	local lr, lg, lb = centre(level)
+	local ur, ug, ub = centre(up)
+	report("the camera looks up: a ceiling shows when it is tilted and not when it is level",
+		lb > lr and not (ub > ur + 20), ("level %d,%d,%d up %d,%d,%d"):format(lr, lg, lb, ur, ug, ub))
+	done()
+end)
+
 local function run_all ()
 	local i = 0
 	local function nextt ()
