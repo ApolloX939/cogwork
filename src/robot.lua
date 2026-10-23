@@ -66,7 +66,11 @@ end
 
 -- Forceloading stops while the owner is offline for cogwork_persist_offline seconds (the
 -- robots keep their setting and load their area again when the owner joins).
-local suspended = {}          -- owner -> true
+-- kept across restarts: the engine restores only the forceloads that were active
+local suspended = core.deserialize(persist_storage:get_string("suspended")) or {}   -- owner -> true
+local function suspended_save ()
+	persist_storage:set_string("suspended", core.serialize(suspended))
+end
 local offline_since = {}      -- owner -> time
 
 -- does the robot at pos keep its area loaded now?
@@ -84,6 +88,7 @@ core.register_on_joinplayer(function (player)
 	offline_since[name] = nil
 	if suspended[name] then
 		suspended[name] = nil
+		suspended_save()
 		persist_each(name, function (p) core.forceload_block(p, false) end)
 	end
 end)
@@ -102,12 +107,44 @@ core.register_globalstep(function (dt)
 				offline_since[owner] = offline_since[owner] or now
 				if now - offline_since[owner] >= cogwork.settings.persist_offline then
 					suspended[owner] = true
+					suspended_save()
 					persist_each(owner, function (p) core.forceload_free_block(p, false) end)
 				end
 			end
 		end
 	end
 end)
+
+-- Forceloads that no registered robot accounts for (robots that forceloaded before
+-- the registry, or lost their registration) would stay loaded forever: free them
+-- once at startup, after the engine has restored force_loaded.txt.
+local function free_orphan_forceloads ()
+	local f = io.open(core.get_worldpath() .. "/force_loaded.txt", "r")
+	if not f then return end
+	local saved = core.deserialize(f:read("*all") or "") or {}
+	f:close()
+	local expected = {}   -- block hash -> robots registered in it
+	for owner, list in pairs(persist_reg) do
+		for key in pairs(list) do
+			if not suspended[owner] then
+				local p = core.get_position_from_hash(key)
+				local bh = core.hash_node_position(vector.new(
+					math.floor(p.x / 16), math.floor(p.y / 16), math.floor(p.z / 16)))
+				expected[bh] = (expected[bh] or 0) + 1
+			end
+		end
+	end
+	for bh, count in pairs(saved) do
+		local extra = count - (expected[bh] or 0)
+		if extra > 0 then
+			local b = core.get_position_from_hash(bh)
+			core.log("action", ("[cogwork] freeing %d orphaned forceload(s) of block %s"):format(
+				extra, core.pos_to_string(b)))
+			for _ = 1, extra do core.forceload_free_block(vector.multiply(b, 16), false) end
+		end
+	end
+end
+core.after(8, free_orphan_forceloads)
 
 -- Returns true, or false and why. The limit does not hold for admins ("server" priv).
 function cogwork.set_persist (pos, on)
@@ -133,7 +170,8 @@ function cogwork.set_persist (pos, on)
 		end
 		return false, S("Too many areas are kept loaded already.")
 	end
-	core.forceload_free_block(pos, false)
+	-- while the owner is away the area is not forceloaded (nothing to free)
+	if not suspended[owner] then core.forceload_free_block(pos, false) end
 	meta:set_int("persist", 0)
 	cogwork.persist_unregister(owner, pos)
 	return true
@@ -168,7 +206,7 @@ local function on_destruct (pos)
 	cogwork.room_robot_gone(pos)
 	cogwork.stop(pos)
 	if core.get_meta(pos):get_int("persist") == 1 then
-		core.forceload_free_block(pos, false)
+		if cogwork.persist_active(pos) then core.forceload_free_block(pos, false) end
 		cogwork.persist_unregister(core.get_meta(pos):get_string("owner"), pos)
 	end
 	-- last: stopping refreshes the model, which would make a new one
