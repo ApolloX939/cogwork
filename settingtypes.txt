@@ -69,4 +69,4 @@ cogwork_view_height (Viewscreen height) int 60 10 160
 cogwork_view_range (Viewscreen range) float 96 16 256
 
 # Seconds between two pictures of the viewscreen
-cogwork_view_interval (Viewscreen interval) float 2 0.5 60
+cogwork_view_interval (Viewscreen interval) float 1 0.5 60

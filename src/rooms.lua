@@ -467,6 +467,23 @@ core.register_on_leaveplayer(function (player)
 	end
 end)
 
+-- Safety net: a room is only drawn while somebody online is in it (a player who left
+-- by teleport, a crash or a command the code did not see).
+local guard = 0
+core.register_globalstep(function (dt)
+	guard = guard + dt
+	if guard < 3 then return end
+	guard = 0
+	if S.room_guard_off then return end      -- tests with a player who is not online
+	for _, id in ipairs(S.view_watched()) do
+		if #occupants(id) == 0 then
+			inside[id] = nil
+			S.view_unwatch(id)
+			keep_loaded(id, false)
+		end
+	end
+end)
+
 core.register_on_respawnplayer(function (player)
 	set_outside(player)
 end)

@@ -505,6 +505,27 @@ test("the viewscreen draws an entity in front of the terrain", function (done)
 	done()
 end)
 
+test("the viewscreen shows a block dug since the last picture, at once", function (done)
+	clear_area()
+	for _, obj in ipairs(core.get_objects_inside_radius(P(0, 1, 5), 30)) do
+		if not obj:is_player() and not S.is_visual(obj) then obj:remove() end
+	end
+	for x = -8, 8 do for y = -2, 4 do core.set_node(P(x, y, 7), { name = material }) end end
+	local mem = {}
+	local front = { x = 0, y = 0, z = 1 }
+	local first = S.view_job(P(0, 1, 0), front, mem)
+	while not S.view_step(first, 10) do end
+	for x = -8, 8 do for y = -2, 4 do core.set_node(P(x, y, 7), { name = "air" }) end end
+	local t0 = os.clock()
+	local second = S.view_job(P(0, 1, 0), front, mem)
+	while not S.view_step(second, 10) do end
+	local ms = (os.clock() - t0) * 1000
+	local centre = (second.H / 2) * second.W + second.W / 2 + 1
+	report("the viewscreen shows a block dug since the last picture, at once",
+		first.pixels[centre] ~= second.pixels[centre], ("%.0f ms"):format(ms))
+	done()
+end)
+
 -- ---------------------------------------------------------------- pathfinding
 
 local function goto_program (target, extra)
@@ -1849,6 +1870,7 @@ test("the screen of a room shows pictures", function (done)
 		-- with a player in the room its block is active; here the test keeps it so
 		local origin = S.room_origin(id)
 		core.forceload_block(origin, true)
+		S.room_guard_off = true
 		S.room_open_view(id)
 		-- a busy server draws slowly (4 ms of every step): wait for the first picture
 		local waited = 0
@@ -1864,6 +1886,7 @@ test("the screen of a room shows pictures", function (done)
 			if (tex:sub(1, 5) == "[png:" and #tex > 200) or waited >= 25 then
 				local state = S.view_state(id)
 				S.view_unwatch(id)
+				S.room_guard_off = nil
 				core.forceload_free_block(origin, true)
 				report("the screen of a room shows pictures", found ~= nil and tex:sub(1, 5) == "[png:" and #tex > 200,
 					found and ("texture " .. #tex .. " chars after " .. waited .. " s, " .. state) or "no screen")

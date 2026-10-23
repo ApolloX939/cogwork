@@ -1,8 +1,9 @@
 -- The viewscreen inside a robot: what the robot sees, drawn as a picture.
 --
--- A picture is one ray per pixel from the robot's eye: exact voxel traversal for
--- the first blocks, then coarser steps (2, 4, 8 blocks) out to the view range, so
--- far terrain shows too. A hit takes the real average colour of the node's
+-- A picture is one ray per pixel from the robot's eye: exact voxel traversal through
+-- a snapshot of the blocks around it (one VoxelManip read per picture, so it is always
+-- current), then coarser steps (2, 4, 8 blocks) out to the view range, so far terrain
+-- shows too. A hit takes the real average colour of the node's
 -- texture (read from the mods' texture files, see png.lua), shaded by the face, the
 -- light of the block in front of it and the distance. Terrain nobody has loaded is
 -- haze. The picture is made a few milliseconds per server step so it never stalls
@@ -18,8 +19,9 @@ local settings = S.settings
 local png = assert(loadfile(S.modpath .. "/src/png.lua"))()
 
 local floor, abs, huge = math.floor, math.abs, math.huge
-local NEAR = 36                 -- cells traversed exactly
-local BUDGET = 0.004            -- seconds of drawing per server step
+local NEAR = 24                 -- blocks around the eye read in one go and traversed exactly
+local SKY_HEIGHT = 48           -- a ray that climbed this far above the eye sees only sky
+local BUDGET = 0.006            -- seconds of drawing per server step
 local MAX_TEXTURE_BYTES = 40000 -- bigger texture files are not decoded
 local MAX_LOADS = 64            -- blocks loaded from disk for one picture
 
@@ -189,6 +191,20 @@ local function look (job, x, y, z)
 	return v
 end
 
+-- what a content id is: info, false when clear, "unknown" for ignore
+local id_info = {}
+local function classify (id)
+	local what
+	if id == core.CONTENT_IGNORE then
+		what = "unknown"
+	else
+		local info = info_of(core.get_name_from_content_id(id))
+		what = not info.clear and info or false
+	end
+	id_info[id] = what
+	return what
+end
+
 -- the colour of a face that was hit t blocks away; (lx, ly, lz) is the clear cell in front of it
 local function shade (info, face, lx, ly, lz, t, range)
 	local c = info[(face == "side_x" or face == "side_z") and "side" or face]
@@ -289,8 +305,13 @@ local function cast (job, dx, dy, dz)
 	local tmy = dy ~= 0 and ((dy > 0 and (y + 0.5 - oy) or (oy - (y - 0.5))) * tdy) or huge
 	local tmz = dz ~= 0 and ((dz > 0 and (z + 0.5 - oz) or (oz - (z - 0.5))) * tdz) or huge
 
+	-- the snapshot around the eye: no engine call per cell
+	local data = job.data
+	local ex1, ex2, ey1, ey2, ez1, ez2 = job.ex1, job.ex2, job.ey1, job.ey2, job.ez1, job.ez2
+	local ys, zs = job.ys, job.zs
+
 	local t = 0
-	for _ = 1, NEAR do
+	while true do
 		local face, px, py, pz = nil, x, y, z
 		if tmx < tmy and tmx < tmz then
 			t = tmx; tmx = tmx + tdx; x = x + sx; face = "side_x"
@@ -300,8 +321,11 @@ local function cast (job, dx, dy, dz)
 			t = tmz; tmz = tmz + tdz; z = z + sz; face = "side_z"
 		end
 		if t > range then break end
+		if x < ex1 or x > ex2 or y < ey1 or y > ey2 or z < ez1 or z > ez2 then break end
 		if not (own and x == own.x and y == own.y and z == own.z) then
-			local what = look(job, x, y, z)
+			local id = data[(z - ez1) * zs + (y - ey1) * ys + (x - ex1) + 1]
+			local what = id_info[id]
+			if what == nil then what = classify(id) end
 			if what == "unknown" then return unknown(dy), huge end
 			if what then return shade(what, face, px, py, pz, t, range), t end
 		end
@@ -310,6 +334,8 @@ local function cast (job, dx, dy, dz)
 	-- beyond that, coarser and coarser steps: far terrain without a ray per block
 	local stride = 2
 	while t < range do
+		-- high above the eye there is nothing worth looking for
+		if dy * t > SKY_HEIGHT then break end
 		t = t + stride
 		if t > 64 then stride = 4 end
 		if t > 112 then stride = 8 end
@@ -338,10 +364,19 @@ function S.view_job (pos, front, remembers)
 	local mem = remembers or {}
 	mem.cur, mem.old, mem.failed = mem.cur or {}, mem.old or {}, mem.failed or {}
 	if now > (mem.rotate or 0) then
-		-- every half minute what was seen last time is forgotten
-		mem.old, mem.cur, mem.rotate = mem.cur, {}, now + 30
+		-- every ten seconds what was seen last time is forgotten (far terrain only)
+		mem.old, mem.cur, mem.rotate = mem.cur, {}, now + 10
 	end
+	-- the blocks around the eye, as they are now (never generated: unloaded ones are ignore)
+	local ex, ey, ez = floor(pos.x + 0.5), floor(pos.y + 0.5), floor(pos.z + 0.5)
+	local vm = core.get_voxel_manip()
+	local emin, emax = vm:read_from_map({ x = ex - NEAR, y = ey - NEAR, z = ez - NEAR },
+		{ x = ex + NEAR, y = ey + NEAR, z = ez + NEAR })
+	mem.buffer = mem.buffer or {}
 	local job = {
+		data = vm:get_data(mem.buffer),
+		ex1 = emin.x, ex2 = emax.x, ey1 = emin.y, ey2 = emax.y, ez1 = emin.z, ez2 = emax.z,
+		ys = emax.x - emin.x + 1, zs = (emax.x - emin.x + 1) * (emax.y - emin.y + 1),
 		W = W, H = H, total = W * H, next = 0, pixels = {}, tried = {}, loads = 0, unknown = {},
 		cache = mem.cur, old = mem.old, failed = mem.failed, now = now,
 		ox = pos.x + front.x * 0.3, oy = pos.y + 0.3, oz = pos.z + front.z * 0.3,
@@ -451,7 +486,12 @@ end
 -- near are put away) is made again.
 function S.view_set (pos, texture, size)
 	local obj = find_screen(pos) or S.view_screen(pos, size or { x = 8, y = 5 })
-	if obj then obj:set_properties({ textures = { texture, "blank.png" } }) end
+	if not obj then return end
+	-- the same picture again (nothing moved) is not sent to the clients again
+	local le = obj:get_luaentity()
+	if le and le.picture == texture then return end
+	if le then le.picture = texture end
+	obj:set_properties({ textures = { texture, "blank.png" } })
 end
 
 --------------------------------------------------------------------------
@@ -477,6 +517,13 @@ function S.view_unwatch (rid)
 	watched[rid] = nil
 end
 
+-- the ids of the rooms being drawn (rooms.lua checks somebody is in each)
+function S.view_watched ()
+	local list = {}
+	for rid in pairs(watched) do list[#list + 1] = rid end
+	return list
+end
+
 core.register_globalstep(function (dt)
 	if next(watched) == nil then return end
 	local now = core.get_us_time() / 1e6
@@ -495,6 +542,7 @@ core.register_globalstep(function (dt)
 			if pos then
 				w.remembers = w.remembers or {}
 				w.job = S.view_job(pos, front, w.remembers)
+				w.started = now
 			else
 				S.view_set(w.screen, S.view_static(), w.size)
 				w.due = now + settings.view_interval
@@ -503,7 +551,8 @@ core.register_globalstep(function (dt)
 		if w.job and S.view_step(w.job, each) then
 			S.view_set(w.screen, S.view_texture(w.job), w.size)
 			w.job = nil
-			w.due = now + settings.view_interval
+			-- the interval counts from the start of the picture
+			w.due = w.started + settings.view_interval
 		end
 	end
 end)
