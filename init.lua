@@ -24,6 +24,10 @@ cogwork.settings = {
 	can_float = core.settings:get_bool("cogwork_robots_can_float", core.settings:get_bool("robots_can_float", true)),
 	fall_range = math.max(1, math.floor(tonumber(core.settings:get("cogwork_fall_range")) or 128)),
 	-- the Self-Generator charges one cell by generator_amount every generator_interval seconds
+	-- robots of one owner that may forceload at a time (-1: no limit)
+	-- seconds the owner may be offline before their robots stop forceloading
+	persist_offline = math.max(0, tonumber(core.settings:get("cogwork_persist_offline")) or 30),
+	max_persist = math.floor(tonumber(core.settings:get("cogwork_max_persist")) or 1),
 	generator_amount = math.max(1, tonumber(core.settings:get("cogwork_generator_amount")) or 3),
 	-- power a second a robot uses while it is above the floor: per Hover Upgrade, flying
 	hover_drain = math.max(0, tonumber(core.settings:get("cogwork_hover_drain")) or 0.3),

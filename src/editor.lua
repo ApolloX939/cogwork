@@ -1074,9 +1074,8 @@ cogwork.on_editor_fields = function (player, formname, fields)
 				return true
 			elseif name == "op_persist" then
 				local on = meta:get_int("persist") ~= 1
-				if not cogwork.set_persist(pos, on) then
-					core.chat_send_player(pname, S("Too many areas are kept loaded already."))
-				end
+				local ok, why = cogwork.set_persist(pos, on)
+				if not ok then core.chat_send_player(pname, why or "") end
 			elseif OPS[name] then
 				clamp_cursor(s, lines)
 				OPS[name](s, lines)

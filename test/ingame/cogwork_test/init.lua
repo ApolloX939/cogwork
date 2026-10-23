@@ -2344,6 +2344,50 @@ test("a robot draws power from the chosen cell first", function (done)
 	done()
 end)
 
+test("a player can keep only a limited number of robots forceloading", function (done)
+	clear_area()
+	local first = make_robot(P(0, 1, 0), "stop", nil, {})
+	local second = make_robot(P(3, 1, 0), "stop", nil, {})
+	local other = make_robot(P(6, 1, 0), "stop", nil, {})
+	core.get_meta(first):set_string("owner", "tester_a")
+	core.get_meta(second):set_string("owner", "tester_a")
+	core.get_meta(other):set_string("owner", "tester_b")
+	local old = cogwork.settings.max_persist
+	cogwork.settings.max_persist = 1
+	local ok1 = cogwork.set_persist(first, true)
+	local ok2, why = cogwork.set_persist(second, true)
+	local ok3 = cogwork.set_persist(other, true)             -- somebody else's robot
+	cogwork.set_persist(first, false)
+	local ok4 = cogwork.set_persist(second, true)            -- a place is free again
+	core.remove_node(second)                                  -- dug: the place is free
+	core.get_meta(first):set_string("owner", "tester_a")
+	local ok5 = cogwork.set_persist(first, true)
+	cogwork.set_persist(first, false)
+	cogwork.set_persist(other, false)
+	cogwork.settings.max_persist = old
+	report("a player can keep only a limited number of robots forceloading",
+		ok1 and not ok2 and why and ok3 and ok4 and ok5,
+		("%s %s %s %s %s"):format(tostring(ok1), tostring(ok2), tostring(ok3), tostring(ok4), tostring(ok5)))
+	done()
+end)
+
+test("forceloading stops when the owner has been offline for a while", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "stop", nil, {})
+	core.get_meta(pos):set_string("owner", "ghost_owner")
+	local old_offline, old_max = cogwork.settings.persist_offline, cogwork.settings.max_persist
+	cogwork.settings.persist_offline, cogwork.settings.max_persist = 1, 5
+	local on = cogwork.set_persist(pos, true) and cogwork.persist_active(pos)
+	core.after(12, function ()
+		local suspended = core.get_meta(pos):get_int("persist") == 1 and not cogwork.persist_active(pos)
+		cogwork.set_persist(pos, false)
+		cogwork.settings.persist_offline, cogwork.settings.max_persist = old_offline, old_max
+		report("forceloading stops when the owner has been offline for a while", on and suspended,
+			("on=%s suspended=%s"):format(tostring(on), tostring(suspended)))
+		done()
+	end)
+end)
+
 -- ---------------------------------------------------------------- controls
 
 -- a player that is in a room, as far as the controls care

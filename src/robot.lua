@@ -16,18 +16,126 @@ function cogwork.can_access (pos, player)
 	return core.check_player_privs(name, { protection_bypass = true })
 end
 
+--------------------------------------------------------------------------
+-- forceloading robots, per owner: at most cogwork_max_persist each
+
+local persist_storage = core.get_mod_storage()
+local persist_reg = core.deserialize(persist_storage:get_string("persist_reg")) or {}   -- owner -> { hash -> true }
+
+local function persist_save ()
+	persist_storage:set_string("persist_reg", core.serialize(persist_reg))
+end
+
+function cogwork.persist_register (owner, pos)
+	persist_reg[owner] = persist_reg[owner] or {}
+	persist_reg[owner][core.hash_node_position(pos)] = true
+	persist_save()
+end
+
+function cogwork.persist_unregister (owner, pos)
+	local list = persist_reg[owner]
+	if list and list[core.hash_node_position(pos)] then
+		list[core.hash_node_position(pos)] = nil
+		if next(list) == nil then persist_reg[owner] = nil end
+		persist_save()
+	end
+end
+
+-- how many robots of owner keep an area loaded (not counting the one at except);
+-- registrations of robots that are gone, or no longer forceload, are dropped
+function cogwork.persist_count (owner, except)
+	local list = persist_reg[owner]
+	if not list then return 0 end
+	local count, changed = 0, false
+	for key in pairs(list) do
+		local p = core.get_position_from_hash(key)
+		local node = core.get_node_or_nil(p)
+		if node and not (cogwork.is_robot(node.name) and core.get_meta(p):get_int("persist") == 1) then
+			list[key] = nil
+			changed = true
+		elseif not (except and vector.equals(p, except)) then
+			count = count + 1
+		end
+	end
+	if changed then
+		if next(list) == nil then persist_reg[owner] = nil end
+		persist_save()
+	end
+	return count
+end
+
+-- Forceloading stops while the owner is offline for cogwork_persist_offline seconds (the
+-- robots keep their setting and load their area again when the owner joins).
+local suspended = {}          -- owner -> true
+local offline_since = {}      -- owner -> time
+
+-- does the robot at pos keep its area loaded now?
+function cogwork.persist_active (pos)
+	local meta = core.get_meta(pos)
+	return meta:get_int("persist") == 1 and not suspended[meta:get_string("owner")]
+end
+
+local function persist_each (owner, fn)
+	for key in pairs(persist_reg[owner] or {}) do fn(core.get_position_from_hash(key)) end
+end
+
+core.register_on_joinplayer(function (player)
+	local name = player:get_player_name()
+	offline_since[name] = nil
+	if suspended[name] then
+		suspended[name] = nil
+		persist_each(name, function (p) core.forceload_block(p, false) end)
+	end
+end)
+
+local offline_clock = 0
+core.register_globalstep(function (dt)
+	offline_clock = offline_clock + dt
+	if offline_clock < 5 then return end
+	offline_clock = 0
+	local now = core.get_us_time() / 1e6
+	for owner in pairs(persist_reg) do
+		if owner ~= "" and not suspended[owner] then
+			if core.get_player_by_name(owner) then
+				offline_since[owner] = nil
+			else
+				offline_since[owner] = offline_since[owner] or now
+				if now - offline_since[owner] >= cogwork.settings.persist_offline then
+					suspended[owner] = true
+					persist_each(owner, function (p) core.forceload_free_block(p, false) end)
+				end
+			end
+		end
+	end
+end)
+
+-- Returns true, or false and why. The limit does not hold for admins ("server" priv).
 function cogwork.set_persist (pos, on)
 	local meta = core.get_meta(pos)
+	local owner = meta:get_string("owner")
 	if on then
+		local limit = cogwork.settings.max_persist
+		if limit >= 0 and cogwork.persist_count(owner, pos) >= limit
+			and not core.check_player_privs(owner, { server = true }) then
+			return false, S("You can keep @1 robot(s) loaded at a time.", limit)
+		end
 		-- false means the limit is reached; nil is "already loaded another way"
-		if core.forceload_block(pos, false) ~= false then
+		if suspended[owner] then
+			-- its owner is away: the setting is kept, the area is not loaded
 			meta:set_int("persist", 1)
+			cogwork.persist_register(owner, pos)
 			return true
 		end
-		return false
+		if core.forceload_block(pos, false) ~= false then
+			meta:set_int("persist", 1)
+			cogwork.persist_register(owner, pos)
+			return true
+		end
+		return false, S("Too many areas are kept loaded already.")
 	end
 	core.forceload_free_block(pos, false)
 	meta:set_int("persist", 0)
+	cogwork.persist_unregister(owner, pos)
 	return true
 end
 
@@ -61,6 +169,7 @@ local function on_destruct (pos)
 	cogwork.stop(pos)
 	if core.get_meta(pos):get_int("persist") == 1 then
 		core.forceload_free_block(pos, false)
+		cogwork.persist_unregister(core.get_meta(pos):get_string("owner"), pos)
 	end
 	-- last: stopping refreshes the model, which would make a new one
 	cogwork.remove_visual(pos)
@@ -108,7 +217,10 @@ local function after_place_node (pos, placer, itemstack)
 
 	meta:set_string("infotext", display_name(meta))
 
-	if imeta:get_int("persist") == 1 then cogwork.set_persist(pos, true) end
+	if imeta:get_int("persist") == 1 then
+		local ok, why = cogwork.set_persist(pos, true)
+		if not ok and placer and placer:is_player() then core.chat_send_player(placer:get_player_name(), why or "") end
+	end
 	cogwork.ensure_visual(pos)
 end
 

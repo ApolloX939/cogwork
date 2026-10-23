@@ -184,7 +184,7 @@ local function plan (ctx)
 	local goal = goal_of(bot, st.target)
 	if not goal then return -1 end
 
-	local forceloaded = core.get_meta(bot.pos):get_int("persist") == 1
+	local forceloaded = cogwork.persist_active(bot.pos)
 	local cells = search(bot, bot.pos, goal, forceloaded)
 	if not cells then return -1 end
 

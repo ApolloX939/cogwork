@@ -226,10 +226,12 @@ cogwork.node_unknown = unknown
 function cogwork.relocate (from, to, node)
 	local meta = core.get_meta(from)
 	local data = meta:to_table()
-	local persistent = meta:get_int("persist") == 1
+	local persistent = meta:get_int("persist") == 1 and cogwork.persist_active(from)
+	local registered = meta:get_int("persist") == 1
 	local entering = liquid_source(core.get_node(to).name) or ""
 	local leaving = data.fields and data.fields.flooded or ""
 
+	if registered then cogwork.persist_unregister(meta:get_string("owner"), from) end
 	if persistent then core.forceload_free_block(from, false) end
 
 	core.set_node(to, node)
@@ -251,8 +253,12 @@ function cogwork.relocate (from, to, node)
 	cogwork.move_visual(from, to)
 
 	-- the forceload follows the robot; past the server's limit it is lost
-	if persistent and core.forceload_block(to, false) == false then
-		moved:set_int("persist", 0)
+	if registered then
+		if persistent and core.forceload_block(to, false) == false then
+			moved:set_int("persist", 0)
+		else
+			cogwork.persist_register(moved:get_string("owner"), to)
+		end
 	end
 
 	cogwork.on_robot_moved(from, to)
@@ -269,7 +275,7 @@ function Bot:move (dir)
 
 	local from = self.pos
 	local meta = core.get_meta(from)
-	local persistent = meta:get_int("persist") == 1
+	local persistent = cogwork.persist_active(from)
 
 	-- a forceloaded robot goes into terrain nobody has loaded: load it from
 	-- disk now, or have it generated and try again a moment later

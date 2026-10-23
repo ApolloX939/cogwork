@@ -52,6 +52,12 @@ cogwork_fall_range (Fall range) int 128 1 1000
 # Power a Self-Generator puts into one power cell per interval
 cogwork_generator_amount (Self-Generator power) float 3 1 1000
 
+# How many robots of one player may keep their area loaded (forceload) at a time; -1: no limit
+cogwork_max_persist (Forceloading robots per player) int 1 -1 1000
+
+# Seconds after its owner went offline that a robot stops keeping its area loaded (it loads again when the owner joins)
+cogwork_persist_offline (Forceload after the owner left) float 30 0 86400
+
 # Power a second a running robot uses while it is above the floor: for every Hover Upgrade
 cogwork_hover_drain (Hover power use) float 0.3 0 100
 

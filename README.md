@@ -266,6 +266,11 @@ it is assumed to be open and the robot goes anyway. As it walks the forceload
 moves with it, and blocks it walks into are loaded from disk or generated
 (waiting up to 10 seconds for that). If the server's forceload limit is
 reached on the way, the robot keeps going but is no longer forceloaded.
+A player may have `cogwork_max_persist` (1) robots forceloading at a time (-1: no
+limit; players with the `server` privilege are not limited); the forceload button of
+another one says so. When the owner has been offline for `cogwork_persist_offline`
+(30) seconds, their robots stop forceloading (the button stays on) and load their
+area again when the owner joins.
 
 ### Upgrades
 
