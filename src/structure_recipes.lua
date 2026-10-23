@@ -32,7 +32,8 @@ compat.register_recipes(function (c)
 	if c.family == "sbz" then
 		local plate, circuit = c.item("plate"), c.item("circuit")
 		local processor = part("sbz_resources:simple_processor", circuit)
-		local emitter = part("sbz_resources:emitter", processor)
+		-- the Emitter is a block of the world, not an item: emittrium circuits stand for it
+		local emitter = part("sbz_resources:emittrium_circuit", processor)
 		local dust = part("sbz_resources:core_dust", circuit)
 		local anti = part("sbz_resources:antimatter_plate", dust)
 		local retaining = part("sbz_resources:retaining_circuit", processor)

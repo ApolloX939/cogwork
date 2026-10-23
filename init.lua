@@ -47,7 +47,7 @@ cogwork.lang = assert(loadfile(modpath .. "/src/lang.lua"))()
 assert(loadfile(modpath .. "/src/commands.lua"))(cogwork.lang)
 cogwork.compat = assert(loadfile(modpath .. "/src/compat.lua"))()
 
-for _, file in ipairs({ "robot_ops", "upgrades", "structure", "machines", "viewscreen", "rooms", "room_nodes", "control", "emc_values", "runtime", "events", "pathfind", "api", "visual", "gravity", "packages", "robot", "editor",
+for _, file in ipairs({ "robot_ops", "upgrades", "structure", "machines", "viewscreen", "rooms", "room_nodes", "control", "runtime", "events", "pathfind", "api", "visual", "gravity", "packages", "robot", "editor",
 	"cassette", "crafting", "structure_recipes", "charger", "chatcommands" }) do
 	assert(loadfile(modpath .. "/src/" .. file .. ".lua"))(cogwork)
 end

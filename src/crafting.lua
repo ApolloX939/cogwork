@@ -24,11 +24,12 @@ compat.register_recipes(function (c)
 	if c.family == "sbz" then
 		local plate, circuit = c.item("plate"), c.item("circuit")
 		local processor = "sbz_resources:simple_processor"
-		local emitter = "sbz_resources:emitter"
+		-- (the Emitter itself is a block of the world, not an item: emittrium circuits stand for it)
+		local emitter = "sbz_resources:emittrium_circuit"
 		local dust = "sbz_resources:core_dust"
 		local have = core.registered_items
 		if plate and circuit and have[processor] and have[emitter] and have[dust] then
-			-- harder than the other games: engraved processors, emitters and core dust
+			-- harder than the other games: engraved processors, emittrium circuits and core dust
 			core.register_craft({
 				output = "cogwork:robot",
 				recipe = {
