@@ -807,11 +807,11 @@ local function settings_tab (fs, pos, s)
 	fs[#fs + 1] = ("label[0.5,4.2;%s]"):format(esc(S("Owner: @1", meta:get_string("owner"))))
 	fs[#fs + 1] = ("label[0.5,5;%s]"):format(esc(S("Position: @1", core.pos_to_string(pos))))
 
-	-- who may go into the robot's room (sneak + punch)
+	-- who may go into the robot's room (sneak + right-click)
 	local lock = cogwork.room_lock(pos)
 	local at = 1
 	for i, mode in ipairs(cogwork.ROOM_LOCKS) do if mode == lock then at = i end end
-	fs[#fs + 1] = ("label[0.5,6.3;%s]"):format(esc(S("Entrance of the room (sneak + punch)")))
+	fs[#fs + 1] = ("label[0.5,6.3;%s]"):format(esc(S("Entrance of the room (sneak + right-click)")))
 	fs[#fs + 1] = ("dropdown[0.5,6.6;6,0.8;room_lock;%s,%s,%s;%d;true]"):format(
 		esc(S("Anyone who can use the robot")), esc(S("Owner and the players allowed here")), esc(S("Owner only")), at)
 
@@ -874,7 +874,7 @@ local function help_text ()
 	p(esc(S("use events, then call events.register_nodes / register_entities r / register_items r / register_chat / register_whisper / register_bot with the name of one of your functions in quotes, then call events.process. It handles events until a handler calls events.leave. Messages: chat (owner, no limit), say (everyone) and whisper (one player) are limited per player; tell_bot and tell_bots reach robots that allow this one in their Settings tab.")))
 	p("")
 	p("<b>" .. esc(S("Inside the robot")) .. "</b>")
-	p(esc(S("Sneak and punch a robot to go into it: a room with a viewscreen showing what the robot sees, a chest (its storage), a bay (armor, cells, upgrades), a terminal (the program), a settings panel (name, access and the lock on the entrance) and a controller (move and turn it). The door, or /leave_robot, takes you out.")))
+	p(esc(S("Sneak and right-click a robot to go into it: a room with a viewscreen showing what the robot sees, a chest (its storage), a bay (armor, cells, upgrades), a terminal (the program), a settings panel (name, access and the lock on the entrance) and a controller (move and turn it). The door, or /leave_robot, takes you out.")))
 	p("")
 	p("<b>" .. esc(S("Structure and power")) .. "</b>")
 	p(esc(S("A robot runs only with armor and a power cell that has charge (Structure tab); without them it stays off, and it stops when they go. Every action costs power, a Small cell lasts about 450 moves. Armor never breaks, at no durability it protects nothing and damage goes to the cells. install \"cell\" / \"armor_mod\" / \"augment\" and uninstall put parts from and to storage (a cell only while another stays; the armor is for players). battery_level and armor_level are percent, cell_count, structure_item \"cell1\".")))
@@ -889,7 +889,7 @@ local function help_text ()
 	p(esc(S("Write item names in full (default:stone) or as @stone, @cobble, @dirt, @planks, @torch, @chest ... which pick the matching item of the game being played.")))
 	p("")
 	p("<b>" .. esc(S("Running")) .. "</b>")
-	p(esc(S("Press the power button. Sneak + punch a running robot to stop it. Punch a robot with a cassette to copy its program; sneak + right-click with a cassette to load one.")))
+	p(esc(S("Press the power button. Sneak + punch a running robot to stop it. Punch a robot with a cassette to copy its program; sneak + right-click with a cassette to load one (without one, sneak + right-click goes into the robot).")))
 	return table.concat(out, "\n")
 end
 

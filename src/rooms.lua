@@ -1,4 +1,4 @@
--- Rooms: the inside of a robot. Sneak + punch a robot to enter it.
+-- Rooms: the inside of a robot. Sneak + right-click a robot to enter it.
 --
 -- Every robot that is entered gets a room of its own: a 16 x 10 x 16 chamber in
 -- a reserved part of the map, with a viewscreen, a chest, a controller, a bay for
@@ -355,7 +355,7 @@ function cogwork.can_enter (pos, player)
 	return false
 end
 
--- Sneak + punch: the player goes into the robot at pos.
+-- Sneak + right-click: the player goes into the robot at pos.
 function cogwork.room_enter (pos, player)
 	if not settings.rooms then return false end
 	if cogwork.room_of_player(player) then return false end

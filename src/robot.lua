@@ -152,7 +152,10 @@ local function after_dig_node (pos, oldnode, oldmetadata, digger)
 	end
 end
 
-local function on_rightclick (pos, node, clicker, itemstack, pointed_thing)
+-- Right-click on the robot (its node, or the entity that is drawn on it, see visual.lua).
+-- Returns the itemstack. Sneak + right-click goes into the robot (its room), except
+-- with a cassette in hand: that loads the cassette's program.
+function cogwork.robot_rightclick (pos, clicker, itemstack)
 	if cogwork.acting then return itemstack end
 	if not cogwork.can_access(pos, clicker) then
 		core.chat_send_player(clicker:get_player_name(), S("This robot belongs to @1.",
@@ -164,14 +167,21 @@ local function on_rightclick (pos, node, clicker, itemstack, pointed_thing)
 	local filled = cogwork.fill_bucket(pos, clicker, itemstack)
 	if filled then return filled end
 
-	local held = itemstack:get_name()
 	if clicker:get_player_control().sneak then
 		local res = cogwork.cassette_load and cogwork.cassette_load(pos, clicker, itemstack)
 		if res then return res end
+		if cogwork.settings.rooms then
+			cogwork.room_enter(pos, clicker)
+			return itemstack
+		end
 	end
 
 	cogwork.show_editor(pos, clicker)
 	return itemstack
+end
+
+local function on_rightclick (pos, node, clicker, itemstack, pointed_thing)
+	return cogwork.robot_rightclick(pos, clicker, itemstack)
 end
 
 -- what a weapon would do to a player: the sum of its damage groups
@@ -182,14 +192,44 @@ local function weapon_damage (stack)
 	return total
 end
 
-local function on_punch (pos, node, puncher, pointed_thing)
+-- Digging a robot by punching its entity (the engine digs nodes, not entities): the
+-- punches of a tool that can dig it add up to the dig time; a pause starts again.
+local dig_progress = {}
+
+local function dig_by_punching (pos, node, puncher, tflp)
+	local def = core.registered_nodes[node.name]
+	local wielded = puncher:get_wielded_item()
+	local params = core.get_dig_params(def and def.groups or {}, wielded:get_tool_capabilities())
+	if not params.diggable then return end
+
+	local key = core.hash_node_position(pos)
+	local now = core.get_us_time() / 1e6
+	local progress = dig_progress[key]
+	if not progress or now - progress.last > 1.5 then progress = { time = 0 } end
+	progress.last = now
+	progress.time = progress.time + math.min(math.max(tflp or 0, 0.2), 1)
+	dig_progress[key] = progress
+	if progress.time < params.time then return end
+
+	dig_progress[key] = nil
+	if core.is_protected(pos, puncher:get_player_name()) or not can_dig(pos, puncher) then return end
+	core.node_dig(pos, node, puncher)
+	if not core.is_creative_enabled(puncher:get_player_name()) then
+		wielded:add_wear(params.wear)
+		puncher:set_wielded_item(wielded)
+	end
+end
+
+-- Punching the robot (its node, or its entity: then `from_entity` and tflp, the time
+-- since the puncher's last punch). Sneak + punch stops a running robot.
+function cogwork.robot_punch (pos, puncher, from_entity, tflp)
 	if cogwork.acting then return end
-	if not puncher then return end
+	if not puncher or not puncher:is_player() then return end
+	local node = core.get_node(pos)
 
 	-- somebody else hitting the robot with a weapon: the armor takes it
 	local owner = core.get_meta(pos):get_string("owner")
-	if puncher:is_player() and puncher:get_player_name() ~= owner
-		and core.settings:get_bool("enable_damage", true) then
+	if puncher:get_player_name() ~= owner and core.settings:get_bool("enable_damage", true) then
 		local wielded = puncher:get_wielded_item()
 		local damage = weapon_damage(wielded)
 		if damage > 1 and wielded:get_name() ~= "cogwork:cassette" then
@@ -200,19 +240,21 @@ local function on_punch (pos, node, puncher, pointed_thing)
 
 	if not cogwork.can_access(pos, puncher) then return end
 
-	if puncher:get_player_control().sneak then
-		-- sneak + punch goes into the robot (its room); with rooms off it stops a running one
-		if cogwork.settings.rooms then
-			cogwork.room_enter(pos, puncher)
-			return
-		elseif cogwork.is_running(pos) then
-			cogwork.stop(pos, "")
-			core.chat_send_player(puncher:get_player_name(), S("Robot stopped."))
-			return
-		end
+	if puncher:get_player_control().sneak and cogwork.is_running(pos) then
+		cogwork.stop(pos, "")
+		core.chat_send_player(puncher:get_player_name(), S("Robot stopped."))
+		return
 	end
 
-	if cogwork.cassette_save then cogwork.cassette_save(pos, puncher) end
+	if puncher:get_wielded_item():get_name() == "cogwork:cassette" then
+		if cogwork.cassette_save then cogwork.cassette_save(pos, puncher) end
+	elseif from_entity then
+		dig_by_punching(pos, node, puncher, tflp)
+	end
+end
+
+local function on_punch (pos, node, puncher, pointed_thing)
+	cogwork.robot_punch(pos, puncher, false)
 end
 
 -- may this item go in this list of the robot?
@@ -272,8 +314,10 @@ local function register (name, on, model)
 		drawtype = "airlike",
 		inventory_image = "cogwork_robot_inv.png",
 		wield_image = "cogwork_robot_inv.png",
-		selection_box = { type = "fixed", fixed = { -0.5, -0.5, -0.5, 0.5, 0.5, 0.5 } },
-		collision_box = { type = "fixed", fixed = { -0.5, -0.5, -0.5, 0.5, 0.5, 0.5 } },
+		-- what you point at is the entity (visual.lua), shaped like the model; this tiny
+		-- box in the middle is only reached when the entity is missing
+		selection_box = { type = "fixed", fixed = { -0.05, -0.05, -0.05, 0.05, 0.05, 0.05 } },
+		collision_box = { type = "fixed", fixed = cogwork.MODEL_BOXES[model] },
 		sunlight_propagates = true,
 		paramtype = "light",
 		paramtype2 = "facedir",

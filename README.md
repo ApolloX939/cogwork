@@ -29,7 +29,8 @@ Craft a robot, place it (it looks the way you look), right-click it.
 - **Packages tab**: browse packages, copy one (or your own functions) to a
   disk, install a disk in the robot.
 - **Settings tab**: name, public/private.
-- Sneak + punch a robot to go into it (see Inside a robot); stop a running one with the power button or the controller inside.
+- You point at a robot's model: its hitbox is the shape of the robot, hover pad or drone. Right-click opens it. To pick one up, punch it with a tool that can dig it (a few punches in a row, like digging a block).
+- Sneak + right-click a robot to go into it (see Inside a robot); sneak + punch a running one to stop it.
 - **Cassette**: punch a robot with it to copy its program; sneak + right-click
   a robot to load it; right-click in the air for label and read-only.
 
@@ -352,8 +353,8 @@ are installed.
 
 ### Inside a robot
 
-**Sneak + punch** a robot to go into it (you need access to it, as for the editor;
-with `cogwork_rooms` off, sneak + punch stops a running robot as before). Every
+**Sneak + right-click** a robot to go into it (you need access to it, as for the editor;
+with `cogwork_rooms` off it opens the editor like a plain right-click). Every
 robot you enter gets a room of its own: a lit steel chamber (16 x 10 x 16) far
 away in the map, that goes with the robot (its id is in the robot and in its item
 when dug) while the robot itself moves. The door leaves, next to the robot
@@ -380,7 +381,7 @@ comes out where the robot stood if it is dug.
   upgrades. **Terminal**: the program, to program a robot in peace. **Settings
   panel**: name, public, the allow list and the entrance lock. (All four are the
   editor, at its Storage, Structure, Program and Settings tab.)
-- **Entrance lock** (Settings tab): who may go in with sneak + punch. *Anyone who
+- **Entrance lock** (Settings tab): who may go in with sneak + right-click. *Anyone who
   can use the robot* (the default, as before), *Owner and the players allowed
   here* (the players of the allow list: `Player` and `Player/Robot` both let
   `Player` in) or *Owner only*. Admins with `protection_bypass` always pass.

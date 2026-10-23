@@ -539,6 +539,30 @@ test("Skyblock: Zero's fall-off teleport leaves players inside a room alone", fu
 	done()
 end)
 
+test("the robot you point at is its entity, with a hitbox the shape of the model", function (done)
+	clear_area()
+	local ok, detail = true, {}
+	for i, kind in ipairs({ "robot", "hover", "drone" }) do
+		local pos = make_robot(P(3 * i, 1, 0), "stop", nil, {})
+		core.swap_node(pos, { name = "cogwork:" .. kind })
+		cogwork.ensure_visual(pos)
+		local found
+		for _, obj in ipairs(core.get_objects_inside_radius(pos, 0.45)) do
+			local le = obj:get_luaentity()
+			if le and le.name == "cogwork:visual" then found = obj end
+		end
+		local props = found and found:get_properties()
+		local want = cogwork.MODEL_SELECTION[kind]
+		local good = props and props.pointable and math.abs(props.selectionbox[3] - want[3]) < 0.001 and math.abs(props.selectionbox[5] - want[5]) < 0.001 and props.selectionbox.rotate == true
+		local node_def = core.registered_nodes["cogwork:" .. kind]
+		good = good and node_def.collision_box.fixed[4] >= want[4] and node_def.selection_box.fixed[4] < 0.1
+		ok = ok and good
+		detail[#detail + 1] = kind .. "=" .. tostring(good and true or false)
+	end
+	report("the robot you point at is its entity, with a hitbox the shape of the model", ok, table.concat(detail, " "))
+	done()
+end)
+
 -- ---------------------------------------------------------------- pathfinding
 
 local function goto_program (target, extra)

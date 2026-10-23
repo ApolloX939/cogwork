@@ -1,7 +1,8 @@
 -- The robot you see: an entity on top of the robot node.
 --
 -- The node is the robot's body for the game (its inventory, program, forceload,
--- protection and the player's hand), drawn as nothing. This entity is what is drawn:
+-- protection), drawn as nothing. The entity is what you point at (its hitbox is the
+-- shape of the model): right-click opens it (sneak: goes in), punches work it. This entity is what is drawn:
 -- the robot, hover or drone model with its face lit while it runs, turned the way the
 -- robot faces, gliding when the robot moves or falls. A drone gets four rotor
 -- entities that spin while it runs; a robot flying or hovering (a free block under
@@ -14,6 +15,23 @@
 local cogwork = ...
 
 local VISUAL, ROTOR = "cogwork:visual", "cogwork:rotor"
+
+-- What you point at, per model, in the model's own frame (its front is -Z; the box
+-- turns with the entity) - measured from the meshes
+cogwork.MODEL_SELECTION = {
+	robot = { -0.5, -0.5, -0.46, 0.5, 0.5, 0.46, rotate = true },
+	hover = { -0.46, -0.5, -0.34, 0.46, 0.5, 0.34, rotate = true },
+	drone = { -0.47, -0.5, -0.47, 0.47, 0.2, 0.47, rotate = true },
+}
+
+-- What blocks players, on the node: the same, as wide on both sides (a node's box is
+-- turned with its facedir, the model's with the entity's yaw: this one needs neither)
+cogwork.MODEL_BOXES = {}
+for kind, b in pairs(cogwork.MODEL_SELECTION) do
+	local half = math.max(b[4], b[6])
+	cogwork.MODEL_BOXES[kind] = { -half, b[2], -half, half, b[5], half }
+end
+
 local SPIN = 25   -- rotor speed, radians a second
 
 -- where the rotors sit on the drone (1/10 of a node, relative to its middle)
@@ -63,7 +81,9 @@ core.register_entity(VISUAL, {
 		-- the models are made at entity scale, 10 units to the node
 		visual_size = { x = 1, y = 1, z = 1 },
 		physical = false,
-		pointable = false,
+		-- the robot you point at: the hitbox is the model (set per kind below)
+		pointable = true,
+		selectionbox = cogwork.MODEL_SELECTION.robot,
 		static_save = false,
 		collide_with_objects = false,
 		makes_footstep_sound = false,
@@ -72,6 +92,28 @@ core.register_entity(VISUAL, {
 	on_activate = function (self)
 		self.object:set_armor_groups({ immortal = 1 })
 		self.age = 0
+	end,
+
+	-- the robot node under this entity, if there is one
+	robot_pos = function (self)
+		local pos = self.object:get_pos()
+		pos = pos and vector.round(pos)
+		local node = pos and core.get_node_or_nil(pos)
+		if node and cogwork.is_robot(node.name) then return pos end
+	end,
+
+	on_rightclick = function (self, clicker)
+		local pos = self:robot_pos()
+		if not pos or not clicker or not clicker:is_player() then return end
+		local held = clicker:get_wielded_item()
+		local res = cogwork.robot_rightclick(pos, clicker, held)
+		if res and res:to_string() ~= held:to_string() then clicker:set_wielded_item(res) end
+	end,
+
+	on_punch = function (self, puncher, time_from_last_punch)
+		local pos = self:robot_pos()
+		if pos then cogwork.robot_punch(pos, puncher, true, time_from_last_punch) end
+		return true      -- the entity itself takes no damage
 	end,
 
 	-- the robot is gone: so is this
@@ -187,7 +229,8 @@ function cogwork.update_visual (pos, obj)
 
 	local kind, on = parts(node.name)
 	if self.kind ~= kind or self.on ~= on then
-		obj:set_properties({ mesh = "cogwork_" .. kind .. ".obj", textures = textures(on) })
+		obj:set_properties({ mesh = "cogwork_" .. kind .. ".obj", textures = textures(on),
+			selectionbox = cogwork.MODEL_SELECTION[kind] })
 		self.kind, self.on = kind, on
 	end
 
