@@ -477,6 +477,14 @@ to the item of the game being played, so a program written in one game runs in
 another. (`/cogwork items` shows what they are here.) Skyblock: Zero has no
 stone or wood, so those fall back to its matter blob.
 
+## EMC
+
+With the `emc` mod (Project E style EMC) every Cogwork item gets its value from its
+recipe. In Skyblock: Zero the Emitter has no recipe, so Cogwork gives it the value
+1000 (like the movable emitter) when `emc` is installed; without that the cells from
+Large up, the Heavy armor, the Self-Repair Module, the Self-Generator, the Combat,
+Hover and Flight Upgrades and the robot stayed unresolved (`src/emc_values.lua`).
+
 ## For modders
 
 ```lua
