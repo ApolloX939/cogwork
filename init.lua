@@ -27,8 +27,8 @@ cogwork.settings = {
 	generator_amount = math.max(1, tonumber(core.settings:get("cogwork_generator_amount")) or 10),
 	generator_interval = math.max(5, tonumber(core.settings:get("cogwork_generator_interval")) or 5),
 	-- the viewscreen inside a robot: picture size, how far it sees, seconds between pictures
-	view_width = math.max(16, math.floor(tonumber(core.settings:get("cogwork_view_width")) or 96)),
-	view_height = math.max(10, math.floor(tonumber(core.settings:get("cogwork_view_height")) or 60)),
+	view_width = math.max(16, math.floor(tonumber(core.settings:get("cogwork_view_width")) or 64)),
+	view_height = math.max(10, math.floor(tonumber(core.settings:get("cogwork_view_height")) or 40)),
 	view_range = math.max(16, tonumber(core.settings:get("cogwork_view_range")) or 96),
 	view_interval = math.max(0.5, tonumber(core.settings:get("cogwork_view_interval")) or 1),
 	rooms = core.settings:get_bool("cogwork_rooms", true),

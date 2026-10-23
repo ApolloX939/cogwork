@@ -62,8 +62,8 @@ cogwork_particles (Thruster particles) bool true
 cogwork_rooms (Rooms inside robots) bool true
 
 # Picture of the viewscreen inside a robot, in pixels (the screen is 8 x 5 blocks)
-cogwork_view_width (Viewscreen width) int 96 16 256
-cogwork_view_height (Viewscreen height) int 60 10 160
+cogwork_view_width (Viewscreen width) int 64 16 256
+cogwork_view_height (Viewscreen height) int 40 10 160
 
 # How far, in blocks, the viewscreen sees (loaded terrain only)
 cogwork_view_range (Viewscreen range) float 96 16 256

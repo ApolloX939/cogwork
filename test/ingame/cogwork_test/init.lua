@@ -1781,8 +1781,8 @@ end)
 
 test("the viewscreen sees far, and unloaded terrain is haze, not an error", function (done)
 	clear_area()
-	-- a column 90 blocks ahead is seen as a column
-	for y = -3, 6 do core.set_node(P(0, y, 29), { name = material }) end
+	-- a column 29 blocks ahead (3 wide: a pixel is about half a block there) is seen as a column
+	for x = -1, 1 do for y = -3, 6 do core.set_node(P(x, y, 29), { name = material }) end end
 	local job = cogwork.view_job(P(0, 1, 0), { x = 0, y = 0, z = 1 })
 	while not cogwork.view_step(job, 10) do end
 	-- the far column is within the loaded area: not the sky colour

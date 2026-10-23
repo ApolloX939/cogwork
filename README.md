@@ -372,7 +372,7 @@ comes out where the robot stood if it is dug.
   (orange) in range are drawn as boxes of their size, the 24 nearest, in front
   of the terrain behind them; dropped items and robots' own bodies are not. The picture is drawn in slices of 4 ms
   per server step, only while somebody is inside, every `cogwork_view_interval`
-  seconds (2), `cogwork_view_width` x `cogwork_view_height` (96 x 60) pixels, and
+  seconds (2), `cogwork_view_width` x `cogwork_view_height` (64 x 40) pixels, and
   put on a screen entity as a `[png:` texture, the way ggraffiti draws its
   canvases. It works next to ggraffiti: its screen is its own entity, and the
   room is protected, so nobody sprays on the walls.
