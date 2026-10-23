@@ -1,8 +1,8 @@
 -- World actions of a robot. A Bot is created for each program run and is
 -- the `ctx.bot` the language calls. Actions return ok, delay.
 
-local S = ...
-local lang, compat, settings = S.lang, S.compat, S.settings
+local cogwork = ...
+local lang, compat, settings = cogwork.lang, cogwork.compat, cogwork.settings
 
 local Bot = {}
 Bot.__index = Bot
@@ -23,7 +23,7 @@ end
 
 local function robot_node (pos)
 	local node = core.get_node_or_nil(pos)
-	return node and S.is_robot(node.name) and node or nil
+	return node and cogwork.is_robot(node.name) and node or nil
 end
 
 function Bot:node_info ()
@@ -82,7 +82,7 @@ local function fake_player (name)
 		is_fake = true,
 	}
 end
-S.fake_player = fake_player
+cogwork.fake_player = fake_player
 
 function Bot:protected (pos)
 	return core.is_protected(pos, self.owner or "")
@@ -194,8 +194,8 @@ local function liquid_source (name)
 	if def.liquidtype == "source" then return name end
 	return def.liquid_alternative_source
 end
-S.liquid_source = liquid_source
-S.water_source = liquid_source   -- the old name
+cogwork.liquid_source = liquid_source
+cogwork.water_source = liquid_source   -- the old name
 
 -- may a robot be in this block: air, plants and the like, a liquid (it is "flooded")
 local function passable (pos)
@@ -207,20 +207,20 @@ local function passable (pos)
 	return liquid_source(node.name) ~= nil
 end
 
-S.node_passable = passable
+cogwork.node_passable = passable
 
 -- terrain nobody has loaded (or generated): reads as nil or "ignore"
 local function unknown (pos)
 	local node = core.get_node_or_nil(pos)
 	return node == nil or node.name == "ignore"
 end
-S.node_unknown = unknown
+cogwork.node_unknown = unknown
 
 -- Move the robot node (with everything in it) from one block to the next.
 -- A robot in water is "flooded": it remembers the water source of its block,
 -- puts that water back when it leaves and picks up the water of the block it
 -- enters.
-function S.relocate (from, to, node)
+function cogwork.relocate (from, to, node)
 	local meta = core.get_meta(from)
 	local data = meta:to_table()
 	local persistent = meta:get_int("persist") == 1
@@ -235,29 +235,29 @@ function S.relocate (from, to, node)
 	moved:set_string("flooded", entering)
 
 	-- removing the old node must not stop the program or free the forceload
-	S.moving = true
+	cogwork.moving = true
 	if leaving ~= "" then
 		core.set_node(from, { name = leaving })
 	else
 		core.remove_node(from)
 	end
-	S.moving = false
+	cogwork.moving = false
 	core.check_for_falling(from)
 
 	-- the robot you see goes along (before the model is refreshed for the new place)
-	S.move_visual(from, to)
+	cogwork.move_visual(from, to)
 
 	-- the forceload follows the robot; past the server's limit it is lost
 	if persistent and core.forceload_block(to, false) == false then
 		moved:set_int("persist", 0)
 	end
 
-	S.on_robot_moved(from, to)
-	S.room_robot_moved(from, to)
-	S.editor_robot_moved(from, to)
-	S.refresh_structure_timer(to)
-	if S.update_infotext then S.update_infotext(to) end
-	S.refresh_variant(to)
+	cogwork.on_robot_moved(from, to)
+	cogwork.room_robot_moved(from, to)
+	cogwork.editor_robot_moved(from, to)
+	cogwork.refresh_structure_timer(to)
+	if cogwork.update_infotext then cogwork.update_infotext(to) end
+	cogwork.refresh_variant(to)
 end
 
 function Bot:move (dir)
@@ -283,11 +283,11 @@ function Bot:move (dir)
 	end
 
 	-- not higher above the floor than the upgrades allow
-	if not S.move_allowed(from, to, S.height_limit(from), from) then
+	if not cogwork.move_allowed(from, to, cogwork.height_limit(from), from) then
 		return false, settings.action_delay
 	end
 
-	S.relocate(from, to, node)
+	cogwork.relocate(from, to, node)
 
 	self.pos = to
 	return true, settings.move_delay
@@ -304,7 +304,7 @@ function Bot:dig (dir)
 	end
 
 	local def = core.registered_nodes[node.name]
-	if not def or def.diggable == false or S.is_robot(node.name)
+	if not def or def.diggable == false or cogwork.is_robot(node.name)
 		or self:protected(pos) then
 		return false, settings.action_delay
 	end
@@ -430,7 +430,7 @@ local function container (self, mode)
 	local cpos = self:target("front")
 	if self:protected(cpos) then return nil end
 	local node = core.get_node_or_nil(cpos)
-	if not node or S.is_robot(node.name) then return nil end
+	if not node or cogwork.is_robot(node.name) then return nil end
 
 	local meta = core.get_meta(cpos)
 	local inv = meta:get_inventory()
@@ -625,7 +625,7 @@ local function objects_at (pos, hit_players, owner)
 	local items, others = {}, {}
 	for _, obj in ipairs(core.get_objects_inside_radius(pos, 1.25)) do
 		local le = obj:get_luaentity()
-		if S.is_visual(obj) then
+		if cogwork.is_visual(obj) then
 			-- a robot's own body is nobody to hit
 		elseif le and le.name == "__builtin:item" then
 			items[#items + 1] = obj
@@ -663,7 +663,7 @@ function Bot:punch (dir, item)
 
 	item = stack_name(item)
 	-- the Combat Upgrade lets it hit players, for its online owner, where pvp is on
-	local combat = S.has_upgrade(self.pos, "cogwork:upgrade_combat")
+	local combat = cogwork.has_upgrade(self.pos, "cogwork:upgrade_combat")
 		and core.settings:get_bool("enable_pvp", true) and core.settings:get_bool("enable_damage", true)
 		and self.owner ~= nil and core.get_player_by_name(self.owner) ~= nil
 	local items, others = objects_at(pos, combat, self.owner)
@@ -671,7 +671,7 @@ function Bot:punch (dir, item)
 	-- up to the first block in the way or protected one
 	local step = dir_vector(self:front_vec(), dir)
 	local cell = pos
-	for _ = 2, S.combat_count(self.pos) do
+	for _ = 2, cogwork.combat_count(self.pos) do
 		cell = V.add(cell, step)
 		if not passable(cell) or self:protected(cell) then break end
 		local _, more = objects_at(cell, combat, self.owner)
@@ -756,4 +756,4 @@ function Bot:chat (text)
 	return true, 0
 end
 
-S.Bot = Bot
+cogwork.Bot = Bot

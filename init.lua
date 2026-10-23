@@ -1,12 +1,11 @@
 local modpath = core.get_modpath("cogwork")
 
 cogwork = {}
-local S = cogwork
 
-S.modpath = modpath
-S.S = core.get_translator("cogwork")
+cogwork.modpath = modpath
+cogwork.S = core.get_translator("cogwork")
 
-S.settings = {
+cogwork.settings = {
 	tick = tonumber(core.settings:get("cogwork_tick")) or 0.1,
 	action_delay = math.max(0.1, tonumber(core.settings:get("cogwork_action_delay")) or 0.2),
 	move_delay = math.max(0.1, tonumber(core.settings:get("cogwork_move_delay")) or 0.5),
@@ -37,13 +36,13 @@ S.settings = {
 	chat_window = math.max(1, tonumber(core.settings:get("cogwork_chat_window")) or 10),
 }
 
-S.lang = assert(loadfile(modpath .. "/src/lang.lua"))()
-assert(loadfile(modpath .. "/src/commands.lua"))(S.lang)
-S.compat = assert(loadfile(modpath .. "/src/compat.lua"))()
+cogwork.lang = assert(loadfile(modpath .. "/src/lang.lua"))()
+assert(loadfile(modpath .. "/src/commands.lua"))(cogwork.lang)
+cogwork.compat = assert(loadfile(modpath .. "/src/compat.lua"))()
 
 for _, file in ipairs({ "robot_ops", "upgrades", "structure", "machines", "viewscreen", "rooms", "room_nodes", "runtime", "events", "pathfind", "api", "visual", "gravity", "packages", "robot", "editor",
 	"cassette", "crafting", "structure_recipes", "charger", "chatcommands" }) do
-	assert(loadfile(modpath .. "/src/" .. file .. ".lua"))(S)
+	assert(loadfile(modpath .. "/src/" .. file .. ".lua"))(cogwork)
 end
 
-core.log("action", "[cogwork] loaded (" .. S.compat.family .. ")")
+core.log("action", "[cogwork] loaded (" .. cogwork.compat.family .. ")")

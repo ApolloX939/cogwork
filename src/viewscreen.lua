@@ -14,9 +14,9 @@
 --
 -- Only rooms with a player in them are drawn, one picture every view_interval.
 
-local S = ...
-local settings = S.settings
-local png = assert(loadfile(S.modpath .. "/src/png.lua"))()
+local cogwork = ...
+local settings = cogwork.settings
+local png = assert(loadfile(cogwork.modpath .. "/src/png.lua"))()
 
 local floor, abs, huge = math.floor, math.abs, math.huge
 local NEAR = 24                 -- blocks around the eye read in one go and traversed exactly
@@ -87,9 +87,9 @@ local function info_of (name)
 	if info then return info end
 
 	local def = core.registered_nodes[name]
-	if name == "air" or (def and def.drawtype == "airlike" and not S.is_robot(name)) then
+	if name == "air" or (def and def.drawtype == "airlike" and not cogwork.is_robot(name)) then
 		info = { clear = true }
-	elseif S.is_robot(name) then
+	elseif cogwork.is_robot(name) then
 		local metal = { 150, 160, 180 }
 		info = { top = metal, bottom = metal, side = metal }
 	else
@@ -121,7 +121,7 @@ local function info_of (name)
 end
 
 -- cached info for tests and the editor of nothing: node colours as the screen sees them
-function S.view_node_color (name, face)
+function cogwork.view_node_color (name, face)
 	local info = info_of(name)
 	return info.clear and nil or info[face or "side"]
 end
@@ -242,7 +242,7 @@ local function collect_marks (job, pos)
 	local marks = {}
 	for _, obj in ipairs(core.get_objects_inside_radius(pos, range)) do
 		local le = obj:get_luaentity()
-		if not S.is_visual(obj) and not (le and le.name == "__builtin:item") and not obj:get_attach() then
+		if not cogwork.is_visual(obj) and not (le and le.name == "__builtin:item") and not obj:get_attach() then
 			local props = obj:get_properties()
 			local p = obj:get_pos()
 			if p and props and props.is_visible ~= false then
@@ -358,7 +358,7 @@ end
 -- A picture to make: the eye and the way it looks.
 -- pos: the robot's block, front: its facing vector (a unit vector in the horizontal plane)
 -- remembers: a table kept between the pictures of one screen (blocks that would not load)
-function S.view_job (pos, front, remembers)
+function cogwork.view_job (pos, front, remembers)
 	local W, H = settings.view_width, settings.view_height
 	local now = core.get_us_time() / 1e6
 	local mem = remembers or {}
@@ -390,7 +390,7 @@ function S.view_job (pos, front, remembers)
 end
 
 -- draw for up to budget seconds; true when the picture is finished
-function S.view_step (job, budget)
+function cogwork.view_step (job, budget)
 	local W, H, pixels, tan = job.W, job.H, job.pixels, job.tan
 	local aspect = W / H
 	local range = settings.view_range
@@ -430,13 +430,13 @@ function S.view_step (job, budget)
 end
 
 -- the finished picture as a texture string
-function S.view_texture (job)
+function cogwork.view_texture (job)
 	local data = core.encode_png(job.W, job.H, job.pixels, 6)
 	return "[png:" .. core.encode_base64(data)
 end
 
 -- a picture with no signal: grey static
-function S.view_static ()
+function cogwork.view_static ()
 	local W, H = settings.view_width, settings.view_height
 	local pixels = {}
 	local seed = os.time()
@@ -472,7 +472,7 @@ local function find_screen (pos)
 end
 
 -- the screen at pos (made when there is none)
-function S.view_screen (pos, size)
+function cogwork.view_screen (pos, size)
 	local obj = find_screen(pos) or core.add_entity(pos, "cogwork:screen")
 	if obj then
 		obj:set_properties({ visual_size = size })
@@ -484,8 +484,8 @@ end
 
 -- Put a picture on the screen; a screen that went missing (entities in blocks nobody is
 -- near are put away) is made again.
-function S.view_set (pos, texture, size)
-	local obj = find_screen(pos) or S.view_screen(pos, size or { x = 8, y = 5 })
+function cogwork.view_set (pos, texture, size)
+	local obj = find_screen(pos) or cogwork.view_screen(pos, size or { x = 8, y = 5 })
 	if not obj then return end
 	-- the same picture again (nothing moved) is not sent to the clients again
 	local le = obj:get_luaentity()
@@ -499,7 +499,7 @@ end
 
 local watched = {}     -- room id -> { screen = pos, robot = function () -> pos, front, job, due }
 
-function S.view_watch (rid, screen_pos, locate, size)
+function cogwork.view_watch (rid, screen_pos, locate, size)
 	watched[rid] = watched[rid] or { due = 0 }
 	watched[rid].screen = screen_pos
 	watched[rid].locate = locate
@@ -507,18 +507,18 @@ function S.view_watch (rid, screen_pos, locate, size)
 end
 
 -- for tests and curiosity: how far the picture of a watched room is
-function S.view_state (rid)
+function cogwork.view_state (rid)
 	local w = watched[rid]
 	if not w then return "not watched" end
 	return w.job and ("drawing %d/%d"):format(w.job.next, w.job.total) or ("waiting, due in %.1f s"):format(w.due - core.get_us_time() / 1e6)
 end
 
-function S.view_unwatch (rid)
+function cogwork.view_unwatch (rid)
 	watched[rid] = nil
 end
 
 -- the ids of the rooms being drawn (rooms.lua checks somebody is in each)
-function S.view_watched ()
+function cogwork.view_watched ()
 	local list = {}
 	for rid in pairs(watched) do list[#list + 1] = rid end
 	return list
@@ -541,15 +541,15 @@ core.register_globalstep(function (dt)
 			local pos, front = w.locate()
 			if pos then
 				w.remembers = w.remembers or {}
-				w.job = S.view_job(pos, front, w.remembers)
+				w.job = cogwork.view_job(pos, front, w.remembers)
 				w.started = now
 			else
-				S.view_set(w.screen, S.view_static(), w.size)
+				cogwork.view_set(w.screen, cogwork.view_static(), w.size)
 				w.due = now + settings.view_interval
 			end
 		end
-		if w.job and S.view_step(w.job, each) then
-			S.view_set(w.screen, S.view_texture(w.job), w.size)
+		if w.job and cogwork.view_step(w.job, each) then
+			cogwork.view_set(w.screen, cogwork.view_texture(w.job), w.size)
 			w.job = nil
 			-- the interval counts from the start of the picture
 			w.due = w.started + settings.view_interval

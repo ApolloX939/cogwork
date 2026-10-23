@@ -1,28 +1,28 @@
 -- Scheduler: runs each robot's program as a coroutine.
 
-local S = ...
-local lang, compat, settings = S.lang, S.compat, S.settings
+local cogwork = ...
+local lang, compat, settings = cogwork.lang, cogwork.compat, cogwork.settings
 
 local running = {}   -- pos hash -> run record
-S.running = running
+cogwork.running = running
 
 local hash = core.hash_node_position
 
-function S.is_running (pos)
+function cogwork.is_running (pos)
 	return running[hash(pos)] ~= nil
 end
 
-function S.running_line (pos)
+function cogwork.running_line (pos)
 	local r = running[hash(pos)]
 	return r and r.ctx.line or nil
 end
 
 local function set_variant (pos, on)
-	S.refresh_variant(pos, on)
+	cogwork.refresh_variant(pos, on)
 end
 
 -- called by Bot:move
-function S.on_robot_moved (from, to)
+function cogwork.on_robot_moved (from, to)
 	local r = running[hash(from)]
 	if r then
 		running[hash(from)] = nil
@@ -30,46 +30,46 @@ function S.on_robot_moved (from, to)
 	end
 end
 
-function S.stop (pos, message)
+function cogwork.stop (pos, message)
 	local key = hash(pos)
 	local r = running[key]
 	running[key] = nil
 
 	local node = core.get_node_or_nil(pos)
-	if node and S.is_robot(node.name) then
+	if node and cogwork.is_robot(node.name) then
 		set_variant(pos, false)
 		if message ~= nil then core.get_meta(pos):set_string("error", message) end
 		-- a robot that is off falls to the floor
-		if S.settle_later and not S.moving then S.settle_later(pos) end
+		if cogwork.settle_later and not cogwork.moving then cogwork.settle_later(pos) end
 	end
 
 	return r ~= nil
 end
 
-function S.start (pos)
+function cogwork.start (pos)
 	local node = core.get_node_or_nil(pos)
-	if not node or not S.is_robot(node.name) then return false, "no robot" end
+	if not node or not cogwork.is_robot(node.name) then return false, "no robot" end
 	if running[hash(pos)] then return true end
 
 	local meta = core.get_meta(pos)
 
 	-- no armor, no cell, or nothing in the cells: the robot stays off
-	S.ensure_structure(pos)
-	local why = S.cannot_run(pos)
+	cogwork.ensure_structure(pos)
+	local why = cogwork.cannot_run(pos)
 	if why then
 		meta:set_string("error", why)
 		return false, why
 	end
 
-	local unit, err = S.compile_for(pos, meta:get_string("program"))
+	local unit, err = cogwork.compile_for(pos, meta:get_string("program"))
 	if not unit then
 		meta:set_string("error", err)
 		return false, err
 	end
 
-	local bot = S.Bot.new(pos, meta:get_string("owner"))
+	local bot = cogwork.Bot.new(pos, meta:get_string("owner"))
 	local ctx = lang.new_ctx({ bot = bot, budget = settings.step_budget })
-	ctx.spend = function (amount) return S.spend(bot.pos, amount) end
+	ctx.spend = function (amount) return cogwork.spend(bot.pos, amount) end
 	ctx.alias = function (tok)
 		local v = compat.alias(tok)
 		if not v then
@@ -102,7 +102,7 @@ local function finish (r, err)
 		end
 	end
 
-	S.stop(pos, message)
+	cogwork.stop(pos, message)
 end
 
 local timer = 0
@@ -121,7 +121,7 @@ core.register_globalstep(function (dt)
 
 		if node == nil then
 			-- block not loaded: the program pauses
-		elseif not S.is_robot(node.name) then
+		elseif not cogwork.is_robot(node.name) then
 			running[hash(pos)] = nil
 		else
 			-- armor taken out, cells run dry: stop (and stay off)
@@ -129,17 +129,17 @@ core.register_globalstep(function (dt)
 			local why
 			if r.check <= 0 then
 				r.check = 0.5
-				why = S.cannot_run(pos)
-				if why then S.stop(pos, why) end
+				why = cogwork.cannot_run(pos)
+				if why then cogwork.stop(pos, why) end
 			end
 
 			r.wait = r.wait - dt
 			if not why and r.wait <= 0 then
 				-- Callbacks the program triggers (a placed item's on_place right-clicks the
 				-- node it is placed against: the robot) must not open the editor
-				S.acting = true
+				cogwork.acting = true
 				local ok, res = coroutine.resume(r.co)
-				S.acting = false
+				cogwork.acting = false
 				if not ok then
 					finish(r, res)
 				elseif coroutine.status(r.co) == "dead" then
@@ -161,7 +161,7 @@ core.register_lbm({
 	action = function (pos)
 		if running[hash(pos)] then return end
 		if settings.resume_on_start then
-			S.start(pos)
+			cogwork.start(pos)
 		else
 			set_variant(pos, false)
 		end

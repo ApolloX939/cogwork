@@ -11,9 +11,9 @@
 -- it is assumed to be open and the robot goes anyway; Bot:move loads or
 -- generates the blocks as it arrives and moves the forceload along.
 
-local S = ...
-local lang, settings = S.lang, S.settings
-local Bot = S.Bot
+local cogwork = ...
+local lang, settings = cogwork.lang, cogwork.settings
+local Bot = cogwork.Bot
 local V = vector
 
 local DIRS = {
@@ -93,7 +93,7 @@ local function search (bot, from, goal, forceloaded)
 	heap_push(heap, { manhattan(from, goal.pos), 0, start })
 
 	-- known free blocks; unloaded ones count as free for a forceloaded robot
-	local height = S.height_limit(from)
+	local height = cogwork.height_limit(from)
 	local free_cache = {}
 	local function free (c, h)
 		local v = free_cache[h]
@@ -102,7 +102,7 @@ local function search (bot, from, goal, forceloaded)
 		if node == nil or node.name == "ignore" then
 			v = forceloaded
 		else
-			v = S.node_passable(c) and not bot:protected(c) or false
+			v = cogwork.node_passable(c) and not bot:protected(c) or false
 		end
 		free_cache[h] = v
 		return v
@@ -137,7 +137,7 @@ local function search (bot, from, goal, forceloaded)
 				local nh = hash(n)
 				if not closed[nh] and manhattan(n, from) <= reach
 					and free(n, nh) and (g_of[nh] == nil or g < g_of[nh])
-					and S.move_allowed(c, n, height, from) then
+					and cogwork.move_allowed(c, n, height, from) then
 					cells[nh] = n
 					g_of[nh] = g
 					parent[nh] = h
@@ -248,7 +248,7 @@ function Bot:path_step (ctx)
 	end
 
 	local cell = st.cells[st.idx + 1]
-	local loading = S.node_unknown(cell)
+	local loading = cogwork.node_unknown(cell)
 	-- a step costs what a move does
 	if not loading and ctx.spend and not ctx.spend(1) then lang.rt_error(ctx, "out of power") end
 	local ok, delay = self:step_to(cell)

@@ -1,4 +1,3 @@
-local S = cogwork
 
 local PROGRAM = [[
 use mining
@@ -40,7 +39,7 @@ core.register_on_joinplayer(function (player)
 			if remaining > 0 then return end
 			for x = -8, 8 do for z = -8, 8 do
 				for y = 0, 6 do core.set_node(vector.add(base, { x = x, y = y, z = z }), { name = "air" }) end
-				core.set_node(vector.add(base, { x = x, y = -1, z = z }), { name = S.compat.item("stone") or S.compat.item("matter") })
+				core.set_node(vector.add(base, { x = x, y = -1, z = z }), { name = cogwork.compat.item("stone") or cogwork.compat.item("matter") })
 			end end
 			player:set_pos(vector.add(base, { x = 0, y = 0.5, z = -4 }))
 			player:set_look_horizontal(0)
@@ -54,8 +53,8 @@ core.register_on_joinplayer(function (player)
 			meta:set_string("owner", name)
 			meta:set_string("bot_name", "Digger")
 			meta:set_string("program", PROGRAM)
-			meta:get_inventory():add_item("main", (S.compat.item("torch") or S.compat.item("matter")) .. " 20")
-			meta:get_inventory():add_item("main", (S.compat.item("cobble") or S.compat.item("matter")) .. " 40")
+			meta:get_inventory():add_item("main", (cogwork.compat.item("torch") or cogwork.compat.item("matter")) .. " 20")
+			meta:get_inventory():add_item("main", (cogwork.compat.item("cobble") or cogwork.compat.item("matter")) .. " 40")
 			core.get_meta(vector.add(pos, { x = 2, y = 0, z = 0 })):set_string("x", "1")
 			-- a second one, running, to see the lit face
 			local p2 = vector.add(pos, { x = 3, y = 0, z = 0 })
@@ -80,10 +79,10 @@ core.register_on_joinplayer(function (player)
 					print("SBD LOOK")
 					return
 				end
-				local s = S.editor_session(player)
+				local s = cogwork.editor_session(player)
 				for k, v in pairs(t) do s[k] = v end
 				s.msg = ""
-				S.show_editor(pos, player)
+				cogwork.show_editor(pos, player)
 				print("SBD SHOW " .. i .. " " .. t.tab)
 				core.after(9, step)
 			end

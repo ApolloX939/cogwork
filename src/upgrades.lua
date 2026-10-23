@@ -5,57 +5,57 @@
 -- Flight Upgrade removes the limit. The limit applies to every move and to
 -- the pathfinder, so a robot cannot climb 100 blocks into the air - except along
 -- a wall: next to a solid block it may go on up (out of a shaft it dug).
--- See S.move_allowed.
+-- See cogwork.move_allowed.
 -- A robot with a Flight Upgrade is a "drone" (its own model).
 
-local S = ...
-local T = S.S
+local cogwork = ...
+local S = cogwork.S
 
-S.UPGRADE_SLOTS = 6
-S.BASE_HEIGHT = 1
+cogwork.UPGRADE_SLOTS = 6
+cogwork.BASE_HEIGHT = 1
 
 local HOVER, FLIGHT = "cogwork:upgrade_hover", "cogwork:upgrade_flight"
 local COMBAT = "cogwork:upgrade_combat"
 local STORAGE_UP = "cogwork:upgrade_storage"
-S.UPGRADE_ITEMS = { [HOVER] = true, [FLIGHT] = true, [COMBAT] = true, [STORAGE_UP] = true }
+cogwork.UPGRADE_ITEMS = { [HOVER] = true, [FLIGHT] = true, [COMBAT] = true, [STORAGE_UP] = true }
 
-S.STORAGE_BASE = 16        -- 8 x 2
-S.STORAGE_PER_UPGRADE = 4
+cogwork.STORAGE_BASE = 16        -- 8 x 2
+cogwork.STORAGE_PER_UPGRADE = 4
 
 core.register_craftitem(HOVER, {
-	description = T("Hover Upgrade"),
-	short_description = T("Hover Upgrade"),
-	_tt_help = T("Robot upgrade: one more block above the floor (install in the Storage tab)"),
+	description = S("Hover Upgrade"),
+	short_description = S("Hover Upgrade"),
+	_tt_help = S("Robot upgrade: one more block above the floor (install in the Storage tab)"),
 	inventory_image = "cogwork_upgrade_hover.png",
 	stack_max = 1,
 })
 
 core.register_craftitem(FLIGHT, {
-	description = T("Flight Upgrade"),
-	short_description = T("Flight Upgrade"),
-	_tt_help = T("Robot upgrade: no limit above the floor (install in the Storage tab)"),
+	description = S("Flight Upgrade"),
+	short_description = S("Flight Upgrade"),
+	_tt_help = S("Robot upgrade: no limit above the floor (install in the Storage tab)"),
 	inventory_image = "cogwork_upgrade_flight.png",
 	stack_max = 1,
 })
 
 core.register_craftitem(COMBAT, {
-	description = T("Combat Upgrade"),
-	short_description = T("Combat Upgrade"),
-	_tt_help = T("Robot upgrade: its punch can hit players (not its owner), where pvp is on"),
+	description = S("Combat Upgrade"),
+	short_description = S("Combat Upgrade"),
+	_tt_help = S("Robot upgrade: its punch can hit players (not its owner), where pvp is on"),
 	inventory_image = "cogwork_upgrade_combat.png",
 	stack_max = 1,
 })
 
 core.register_craftitem(STORAGE_UP, {
-	description = T("Storage Upgrade"),
-	short_description = T("Storage Upgrade"),
-	_tt_help = T("Robot upgrade: @1 more storage slots", S.STORAGE_PER_UPGRADE),
+	description = S("Storage Upgrade"),
+	short_description = S("Storage Upgrade"),
+	_tt_help = S("Robot upgrade: @1 more storage slots", cogwork.STORAGE_PER_UPGRADE),
 	inventory_image = "cogwork_upgrade_storage.png",
 	stack_max = 1,
 })
 
 -- is this upgrade installed in the robot at pos?
-function S.has_upgrade (pos, name)
+function cogwork.has_upgrade (pos, name)
 	for _, stack in ipairs(core.get_meta(pos):get_inventory():get_list("upgrades") or {}) do
 		if stack:get_name() == name then return true end
 	end
@@ -63,16 +63,16 @@ function S.has_upgrade (pos, name)
 end
 
 -- robots placed before upgrades existed get their slots on first use
-function S.ensure_upgrade_slots (pos)
+function cogwork.ensure_upgrade_slots (pos)
 	local inv = core.get_meta(pos):get_inventory()
-	if inv:get_size("upgrades") ~= S.UPGRADE_SLOTS then
-		inv:set_size("upgrades", S.UPGRADE_SLOTS)
+	if inv:get_size("upgrades") ~= cogwork.UPGRADE_SLOTS then
+		inv:set_size("upgrades", cogwork.UPGRADE_SLOTS)
 	end
 end
 
 -- How many Combat Upgrades the robot at pos has: a punch reaches that many blocks
 -- (one with a single upgrade or none).
-function S.combat_count (pos)
+function cogwork.combat_count (pos)
 	local n = 0
 	for _, stack in ipairs(core.get_meta(pos):get_inventory():get_list("upgrades") or {}) do
 		if stack:get_name() == COMBAT then n = n + 1 end
@@ -81,7 +81,7 @@ function S.combat_count (pos)
 end
 
 -- Blocks above the floor the robot at pos may be, or nil when it can fly.
-function S.height_limit (pos)
+function cogwork.height_limit (pos)
 	local list = core.get_meta(pos):get_inventory():get_list("upgrades") or {}
 	local hovers = 0
 	for _, stack in ipairs(list) do
@@ -89,26 +89,26 @@ function S.height_limit (pos)
 		if name == FLIGHT then return nil end
 		if name == HOVER then hovers = hovers + 1 end
 	end
-	return S.BASE_HEIGHT + hovers
+	return cogwork.BASE_HEIGHT + hovers
 end
 
 -- Does the block at pos hold a robot up? Anything it cannot be in does; terrain
 -- nobody loaded does (it cannot be told); water does when robots can float,
 -- else a robot sinks through it.
-function S.is_floor (pos)
+function cogwork.is_floor (pos)
 	local node = core.get_node_or_nil(pos)
 	if node == nil or node.name == "ignore" then return true end
-	if S.water_source(node.name) then return S.settings.can_float end
-	return not S.node_passable(pos)
+	if cogwork.water_source(node.name) then return cogwork.settings.can_float end
+	return not cogwork.node_passable(pos)
 end
 
 -- Free blocks between cell and the floor below it, counting no further than
 -- limit + 1.
 -- ignore: a position to read as free (the robot's own block).
-function S.gap_below (cell, limit, ignore)
+function cogwork.gap_below (cell, limit, ignore)
 	for k = 0, limit do
 		local below = { x = cell.x, y = cell.y - 1 - k, z = cell.z }
-		if not (ignore and vector.equals(below, ignore)) and S.is_floor(below) then
+		if not (ignore and vector.equals(below, ignore)) and cogwork.is_floor(below) then
 			return k
 		end
 	end
@@ -121,60 +121,60 @@ local SIDES = {
 }
 
 -- is there a solid block beside cell to hold on to? (a shaft wall, a tower)
-function S.clinging (cell, ignore)
+function cogwork.clinging (cell, ignore)
 	for _, d in ipairs(SIDES) do
 		local side = vector.add(cell, d)
 		if not (ignore and vector.equals(side, ignore))
-			and not S.node_unknown(side) and not S.node_passable(side) then
+			and not cogwork.node_unknown(side) and not cogwork.node_passable(side) then
 			return true
 		end
 	end
 	return false
 end
 
--- May the robot (limit from S.height_limit) go from one cell to a neighbour?
+-- May the robot (limit from cogwork.height_limit) go from one cell to a neighbour?
 --   * down: always, that only brings it closer to the floor
 --   * within the limit above the floor at the new cell
 --   * the new cell is next to a block (it holds on: along a wall, up a tower)
 --   * up from a cell that is next to a block, so it can climb out of a shaft
 --     it dug and step onto the surface above it
 -- ignore: the robot's own block, which is no floor and no wall.
-function S.move_allowed (from, to, limit, ignore)
+function cogwork.move_allowed (from, to, limit, ignore)
 	if limit == nil or to.y < from.y then return true end
-	if S.gap_below(to, limit, ignore) <= limit then return true end
-	if S.clinging(to, ignore) then return true end
-	return to.y > from.y and S.clinging(from, ignore)
+	if cogwork.gap_below(to, limit, ignore) <= limit then return true end
+	if cogwork.clinging(to, ignore) then return true end
+	return to.y > from.y and cogwork.clinging(from, ignore)
 end
 
 -- a short sentence for the Storage tab
-function S.height_text (pos)
-	local limit = S.height_limit(pos)
-	if limit == nil then return T("Flying: no height limit") end
-	return T("Up to @1 block(s) above the floor", limit)
+function cogwork.height_text (pos)
+	local limit = cogwork.height_limit(pos)
+	if limit == nil then return S("Flying: no height limit") end
+	return S("Up to @1 block(s) above the floor", limit)
 end
 
 -- for programs: blocks above the floor allowed, -1 when flying
-function S.Bot:height_limit ()
-	return S.height_limit(self.pos) or -1
+function cogwork.Bot:height_limit ()
+	return cogwork.height_limit(self.pos) or -1
 end
 
 --------------------------------------------------------------------------
 -- storage: 16 slots, 4 more for every Storage Upgrade
 
-function S.storage_size (pos)
+function cogwork.storage_size (pos)
 	local n = 0
 	for _, stack in ipairs(core.get_meta(pos):get_inventory():get_list("upgrades") or {}) do
 		if stack:get_name() == STORAGE_UP then n = n + 1 end
 	end
-	return S.STORAGE_BASE + n * S.STORAGE_PER_UPGRADE
+	return cogwork.STORAGE_BASE + n * cogwork.STORAGE_PER_UPGRADE
 end
 
 -- Make the storage the size the upgrades give. It never shrinks over items: a robot
 -- with more in it than it should hold (older robots had 32 slots) keeps the slots
 -- up to its last item, until they are emptied.
-function S.sync_storage (pos)
+function cogwork.sync_storage (pos)
 	local inv = core.get_meta(pos):get_inventory()
-	local want, have = S.storage_size(pos), inv:get_size("main")
+	local want, have = cogwork.storage_size(pos), inv:get_size("main")
 	if have > want then
 		local last = 0
 		for i, stack in ipairs(inv:get_list("main") or {}) do
@@ -186,10 +186,10 @@ function S.sync_storage (pos)
 end
 
 -- Would taking this stack out of the upgrade slots cut slots that hold items?
-function S.storage_removal_blocked (pos, name)
+function cogwork.storage_removal_blocked (pos, name)
 	if name ~= STORAGE_UP then return false end
 	local inv = core.get_meta(pos):get_inventory()
-	local after = S.storage_size(pos) - S.STORAGE_PER_UPGRADE
+	local after = cogwork.storage_size(pos) - cogwork.STORAGE_PER_UPGRADE
 	for i = after + 1, inv:get_size("main") do
 		if not inv:get_stack("main", i):is_empty() then return true end
 	end

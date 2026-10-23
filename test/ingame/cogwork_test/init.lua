@@ -1,10 +1,9 @@
 -- Runs every check below on a flat area, prints "SBT ..." lines, then
 -- "SBT DONE" and shuts the server down.
 
-local S = cogwork
 
 -- stopped robots fall to the floor; most checks below leave them where the program ends
-S.settings.gravity = false
+cogwork.settings.gravity = false
 
 -- Mineclonia protects chunks its own level generator has not made, which the
 -- singlenode test world never has
@@ -43,9 +42,9 @@ local function clear_area ()
 	core.set_node(P(0, 0, 0), { name = "air" })
 end
 
-local material = S.compat.item("stone") or S.compat.item("matter")
-local dirt = S.compat.item("dirt") or material
-local chest = S.compat.item("chest")
+local material = cogwork.compat.item("stone") or cogwork.compat.item("matter")
+local dirt = cogwork.compat.item("dirt") or material
+local chest = cogwork.compat.item("chest")
 
 -- place a robot at pos facing +z (front = +z), give it items and a program
 local function make_robot (pos, program, items, upgrades, bare)
@@ -58,7 +57,7 @@ local function make_robot (pos, program, items, upgrades, bare)
 	for _, up in ipairs(upgrades or { "cogwork:upgrade_flight" }) do
 		meta:get_inventory():add_item("upgrades", up)
 	end
-	S.sync_storage(pos)
+	cogwork.sync_storage(pos)
 	-- armor and a power cell, or the robot does not run
 	if not bare then
 		meta:get_inventory():set_stack("armor", 1, ItemStack("cogwork:armor_basic"))
@@ -79,11 +78,11 @@ local function wait_for (pos, timeout, cb)
 		t = t + 0.5
 		if os.getenv("SBT_TRACE") then
 			local rp = find_robot()
-			local r = select(2, next(S.running))
-			print("SBT trace", rp and core.pos_to_string(vector.subtract(rp, ORIGIN)), next(S.running) ~= nil,
+			local r = select(2, next(cogwork.running))
+			print("SBT trace", rp and core.pos_to_string(vector.subtract(rp, ORIGIN)), next(cogwork.running) ~= nil,
 				r and core.pos_to_string(vector.subtract(r.bot.pos, ORIGIN)), r and core.get_node(r.bot.pos).name, r and r.ctx.line, r and coroutine.status(r.co))
 		end
-		if next(S.running) == nil or t > timeout then return cb(t > timeout) end
+		if next(cogwork.running) == nil or t > timeout then return cb(t > timeout) end
 		core.after(0.5, poll)
 	end
 	poll()
@@ -97,7 +96,7 @@ local function run_program (name, program, items, setup, check, start)
 		clear_area()
 		if setup then setup() end
 		local pos = make_robot(start or P(0, 1, 0), program, items)
-		local ok, err = S.start(pos)
+		local ok, err = cogwork.start(pos)
 		if not ok then report(name, false, "start: " .. tostring(err)) return done() end
 		wait_for(pos, 40, function (timeout)
 			local node = core.get_node(pos)
@@ -114,7 +113,7 @@ function find_robot ()
 	for x = -12, 30 do for y = -3, 12 do for z = -12, 30 do
 		local p = P(x, y, z)
 		local n = core.get_node(p).name
-		if S.is_robot(n) then return p end
+		if cogwork.is_robot(n) then return p end
 	end end end
 end
 
@@ -251,7 +250,7 @@ run_program("blocked move is not an error",
 	end)
 
 run_program("craft",
-	"craft " .. (S.compat.item("stick") or "default:stick"),
+	"craft " .. (cogwork.compat.item("stick") or "default:stick"),
 	nil, nil, function () return true end)
 
 if chest then
@@ -261,13 +260,13 @@ if chest then
 			core.set_node(P(0, 1, 1), { name = chest, param2 = 0 })
 			local inv = core.get_meta(P(0, 1, 1)):get_inventory()
 			inv:add_item("main", "air")
-			inv:add_item("main", (S.compat.item("coal") or material) .. " 3")
+			inv:add_item("main", (cogwork.compat.item("coal") or material) .. " 3")
 		end, function ()
 			local p = find_robot()
 			assert(p, "robot lost")
 			assert(err_of(p) == "", err_of(p))
 			local rinv = core.get_meta(p):get_inventory()
-			local coal = S.compat.item("coal")
+			local coal = cogwork.compat.item("coal")
 			if coal then assert(rinv:contains_item("main", coal .. " 3"), "pull failed") end
 		end)
 end
@@ -315,13 +314,13 @@ run_program("event private message",
 	H .. "call events.register_whisper \"h\"\ncall events.process",
 	nil, function ()
 		core.after(1.0, function ()
-			local ok, res = S.whisper_to_bot("tester", "Scout", "psst")
+			local ok, res = cogwork.whisper_to_bot("tester", "Scout", "psst")
 			assert(ok == false, "an unnamed robot was found")
 			core.get_meta(find_robot()):set_string("bot_name", "Scout")
-			local ok2, res2 = S.whisper_to_bot("tester", "scout", "psst")
+			local ok2, res2 = cogwork.whisper_to_bot("tester", "scout", "psst")
 			assert(ok2 and res2 == 1, tostring(res2))
 			-- somebody else's private robot does not listen to strangers
-			assert(S.whisper_to_bot("stranger", "Scout", "hi") == false)
+			assert(cogwork.whisper_to_bot("stranger", "Scout", "hi") == false)
 		end)
 	end, function (_, timeout) assert(not timeout and lifted(), "handler did not run") end)
 
@@ -334,19 +333,19 @@ test("event robot message", function (done)
 	local m = core.get_meta(rx)
 	m:set_string("bot_name", "Rx")
 	m:set_string("owner", "other")
-	local ok = S.start(rx)
-	local started = S.start(sender)
+	local ok = cogwork.start(rx)
+	local started = cogwork.start(sender)
 	local blocked, allowed
 
 	core.after(1.0, function ()
 		-- another owner's robot does not hear us until its owner allows it
-		blocked = #S.listeners_of(sender)
-		S.bot_allow_set(rx, { "tester" })
-		allowed = S.listeners_of(sender)
+		blocked = #cogwork.listeners_of(sender)
+		cogwork.bot_allow_set(rx, { "tester" })
+		allowed = cogwork.listeners_of(sender)
 	end)
 
 	wait_for(sender, 40, function (timeout)
-		local lifted_rx = S.is_robot(core.get_node(P(5, 2, 0)).name)
+		local lifted_rx = cogwork.is_robot(core.get_node(P(5, 2, 0)).name)
 		report("event robot message", ok and started and not timeout and blocked == 0
 			and allowed and #allowed == 1 and allowed[1] == "other/Rx" and lifted_rx,
 			("blocked=%s allowed=%s lifted=%s timeout=%s"):format(tostring(blocked),
@@ -360,7 +359,7 @@ test("event chat limits", function (done)
 	local pos = make_robot(P(0, 1, 0), "use events\nset n = 0\nfn h a b\n  add n 1\n"
 		.. "call events.register_chat \"h\"\ncall events.process", nil)
 	core.get_meta(pos):set_string("bot_name", "Counter")
-	assert(S.start(pos))
+	assert(cogwork.start(pos))
 
 	core.after(1.0, function ()
 		for i = 1, 8 do
@@ -370,17 +369,17 @@ test("event chat limits", function (done)
 	end)
 
 	core.after(3.0, function ()
-		local r = S.running[core.hash_node_position(pos)]
+		local r = cogwork.running[core.hash_node_position(pos)]
 		local got = r and r.ctx.globals.n
-		S.stop(pos)
+		cogwork.stop(pos)
 
 		-- sending: public and private messages are limited per player, the owner's chat is not
-		local bot = S.Bot.new(pos, "tester")
+		local bot = cogwork.Bot.new(pos, "tester")
 		local said = 0
 		for _ = 1, 8 do if bot:say("hi") then said = said + 1 end end
 		local owner_ok = true
 		for _ = 1, 20 do owner_ok = owner_ok and bot:chat("x") end
-		report("event chat limits", got == 6 and said == S.settings.chat_limit and owner_ok,
+		report("event chat limits", got == 6 and said == cogwork.settings.chat_limit and owner_ok,
 			("received=%s (want 6: 5 from tester, 1 from other) said=%s"):format(tostring(got), said))
 		done()
 	end)
@@ -417,7 +416,7 @@ test("punch hits an entity with a tool", function (done)
 		"if entity front = \"cogwork_test:mob\"\n  repeat 4\n    punch front cogwork_test:sword\nelse\n  move down",
 		{ "cogwork_test:sword" })
 	local mob = core.add_entity(P(0, 1, 1), "cogwork_test:mob")
-	assert(S.start(pos))
+	assert(cogwork.start(pos))
 	wait_for(pos, 40, function (timeout)
 		local gone = not mob:is_valid() or mob:get_hp() <= 0
 		local stack = core.get_meta(pos):get_inventory():get_stack("main", 1)
@@ -433,7 +432,7 @@ test("punch never hits a player-less robot's missing tool", function (done)
 	clear_area()
 	local pos = make_robot(P(0, 1, 0), "punch front cogwork_test:sword\nif ok\n  move up", {})
 	local mob = core.add_entity(P(0, 1, 1), "cogwork_test:mob")
-	assert(S.start(pos))
+	assert(cogwork.start(pos))
 	wait_for(pos, 40, function (timeout)
 		report("punch with an item the robot does not have fails",
 			vector.equals(find_robot(), P(0, 1, 0)) and mob:get_hp() == 10 and not timeout)
@@ -446,17 +445,17 @@ local function reach_test (name, upgrades, distance, hit, blocked)
 	test(name, function (done)
 		clear_area()
 		for _, obj in ipairs(core.get_objects_inside_radius(P(0, 1, 2), 10)) do
-			if not obj:is_player() and not S.is_visual(obj) then obj:remove() end
+			if not obj:is_player() and not cogwork.is_visual(obj) then obj:remove() end
 		end
 		if blocked then core.set_node(P(0, 1, 2), { name = material }) end
 		local pos = make_robot(P(0, 1, 0), "punch front cogwork_test:sword", { "cogwork_test:sword" }, upgrades)
 		local mob = core.add_entity(P(0, 1, distance), "cogwork_test:mob")
-		assert(S.start(pos))
+		assert(cogwork.start(pos))
 		core.after(3, function ()
 			local gone = not mob:is_valid() or mob:get_hp() < 10
-			report(name, gone == hit, ("gone=%s expected=%s hp=%s err=%s count=%s"):format(tostring(gone), tostring(hit), tostring(mob:is_valid() and mob:get_hp()), err_of(pos), S.combat_count(pos)))
+			report(name, gone == hit, ("gone=%s expected=%s hp=%s err=%s count=%s"):format(tostring(gone), tostring(hit), tostring(mob:is_valid() and mob:get_hp()), err_of(pos), cogwork.combat_count(pos)))
 			if mob:is_valid() then mob:remove() end
-			S.stop(pos, "")
+			cogwork.stop(pos, "")
 			done()
 		end)
 	end)
@@ -473,13 +472,13 @@ test("the entrance lock lets in the owner, the allowed players or nobody else", 
 	meta:set_string("owner", "alice")
 	meta:set_int("public", 1)
 	local function who (name) return { get_player_name = function () return name end } end
-	local open = S.can_enter(pos, who("bob"))
+	local open = cogwork.can_enter(pos, who("bob"))
 	meta:set_string("room_lock", "allow")
-	S.bot_allow_set(pos, { "carol", "dave/Rover" })
-	local allowed = S.can_enter(pos, who("carol")) and S.can_enter(pos, who("dave")) and S.can_enter(pos, who("alice"))
-	local denied = not S.can_enter(pos, who("bob"))
+	cogwork.bot_allow_set(pos, { "carol", "dave/Rover" })
+	local allowed = cogwork.can_enter(pos, who("carol")) and cogwork.can_enter(pos, who("dave")) and cogwork.can_enter(pos, who("alice"))
+	local denied = not cogwork.can_enter(pos, who("bob"))
 	meta:set_string("room_lock", "owner")
-	local only = S.can_enter(pos, who("alice")) and not S.can_enter(pos, who("carol"))
+	local only = cogwork.can_enter(pos, who("alice")) and not cogwork.can_enter(pos, who("carol"))
 	report("the entrance lock lets in the owner, the allowed players or nobody else",
 		open and allowed and denied and only,
 		("open=%s allowed=%s denied=%s only=%s"):format(tostring(open), tostring(allowed), tostring(denied), tostring(only)))
@@ -492,11 +491,11 @@ test("the viewscreen draws an entity in front of the terrain", function (done)
 		if not obj:is_player() then obj:remove() end
 	end
 	local front = { x = 0, y = 0, z = 1 }
-	local empty = S.view_job(P(0, 1, 0), front)
-	while not S.view_step(empty, 10) do end
+	local empty = cogwork.view_job(P(0, 1, 0), front)
+	while not cogwork.view_step(empty, 10) do end
 	local mob = core.add_entity(P(0, 1, 5), "cogwork_test:mob")
-	local job = S.view_job(P(0, 1, 0), front)
-	while not S.view_step(job, 10) do end
+	local job = cogwork.view_job(P(0, 1, 0), front)
+	while not cogwork.view_step(job, 10) do end
 	local centre = (job.H / 2) * job.W + job.W / 2 + 1
 	local orange = job.pixels[centre] ~= empty.pixels[centre] and job.pixels[centre] % 256 < 128
 	mob:remove()
@@ -508,17 +507,17 @@ end)
 test("the viewscreen shows a block dug since the last picture, at once", function (done)
 	clear_area()
 	for _, obj in ipairs(core.get_objects_inside_radius(P(0, 1, 5), 30)) do
-		if not obj:is_player() and not S.is_visual(obj) then obj:remove() end
+		if not obj:is_player() and not cogwork.is_visual(obj) then obj:remove() end
 	end
 	for x = -8, 8 do for y = -2, 4 do core.set_node(P(x, y, 7), { name = material }) end end
 	local mem = {}
 	local front = { x = 0, y = 0, z = 1 }
-	local first = S.view_job(P(0, 1, 0), front, mem)
-	while not S.view_step(first, 10) do end
+	local first = cogwork.view_job(P(0, 1, 0), front, mem)
+	while not cogwork.view_step(first, 10) do end
 	for x = -8, 8 do for y = -2, 4 do core.set_node(P(x, y, 7), { name = "air" }) end end
 	local t0 = os.clock()
-	local second = S.view_job(P(0, 1, 0), front, mem)
-	while not S.view_step(second, 10) do end
+	local second = cogwork.view_job(P(0, 1, 0), front, mem)
+	while not cogwork.view_step(second, 10) do end
 	local ms = (os.clock() - t0) * 1000
 	local centre = (second.H / 2) * second.W + second.W / 2 + 1
 	report("the viewscreen shows a block dug since the last picture, at once",
@@ -593,17 +592,17 @@ test("pathfind to unloaded terrain with forceload", function (done)
 	for x = -3, 3 do for y = -3, 5 do for z = 31, 47 do
 		core.set_node(P(x, y, z), { name = "air" })
 	end end end
-	assert(S.set_persist(pos, true), "no forceload")
-	assert(S.start(pos))
+	assert(cogwork.set_persist(pos, true), "no forceload")
+	assert(cogwork.start(pos))
 	wait_for(pos, 90, function (timeout)
 		local p = vector.add(FAR, { x = 0, y = 1, z = 0 })
-		local good = S.is_robot(core.get_node(p).name)
-		local found = core.find_nodes_in_area(P(-3, -3, -3), P(3, 8, 80), S.ROBOT_NODES)
+		local good = cogwork.is_robot(core.get_node(p).name)
+		local found = core.find_nodes_in_area(P(-3, -3, -3), P(3, 8, 80), cogwork.ROBOT_NODES)
 		local where = {}
 		for _, f in ipairs(found) do where[#where + 1] = core.pos_to_string(vector.subtract(f, ORIGIN)) .. " " .. err_of(f) end
 		report("pathfind to unloaded terrain with forceload", not timeout and good,
 			("timeout=%s node=%s robots at %s"):format(tostring(timeout), core.get_node(p).name, table.concat(where, ";")))
-		S.set_persist(p, false)
+		cogwork.set_persist(p, false)
 		done()
 	end)
 end)
@@ -616,7 +615,7 @@ local function upgrade_test (name, upgrades, program, check)
 		clear_area()
 		core.set_node(P(0, 0, 0), { name = material })
 		local pos = make_robot(P(0, 1, 0), program, nil, upgrades)
-		assert(S.start(pos))
+		assert(cogwork.start(pos))
 		wait_for(pos, 40, function (timeout)
 			local ok, why = pcall(check, timeout)
 			report(name, ok and why ~= false, not ok and why or nil)
@@ -647,7 +646,7 @@ test("a moving robot keeps its inventory and upgrades", function (done)
 		{ "cogwork:upgrade_flight", "cogwork:upgrade_storage", "cogwork:upgrade_combat" })
 	local inv = core.get_meta(pos):get_inventory()
 	local before = { main = inv:get_size("main"), upgrades = inv:get_size("upgrades"), armor = inv:get_size("armor"), cells = inv:get_size("cells") }
-	assert(S.start(pos))
+	assert(cogwork.start(pos))
 	wait_for(pos, 40, function (timeout)
 		local ok, why = pcall(function ()
 			local at = find_robot()
@@ -658,7 +657,7 @@ test("a moving robot keeps its inventory and upgrades", function (done)
 			end
 			assert(i2:contains_item("main", ItemStack(material .. " 7")), "stone lost")
 			assert(i2:contains_item("main", ItemStack(dirt .. " 3")), "dirt lost")
-			assert(S.has_upgrade(at, "cogwork:upgrade_storage") and S.has_upgrade(at, "cogwork:upgrade_combat"), "upgrades lost")
+			assert(cogwork.has_upgrade(at, "cogwork:upgrade_storage") and cogwork.has_upgrade(at, "cogwork:upgrade_combat"), "upgrades lost")
 			assert(i2:contains_item("armor", ItemStack("cogwork:armor_basic")), "armor lost")
 		end)
 		report("a moving robot keeps its inventory and upgrades", ok, not ok and why or nil)
@@ -673,14 +672,14 @@ test("a driven robot with a room keeps its lists, also when it falls", function 
 	local pos = make_robot(P(0, 1, 0), "stop", { material .. " 5" }, { "cogwork:upgrade_flight", "cogwork:upgrade_storage" })
 	local fake = { get_player_name = function () return "tester" end, is_player = function () return true end,
 		get_meta = function () return { get_string = function () return "" end, set_string = function () end } end }
-	S.set_persist(pos, true)
-	S.room_enter(pos, fake)
+	cogwork.set_persist(pos, true)
+	cogwork.room_enter(pos, fake)
 	local id = core.get_meta(pos):get_int("room_id")
 	local sizes = {}
 	for _, l in ipairs({ "main", "upgrades", "armor", "cells", "augment", "armor_mod", "disk" }) do
 		sizes[l] = core.get_meta(pos):get_inventory():get_size(l)
 	end
-	local bot = S.Bot.new(pos, "tester")
+	local bot = cogwork.Bot.new(pos, "tester")
 	for _, m in ipairs({ { "move", "up" }, { "move", "up" }, { "move", "forward" }, { "turn", "left" }, { "move", "forward" }, { "move", "back" } }) do
 		local ok = bot[m[1]](bot, m[2])
 		assert(ok ~= nil)
@@ -688,16 +687,16 @@ test("a driven robot with a room keeps its lists, also when it falls", function 
 	local at = bot.pos
 	-- take the flight upgrade out so it falls to the floor
 	core.get_meta(at):get_inventory():set_stack("upgrades", 1, ItemStack(""))
-	S.refresh_variant(at)
-	S.settle_later(at)
+	cogwork.refresh_variant(at)
+	cogwork.settle_later(at)
 	core.after(3, function ()
 		local ok, why = pcall(function ()
 			local now = find_robot()
-			assert(now and S.room_robot(id) and vector.equals(S.room_robot(id), now), "room lost the robot")
+			assert(now and cogwork.room_robot(id) and vector.equals(cogwork.room_robot(id), now), "room lost the robot")
 			local inv = core.get_meta(now):get_inventory()
 			for l, n in pairs(sizes) do assert(inv:get_size(l) == n, l .. " size " .. inv:get_size(l) .. " not " .. n) end
 			assert(inv:contains_item("main", ItemStack(material .. " 5")), "items lost")
-			assert(S.has_upgrade(now, "cogwork:upgrade_storage"), "storage upgrade lost")
+			assert(cogwork.has_upgrade(now, "cogwork:upgrade_storage"), "storage upgrade lost")
 			assert(inv:contains_item("armor", ItemStack("cogwork:armor_basic")), "armor lost")
 			assert(core.get_meta(now):get_int("room_id") == id, "room id lost")
 		end)
@@ -715,11 +714,11 @@ test("an open editor follows the robot when it moves", function (done)
 	clear_area()
 	local pos = make_robot(P(0, 1, 0), "stop", nil, { "cogwork:upgrade_flight" })
 	local fake = { get_player_name = function () return "editor_follower" end, is_player = function () return true end }
-	S.show_editor(pos, fake)
-	local bot = S.Bot.new(pos, "tester")
+	cogwork.show_editor(pos, fake)
+	local bot = cogwork.Bot.new(pos, "tester")
 	bot:move("forward")
 	bot:move("up")
-	local s = S.editor_session(fake)
+	local s = cogwork.editor_session(fake)
 	local followed = s.pos and vector.equals(s.pos, bot.pos)
 	report("an open editor follows the robot when it moves", followed,
 		"stayed at " .. tostring(s.pos and core.pos_to_string(s.pos)))
@@ -736,7 +735,7 @@ test("upgrade slots only take upgrades", function (done)
 	report("upgrade slots only take upgrades",
 		node.allow_metadata_inventory_put(pos, "upgrades", 1, stone, fake) == 0
 		and node.allow_metadata_inventory_put(pos, "upgrades", 1, up, fake) == 1
-		and S.height_limit(pos) == 1)
+		and cogwork.height_limit(pos) == 1)
 	done()
 end)
 
@@ -746,7 +745,7 @@ local function path_test (name, upgrades, build, target, check)
 		clear_area()
 		build()
 		local pos = make_robot(P(0, 1, 0), goto_program(target), nil, upgrades)
-		assert(S.start(pos))
+		assert(cogwork.start(pos))
 		wait_for(pos, 60, function (timeout)
 			local ok, why = pcall(check, timeout)
 			report(name, ok and why ~= false, not ok and why or nil)
@@ -778,7 +777,7 @@ test("a robot climbs back out of its own shaft", function (done)
 	clear_area()
 	for x = -1, 1 do for y = -6, 0 do for z = -1, 1 do core.set_node(P(x, y, z), { name = material }) end end end
 	local pos = make_robot(P(0, 1, 0), "use mining\ncall shaft 4\ncall climb 4", nil, {})
-	assert(S.start(pos))
+	assert(cogwork.start(pos))
 	wait_for(pos, 40, function (timeout)
 		local p = find_robot()
 		report("a robot climbs back out of its own shaft", not timeout and p and vector.equals(p, P(0, 1, 0)),
@@ -792,7 +791,7 @@ test("a robot beside a tower climbs it, one in open air does not", function (don
 	for y = 0, 10 do core.set_node(P(1, y, 0), { name = material }) end
 	local pos = make_robot(P(0, 1, 0), "repeat 8\n  move up", nil, {})
 	core.set_node(P(0, 0, 0), { name = material })
-	assert(S.start(pos))
+	assert(cogwork.start(pos))
 	wait_for(pos, 40, function (timeout)
 		local p = find_robot()
 		-- beside the tower all the way: 8 up from y=1
@@ -830,9 +829,9 @@ test("a robot with a flight upgrade is a drone", function (done)
 	local p2 = core.get_node(pos).param2
 
 	-- it runs as a drone too, and stops as one
-	assert(S.start(pos))
+	assert(cogwork.start(pos))
 	local running = core.get_node(pos).name
-	S.stop(pos, "")
+	cogwork.stop(pos, "")
 	local stopped = core.get_node(pos).name
 
 	inv:set_stack("upgrades", 1, ItemStack(""))
@@ -850,7 +849,7 @@ test("a hover upgrade does not make a drone", function (done)
 	clear_area()
 	core.set_node(P(0, 0, 0), { name = material })
 	local pos = make_robot(P(0, 1, 0), "stop", nil, { "cogwork:upgrade_hover" })
-	S.refresh_variant(pos)
+	cogwork.refresh_variant(pos)
 	report("a hover upgrade does not make a drone", core.get_node(pos).name == "cogwork:robot", core.get_node(pos).name)
 	done()
 end)
@@ -876,7 +875,7 @@ core.register_node("cogwork_test:water_flowing", {
 })
 core.register_craftitem("cogwork_test:bucket_empty", { description = "Test bucket", inventory_image = "blank.png", stack_max = 99 })
 core.register_craftitem("cogwork_test:bucket_water", { description = "Test bucket of water", inventory_image = "blank.png", stack_max = 1 })
-S.register_bucket({
+cogwork.register_bucket({
 	empty = "cogwork_test:bucket_empty",
 	filled = function (source) return source == "cogwork_test:water_source" and "cogwork_test:bucket_water" or nil end,
 })
@@ -888,20 +887,20 @@ test("a robot with nothing under it hovers, with something under it it rolls", f
 	clear_area()
 	core.set_node(P(0, -1, 0), { name = material })
 	local pos = make_robot(P(0, 1, 0), "stop", nil, {})
-	S.refresh_variant(pos)
+	cogwork.refresh_variant(pos)
 	local hover = name_at(pos)
 	core.set_node(P(0, 0, 0), { name = material })
-	S.refresh_variant(pos)
+	cogwork.refresh_variant(pos)
 	local rolls = name_at(pos)
 	core.remove_node(P(0, 0, 0))
-	S.start(pos)
+	cogwork.start(pos)
 	local running = name_at(pos)
-	S.stop(pos, "")
+	cogwork.stop(pos, "")
 	local stopped = name_at(pos)
 
 	-- a drone stays a drone
 	local up = make_robot(P(3, 1, 0), "stop", nil, { "cogwork:upgrade_flight" })
-	S.refresh_variant(up)
+	cogwork.refresh_variant(up)
 	report("a robot with nothing under it hovers, with something under it it rolls",
 		hover == "cogwork:hover" and rolls == "cogwork:robot" and running == "cogwork:hover_on"
 		and stopped == "cogwork:hover" and name_at(up) == "cogwork:drone",
@@ -917,23 +916,23 @@ test("a stopped robot falls to the floor, a running one does not", function (don
 		return done()
 	end
 	clear_area()
-	S.settings.gravity = true
+	cogwork.settings.gravity = true
 	core.set_node(P(0, 0, 0), { name = material })
 	local lost = make_robot(P(0, 5, 0), "stop", nil, {})
 	local floating = make_robot(P(2, 5, 0), "wait 100", nil, {})
-	assert(S.start(floating))
-	S.settle_later(lost)
-	S.settle_later(floating)
+	assert(cogwork.start(floating))
+	cogwork.settle_later(lost)
+	cogwork.settle_later(floating)
 	-- a robot with no floor in range stays
 	local nofloor = make_robot(P(6, 5, 0), "stop", nil, {})
-	S.settle_later(nofloor)
+	cogwork.settle_later(nofloor)
 
 	core.after(3, function ()
-		S.settings.gravity = false
-		local landed = S.is_robot(name_at(P(0, 1, 0))) and core.get_meta(P(0, 1, 0)):get_string("owner") == "tester"
-		local stayed = S.is_robot(name_at(P(2, 5, 0)))
-		local void = S.is_robot(name_at(P(6, 5, 0)))
-		S.stop(P(2, 5, 0), "")
+		cogwork.settings.gravity = false
+		local landed = cogwork.is_robot(name_at(P(0, 1, 0))) and core.get_meta(P(0, 1, 0)):get_string("owner") == "tester"
+		local stayed = cogwork.is_robot(name_at(P(2, 5, 0)))
+		local void = cogwork.is_robot(name_at(P(6, 5, 0)))
+		cogwork.stop(P(2, 5, 0), "")
 		report("a stopped robot falls to the floor, a running one does not", landed and stayed and void,
 			("landed=%s running stayed=%s no floor stayed=%s"):format(tostring(landed), tostring(stayed), tostring(void)))
 		done()
@@ -942,17 +941,17 @@ end)
 
 test("a robot keeps its program, storage and forceload when it falls", function (done)
 	clear_area()
-	S.settings.gravity = true
+	cogwork.settings.gravity = true
 	core.set_node(P(0, 0, 0), { name = material })
 	local pos = make_robot(P(0, 4, 0), "move up", { material .. " 5" }, {})
 	core.get_meta(pos):set_string("bot_name", "Faller")
-	S.settle_later(pos)
+	cogwork.settle_later(pos)
 	core.after(2.5, function ()
-		S.settings.gravity = false
+		cogwork.settings.gravity = false
 		local p = P(0, 1, 0)
 		local meta = core.get_meta(p)
 		report("a robot keeps its program, storage and forceload when it falls",
-			S.is_robot(name_at(p)) and meta:get_string("program") == "move up"
+			cogwork.is_robot(name_at(p)) and meta:get_string("program") == "move up"
 			and meta:get_string("bot_name") == "Faller"
 			and meta:get_inventory():contains_item("main", ItemStack(material .. " 5"))
 			and meta:get_string("owner") == "tester",
@@ -967,18 +966,18 @@ test("a robot moves through water and leaves the water behind", function (done)
 	clear_area()
 	core.set_node(P(0, 1, 1), { name = WATER })
 	local pos = make_robot(P(0, 1, 0), "move forward", nil)
-	assert(S.start(pos))
+	assert(cogwork.start(pos))
 	wait_for(pos, 20, function (timeout)
-		local in_water = core.get_meta(P(0, 1, 1)):get_string("flooded") == WATER and S.is_robot(name_at(P(0, 1, 1)))
+		local in_water = core.get_meta(P(0, 1, 1)):get_string("flooded") == WATER and cogwork.is_robot(name_at(P(0, 1, 1)))
 		local behind = name_at(P(0, 1, 0))
 		-- go back: the water of that block was never there; leaving the water block restores it
 		local back = make_robot(P(0, 1, 1), "move back", nil)
 		core.get_meta(P(0, 1, 1)):set_string("flooded", WATER)
-		assert(S.start(P(0, 1, 1)))
+		assert(cogwork.start(P(0, 1, 1)))
 		wait_for(P(0, 1, 1), 20, function (timeout2)
 			report("a robot moves through water and leaves the water behind",
 				not timeout and not timeout2 and in_water and behind == "air"
-				and name_at(P(0, 1, 1)) == WATER and S.is_robot(name_at(P(0, 1, 0)))
+				and name_at(P(0, 1, 1)) == WATER and cogwork.is_robot(name_at(P(0, 1, 0)))
 				and core.get_meta(P(0, 1, 0)):get_string("flooded") == "",
 				("in_water=%s behind=%s water_back=%s"):format(tostring(in_water), behind, name_at(P(0, 1, 1))))
 			done()
@@ -995,15 +994,15 @@ end
 local function float_test (name, can_float, want_y)
 	test(name, function (done)
 		water_column()
-		S.settings.gravity, S.settings.can_float = true, can_float
+		cogwork.settings.gravity, cogwork.settings.can_float = true, can_float
 		local pos = make_robot(P(0, 5, 0), "stop", nil, {})
-		S.settle_later(pos)
+		cogwork.settle_later(pos)
 		core.after(3.5, function ()
-			S.settings.gravity, S.settings.can_float = false, true
+			cogwork.settings.gravity, cogwork.settings.can_float = false, true
 			local p = P(0, want_y, 0)
-			report(name, S.is_robot(name_at(p)) and core.get_meta(p):get_string("flooded") == WATER,
+			report(name, cogwork.is_robot(name_at(p)) and core.get_meta(p):get_string("flooded") == WATER,
 				"at " .. (function ()
-					for y = -4, 6 do if S.is_robot(name_at(P(0, y, 0))) then return y end end
+					for y = -4, 6 do if cogwork.is_robot(name_at(P(0, y, 0))) then return y end end
 					return "?"
 				end)() .. " wanted " .. want_y)
 			done()
@@ -1023,7 +1022,7 @@ test("an empty bucket takes the water of a flooded robot instead of opening it",
 	local fake = { get_player_name = function () return "tester" end, get_inventory = function () return inv end,
 		is_player = function () return true end, get_player_control = function () return {} end,
 		get_pos = function () return pos end }
-	local s = S.editor_session(fake)
+	local s = cogwork.editor_session(fake)
 	s.pos = nil
 
 	local empty = ItemStack("cogwork_test:bucket_empty")
@@ -1106,12 +1105,12 @@ end)
 -- ---------------------------------------------------------------- structure
 
 local function inv_of (p) return core.get_meta(p):get_inventory() end
-local function cell_charge (p, i) return (S.cell_info(inv_of(p):get_stack("cells", i or 1))) end
+local function cell_charge (p, i) return (cogwork.cell_info(inv_of(p):get_stack("cells", i or 1))) end
 
 test("actions cost power", function (done)
 	clear_area()
 	local pos = make_robot(P(0, 1, 0), "repeat 5\n  move forward\ndig front\nturn left", nil, nil)
-	assert(S.start(pos))
+	assert(cogwork.start(pos))
 	wait_for(pos, 20, function (timeout)
 		local p = find_robot()
 		-- 5 moves (5) + dig (2, nothing there but it still costs) + turn (0.5)
@@ -1126,16 +1125,16 @@ test("a robot stops when its cells run dry and stays off", function (done)
 	clear_area()
 	local pos = make_robot(P(0, 1, 0), "repeat 10\n  move forward", nil, nil)
 	local stack = inv_of(pos):get_stack("cells", 1)
-	S.set_cell_charge(stack, 3)
+	cogwork.set_cell_charge(stack, 3)
 	inv_of(pos):set_stack("cells", 1, stack)
-	assert(S.start(pos))
+	assert(cogwork.start(pos))
 	wait_for(pos, 20, function (timeout)
 		local p = find_robot()
 		local err = err_of(p)
-		local again, why = S.start(p)
+		local again, why = cogwork.start(p)
 		report("a robot stops when its cells run dry and stays off",
 			not timeout and vector.equals(p, P(0, 1, 3)) and err:lower():find("out of power") and cell_charge(p) == 0
-			and again == false and why and why:find("empty") and not S.is_running(p),
+			and again == false and why and why:find("empty") and not cogwork.is_running(p),
 			("at %s err=%s again=%s"):format(core.pos_to_string(vector.subtract(p, ORIGIN)), err, tostring(again)))
 		done()
 	end)
@@ -1145,17 +1144,17 @@ test("a robot without armor or without a cell stays off", function (done)
 	clear_area()
 	local no_armor = make_robot(P(0, 1, 0), "move up", nil, nil, true)
 	inv_of(no_armor):set_stack("cells", 1, ItemStack("cogwork:cell_small"))
-	local a_ok, a_why = S.start(no_armor)
+	local a_ok, a_why = cogwork.start(no_armor)
 
 	local no_cell = make_robot(P(3, 1, 0), "move up", nil, nil, true)
 	inv_of(no_cell):set_stack("armor", 1, ItemStack("cogwork:armor_basic"))
-	local c_ok, c_why = S.start(no_cell)
+	local c_ok, c_why = cogwork.start(no_cell)
 
 	local bare = make_robot(P(6, 1, 0), "move up", nil, nil, true)
-	local b_ok = S.start(bare)
+	local b_ok = cogwork.start(bare)
 	report("a robot without armor or without a cell stays off",
 		a_ok == false and a_why:find("armor") and c_ok == false and c_why:find("cell") and b_ok == false
-		and not S.is_running(no_armor) and not S.is_running(no_cell),
+		and not cogwork.is_running(no_armor) and not cogwork.is_running(no_cell),
 		tostring(a_why) .. " | " .. tostring(c_why))
 	done()
 end)
@@ -1165,17 +1164,17 @@ test("taking out the armor or the cells stops a running robot", function (done)
 	local node = core.registered_nodes["cogwork:robot"]
 	local fake = { get_player_name = function () return "tester" end }
 	local armored = make_robot(P(0, 1, 0), "wait 100", nil, nil)
-	assert(S.start(armored))
+	assert(cogwork.start(armored))
 	inv_of(armored):set_stack("armor", 1, ItemStack())
 	node.on_metadata_inventory_take(armored, "armor", 1, ItemStack("cogwork:armor_basic"), fake)
-	local a_stopped = not S.is_running(armored) and err_of(armored):find("armor") ~= nil
-	local a_restart = S.start(armored)
+	local a_stopped = not cogwork.is_running(armored) and err_of(armored):find("armor") ~= nil
+	local a_restart = cogwork.start(armored)
 
 	local celled = make_robot(P(4, 1, 0), "wait 100", nil, nil)
-	assert(S.start(celled))
+	assert(cogwork.start(celled))
 	inv_of(celled):set_stack("cells", 1, ItemStack())
 	node.on_metadata_inventory_take(celled, "cells", 1, ItemStack("cogwork:cell_small"), fake)
-	local c_stopped = not S.is_running(celled) and err_of(celled):find("cell") ~= nil
+	local c_stopped = not cogwork.is_running(celled) and err_of(celled):find("cell") ~= nil
 	report("taking out the armor or the cells stops a running robot",
 		a_stopped and a_restart == false and c_stopped, tostring(a_stopped) .. " " .. tostring(c_stopped))
 	done()
@@ -1184,32 +1183,32 @@ end)
 test("armor wears but never breaks, then the cells take the damage", function (done)
 	clear_area()
 	local pos = make_robot(P(0, 1, 0), "wait 100", nil, nil)
-	S.damage(pos, 10)
+	cogwork.damage(pos, 10)
 	local armor = inv_of(pos):get_stack("armor", 1)
-	local first = S.armor_info(armor)
-	S.damage(pos, 40)           -- 14 left in the armor, the other 26 go to the cells
+	local first = cogwork.armor_info(armor)
+	cogwork.damage(pos, 40)           -- 14 left in the armor, the other 26 go to the cells
 	armor = inv_of(pos):get_stack("armor", 1)
-	local worn = S.armor_info(armor)
+	local worn = cogwork.armor_info(armor)
 	local charge = cell_charge(pos)
 	-- worn out, still there, the robot still starts
-	local starts = S.start(pos)
+	local starts = cogwork.start(pos)
 	report("armor wears but never breaks, then the cells take the damage",
 		first == 14 and worn == 0 and armor:get_name() == "cogwork:armor_basic"
-		and math.abs(charge - 424) < 0.01 and starts == true and S.has_armor(pos),
+		and math.abs(charge - 424) < 0.01 and starts == true and cogwork.has_armor(pos),
 		("first=%s worn=%s charge=%s"):format(tostring(first), tostring(worn), tostring(charge)))
-	S.stop(pos, "")
+	cogwork.stop(pos, "")
 	done()
 end)
 
 test("the Self-Repair Module mends armor for power", function (done)
 	clear_area()
 	local pos = make_robot(P(0, 1, 0), "stop", nil, nil)
-	inv_of(pos):set_stack("armor_mod", 1, ItemStack(S.ITEM_REPAIR))
-	S.damage(pos, 10)    -- 10 durability of the 24
-	local before = S.armor_info(inv_of(pos):get_stack("armor", 1))
+	inv_of(pos):set_stack("armor_mod", 1, ItemStack(cogwork.ITEM_REPAIR))
+	cogwork.damage(pos, 10)    -- 10 durability of the 24
+	local before = cogwork.armor_info(inv_of(pos):get_stack("armor", 1))
 	local charge_before = cell_charge(pos)
-	S.structure_tick(pos)
-	local after = S.armor_info(inv_of(pos):get_stack("armor", 1))
+	cogwork.structure_tick(pos)
+	local after = cogwork.armor_info(inv_of(pos):get_stack("armor", 1))
 	report("the Self-Repair Module mends armor for power",
 		before == 14 and after == 15 and math.abs(cell_charge(pos) - (charge_before - 1)) < 0.01,
 		("%s -> %s"):format(tostring(before), tostring(after)))
@@ -1220,13 +1219,13 @@ test("the Self-Generator charges one cell at a time", function (done)
 	clear_area()
 	local pos = make_robot(P(0, 1, 0), "stop", nil, nil)
 	local inv = inv_of(pos)
-	local a = ItemStack("cogwork:cell_small"); S.set_cell_charge(a, 100); inv:set_stack("cells", 1, a)
-	local b = ItemStack("cogwork:cell_medium"); S.set_cell_charge(b, 0); inv:set_stack("cells", 2, b)
-	inv:set_stack("augment", 1, ItemStack(S.ITEM_GENERATOR))
-	S.structure_changed(pos, "augment")
+	local a = ItemStack("cogwork:cell_small"); cogwork.set_cell_charge(a, 100); inv:set_stack("cells", 1, a)
+	local b = ItemStack("cogwork:cell_medium"); cogwork.set_cell_charge(b, 0); inv:set_stack("cells", 2, b)
+	inv:set_stack("augment", 1, ItemStack(cogwork.ITEM_GENERATOR))
+	cogwork.structure_changed(pos, "augment")
 	local timer_started = core.get_node_timer(pos):is_started()
-	S.structure_tick(pos)
-	S.structure_tick(pos)
+	cogwork.structure_tick(pos)
+	cogwork.structure_tick(pos)
 	-- the first cell not full gets all of it: 100 + 2 x 10; the other stays empty
 	report("the Self-Generator charges one cell at a time",
 		timer_started and cell_charge(pos, 1) == 120 and cell_charge(pos, 2) == 0,
@@ -1238,13 +1237,13 @@ test("a Creative Capacitor fills the cells at once and keeps them full", functio
 	clear_area()
 	local pos = make_robot(P(0, 1, 0), "repeat 20\n  move forward", nil, nil)
 	local inv = inv_of(pos)
-	local a = ItemStack("cogwork:cell_small"); S.set_cell_charge(a, 10); inv:set_stack("cells", 1, a)
-	local b = ItemStack("cogwork:cell_large"); S.set_cell_charge(b, 0); inv:set_stack("cells", 2, b)
-	inv:set_stack("augment", 1, ItemStack(S.ITEM_CAPACITOR))
-	core.registered_nodes["cogwork:robot"].on_metadata_inventory_put(pos, "augment", 1, ItemStack(S.ITEM_CAPACITOR),
+	local a = ItemStack("cogwork:cell_small"); cogwork.set_cell_charge(a, 10); inv:set_stack("cells", 1, a)
+	local b = ItemStack("cogwork:cell_large"); cogwork.set_cell_charge(b, 0); inv:set_stack("cells", 2, b)
+	inv:set_stack("augment", 1, ItemStack(cogwork.ITEM_CAPACITOR))
+	core.registered_nodes["cogwork:robot"].on_metadata_inventory_put(pos, "augment", 1, ItemStack(cogwork.ITEM_CAPACITOR),
 		{ get_player_name = function () return "tester" end })
 	local filled = cell_charge(pos, 1) == 450 and cell_charge(pos, 2) == 1400
-	assert(S.start(pos))
+	assert(cogwork.start(pos))
 	wait_for(pos, 20, function (timeout)
 		report("a Creative Capacitor fills the cells at once and keeps them full",
 			filled and not timeout and cell_charge(find_robot(), 1) == 450 and err_of(find_robot()) == "",
@@ -1262,8 +1261,8 @@ test("the structure slots take only their own parts", function (done)
 	report("the structure slots take only their own parts",
 		put("armor", "cogwork:armor_heavy") == 1 and put("armor", "cogwork:cell_small") == 0
 		and put("cells", "cogwork:cell_colossal") == 1 and put("cells", "cogwork:armor_basic") == 0
-		and put("armor_mod", S.ITEM_REPAIR) == 1 and put("armor_mod", S.ITEM_GENERATOR) == 0
-		and put("augment", S.ITEM_CAPACITOR) == 1 and put("augment", S.ITEM_REPAIR) == 0
+		and put("armor_mod", cogwork.ITEM_REPAIR) == 1 and put("armor_mod", cogwork.ITEM_GENERATOR) == 0
+		and put("augment", cogwork.ITEM_CAPACITOR) == 1 and put("augment", cogwork.ITEM_REPAIR) == 0
 		and put("upgrades", "cogwork:upgrade_combat") == 1 and put("upgrades", "cogwork:cell_small") == 0)
 	done()
 end)
@@ -1273,19 +1272,19 @@ test("a robot installs and uninstalls its own parts, but keeps one cell", functi
 	local pos = make_robot(P(0, 1, 0),
 		"install \"armor_mod\"\ninstall \"augment\"\ninstall \"cell\"\nuninstall \"cell\"\nuninstall \"cell\"\nif ok\n  move up\n"
 		.. "uninstall \"armor\"\nif ok\n  turn around",
-		{ S.ITEM_REPAIR, S.ITEM_GENERATOR, "cogwork:cell_medium" }, nil)
-	assert(S.start(pos))
+		{ cogwork.ITEM_REPAIR, cogwork.ITEM_GENERATOR, "cogwork:cell_medium" }, nil)
+	assert(cogwork.start(pos))
 	wait_for(pos, 20, function (timeout)
 		local p = find_robot()
 		local inv = inv_of(p)
-		local cells = S.cells_of(p)
+		local cells = cogwork.cells_of(p)
 		report("a robot installs and uninstalls its own parts, but keeps one cell",
 			not timeout and vector.equals(p, P(0, 1, 0))                       -- the second uninstall failed: no move up
-			and inv:get_stack("armor_mod", 1):get_name() == S.ITEM_REPAIR
-			and inv:get_stack("augment", 1):get_name() == S.ITEM_GENERATOR
+			and inv:get_stack("armor_mod", 1):get_name() == cogwork.ITEM_REPAIR
+			and inv:get_stack("augment", 1):get_name() == cogwork.ITEM_GENERATOR
 			and #cells == 1 and cells[1].stack:get_name() == "cogwork:cell_medium"   -- the emptier Small went back to storage
 			and inv:contains_item("main", ItemStack("cogwork:cell_small"))
-			and S.has_armor(p) and core.get_node(p).param2 == core.dir_to_facedir({ x = 0, y = 0, z = -1 }),
+			and cogwork.has_armor(p) and core.get_node(p).param2 == core.dir_to_facedir({ x = 0, y = 0, z = -1 }),
 			("cells=%d err=%s"):format(#cells, err_of(p)))
 		done()
 	end)
@@ -1296,19 +1295,19 @@ test("structure queries and old robots", function (done)
 	local pos = make_robot(P(0, 1, 0),
 		"if battery_level = 100 and armor_level = 100 and cell_count = 1 and structure_item \"armor\" = \"cogwork:armor_basic\"\n  move up",
 		nil, nil)
-	assert(S.start(pos))
+	assert(cogwork.start(pos))
 	wait_for(pos, 20, function (timeout)
 		local queried = vector.equals(find_robot(), P(0, 2, 0))
 
 		-- a robot from before the structure: no flag, empty slots: starter armor and cell, once
 		local old = make_robot(P(4, 1, 0), "stop", nil, nil, true)
 		core.get_meta(old):set_string("structure_v", "")
-		local started = S.start(old)
-		local starter = S.has_armor(old) and #S.cells_of(old) == 1 and core.get_meta(old):get_int("structure_v") == 1
-		S.stop(old, "")
+		local started = cogwork.start(old)
+		local starter = cogwork.has_armor(old) and #cogwork.cells_of(old) == 1 and core.get_meta(old):get_int("structure_v") == 1
+		cogwork.stop(old, "")
 		inv_of(old):set_stack("armor", 1, ItemStack())
-		S.ensure_structure(old)
-		local once = not S.has_armor(old)
+		cogwork.ensure_structure(old)
+		local once = not cogwork.has_armor(old)
 		report("structure queries and old robots", not timeout and queried and started and starter and once,
 			("queried=%s started=%s starter=%s once=%s"):format(tostring(queried), tostring(started), tostring(starter), tostring(once)))
 		done()
@@ -1320,8 +1319,8 @@ test("the Combat Upgrade is an upgrade, and robots only hit players when it is i
 	local with = make_robot(P(0, 1, 0), "stop", nil, { "cogwork:upgrade_combat" })
 	local without = make_robot(P(3, 1, 0), "stop", nil, {})
 	report("the Combat Upgrade is an upgrade, and robots only hit players when it is in",
-		S.has_upgrade(with, "cogwork:upgrade_combat") and not S.has_upgrade(without, "cogwork:upgrade_combat")
-		and S.UPGRADE_ITEMS["cogwork:upgrade_combat"])
+		cogwork.has_upgrade(with, "cogwork:upgrade_combat") and not cogwork.has_upgrade(without, "cogwork:upgrade_combat")
+		and cogwork.UPGRADE_ITEMS["cogwork:upgrade_combat"])
 	done()
 end)
 
@@ -1343,7 +1342,7 @@ core.register_node("cogwork_test:lava_flowing", {
 	damage_per_second = 4, groups = { lava = 3, liquid = 2, not_in_creative_inventory = 1 },
 })
 core.register_craftitem("cogwork_test:bucket_lava", { description = "Test bucket of lava", inventory_image = "blank.png", stack_max = 1 })
-S.register_bucket({
+cogwork.register_bucket({
 	empty = "cogwork_test:bucket_empty",
 	filled = function (source) return source == "cogwork_test:lava_source" and "cogwork_test:bucket_lava" or nil end,
 })
@@ -1352,11 +1351,11 @@ test("a robot goes into any liquid, lava does not hurt it, a bucket takes the la
 	clear_area()
 	core.set_node(P(0, 1, 1), { name = "cogwork_test:lava_source" })
 	local pos = make_robot(P(0, 1, 0), "move forward\nwait 80", nil, nil)
-	assert(S.start(pos))
+	assert(cogwork.start(pos))
 	core.after(5, function ()
 		local in_lava = core.get_meta(P(0, 1, 1)):get_string("flooded") == "cogwork_test:lava_source"
-		local armor = S.armor_info(inv_of(P(0, 1, 1)):get_stack("armor", 1))
-		S.stop(P(0, 1, 1), "")
+		local armor = cogwork.armor_info(inv_of(P(0, 1, 1)):get_stack("armor", 1))
+		cogwork.stop(P(0, 1, 1), "")
 
 		-- the bucket
 		local inv = core.create_detached_inventory("cogwork_test_lava", {})
@@ -1364,7 +1363,7 @@ test("a robot goes into any liquid, lava does not hurt it, a bucket takes the la
 		local fake = { get_player_name = function () return "tester" end, get_inventory = function () return inv end,
 			is_player = function () return true end, get_player_control = function () return {} end,
 			get_pos = function () return P(0, 1, 1) end }
-		local res = S.fill_bucket(P(0, 1, 1), fake, ItemStack("cogwork_test:bucket_empty"))
+		local res = cogwork.fill_bucket(P(0, 1, 1), fake, ItemStack("cogwork_test:bucket_empty"))
 		report("a robot goes into any liquid, lava does not hurt it, a bucket takes the lava",
 			in_lava and armor == 24 and cell_charge(P(0, 1, 1)) > 440 and res and res:get_name() == "cogwork_test:bucket_lava",
 			("in_lava=%s armor=%s bucket=%s"):format(tostring(in_lava), tostring(armor), res and res:get_name() or "nil"))
@@ -1399,7 +1398,7 @@ test("every structure item has a recipe except the Creative Capacitor", function
 		"cogwork:upgrade_hover", "cogwork:upgrade_flight" }) do
 		if not core.get_all_craft_recipes(item) then missing[#missing + 1] = item end
 	end
-	local capacitor = core.get_all_craft_recipes(S.ITEM_CAPACITOR)
+	local capacitor = core.get_all_craft_recipes(cogwork.ITEM_CAPACITOR)
 	report("every structure item has a recipe except the Creative Capacitor",
 		#missing == 0 and capacitor == nil, table.concat(missing, ","))
 	done()
@@ -1416,8 +1415,8 @@ local function charger_setup (c1, c2, slot_kind)
 	core.set_node(cpos, { name = "cogwork:charger" })
 	local robot = make_robot(P(0, 1, 0), "stop", nil, nil)
 	local inv = inv_of(robot)
-	local a = ItemStack("cogwork:cell_small"); S.set_cell_charge(a, c1); inv:set_stack("cells", 1, a)
-	local b = ItemStack("cogwork:cell_medium"); S.set_cell_charge(b, c2); inv:set_stack("cells", 2, b)
+	local a = ItemStack("cogwork:cell_small"); cogwork.set_cell_charge(a, c1); inv:set_stack("cells", 1, a)
+	local b = ItemStack("cogwork:cell_medium"); cogwork.set_cell_charge(b, c2); inv:set_stack("cells", 2, b)
 	return cpos, robot
 end
 
@@ -1426,23 +1425,23 @@ test("a charger charges both cells of the robot on it from a spare cell", functi
 	local sinv = core.get_meta(cpos):get_inventory()
 	local spare = ItemStack("cogwork:cell_large")
 	sinv:set_stack("source", 1, spare)
-	S.charger_base_tick(cpos)
+	cogwork.charger_base_tick(cpos)
 	local c1, c2 = cell_charge(robot, 1), cell_charge(robot, 2)
-	local left = S.cell_info(sinv:get_stack("source", 1))
+	local left = cogwork.cell_info(sinv:get_stack("source", 1))
 	-- two cells charge at 25 a second each, so the source gives 50 (and loses a tenth doing it)
 	local two_ok = c1 == 125 and c2 == 25 and math.abs(left - (1400 - 50 / 0.9)) < 0.1
 
 	-- one cell full: only the other is charged, and the source gives half as much
 	local fresh = ItemStack("cogwork:cell_small"); inv_of(robot):set_stack("cells", 1, fresh)
 	sinv:set_stack("source", 1, ItemStack("cogwork:cell_large"))
-	S.charger_base_tick(cpos)
-	local one_left = S.cell_info(sinv:get_stack("source", 1))
+	cogwork.charger_base_tick(cpos)
+	local one_left = cogwork.cell_info(sinv:get_stack("source", 1))
 	local one_ok = cell_charge(robot, 1) == 450 and cell_charge(robot, 2) == 50 and math.abs(one_left - (1400 - 25 / 0.9)) < 0.1
 
 	-- an empty source charges nothing; all cells full takes nothing from it
-	local empty = ItemStack("cogwork:cell_large"); S.set_cell_charge(empty, 0)
+	local empty = ItemStack("cogwork:cell_large"); cogwork.set_cell_charge(empty, 0)
 	sinv:set_stack("source", 1, empty)
-	S.charger_base_tick(cpos)
+	cogwork.charger_base_tick(cpos)
 	local none_ok = cell_charge(robot, 2) == 50
 
 	report("a charger charges both cells of the robot on it from a spare cell", two_ok and one_ok and none_ok,
@@ -1472,7 +1471,7 @@ test("a Technic battery item charges the cells, and the source slot takes only s
 
 	local sinv = core.get_meta(cpos):get_inventory()
 	sinv:set_stack("source", 1, battery)
-	S.charger_base_tick(cpos)
+	cogwork.charger_base_tick(cpos)
 	-- 10 000 EU are 1000 units; two cells take 25 each, 500 EU
 	local left = technic.get_charge(sinv:get_stack("source", 1))
 	rawset(_G, "technic", nil)
@@ -1485,7 +1484,7 @@ end)
 test("Technic LV and MV chargers demand more for more cells, MV less than LV", function (done)
 	local cpos, robot = charger_setup(0, 0)
 	local meta = core.get_meta(cpos)
-	local lv, mv = S.charger_technic_run("LV", 150), S.charger_technic_run("MV", 100)
+	local lv, mv = cogwork.charger_technic_run("LV", 150), cogwork.charger_technic_run("MV", 100)
 
 	lv(cpos)
 	local demand_lv = meta:get_int("LV_EU_demand")      -- two cells: 300
@@ -1523,7 +1522,7 @@ test("a Techage charger takes from the network's pool in proportion to what it g
 		asked = amount
 		return amount / 2        -- the network has half of it
 	end } })
-	S.charger_techage_tick(cpos)
+	cogwork.charger_techage_tick(cpos)
 	rawset(_G, "techage", nil)
 	rawset(_G, "networks", nil)
 	-- two cells ask 8 per cycle; half of it charges each cell for half of 2 s x 25 units
@@ -1610,10 +1609,10 @@ test("an older robot with 32 slots keeps its items and shrinks once they are gon
 	inv:set_size("main", 32)
 	inv:set_stack("main", 30, ItemStack(material))
 	inv:set_stack("main", 5, ItemStack(material))
-	S.ensure_structure(pos)
+	cogwork.ensure_structure(pos)
 	local kept = inv:get_size("main") == 30 and inv:get_stack("main", 30):get_name() == material
 	inv:set_stack("main", 30, ItemStack())
-	S.sync_storage(pos)
+	cogwork.sync_storage(pos)
 	report("an older robot with 32 slots keeps its items and shrinks once they are gone",
 		kept and inv:get_size("main") == 16 and inv:get_stack("main", 5):get_name() == material)
 	done()
@@ -1624,7 +1623,7 @@ test("the Storage tab with all upgrades fits its window and overlaps nothing", f
 	local pos = make_robot(P(0, 1, 0), "stop", nil, { "cogwork:upgrade_storage", "cogwork:upgrade_storage",
 		"cogwork:upgrade_storage", "cogwork:upgrade_storage", "cogwork:upgrade_storage", "cogwork:upgrade_storage" })
 	local fake = { get_player_name = function () return "tester" end, get_inventory = function () return nil end, is_player = function () return true end }
-	local fs = S.formspec(pos, { tab = "storage", line = 1, tok = 0, scroll = 0, cat = "flow", msg = "", player = fake, pos = pos })
+	local fs = cogwork.formspec(pos, { tab = "storage", line = 1, tok = 0, scroll = 0, cat = "flow", msg = "", player = fake, pos = pos })
 	local height = tonumber(fs:match("size%[19%.8,([%d%.]+)%]"))
 	local lists = {}
 	local bottom = 0
@@ -1656,20 +1655,20 @@ test("a robot is drawn by one entity with the right model and face", function (d
 	clear_area()
 	core.set_node(P(0, 0, 0), { name = material })
 	local pos = make_robot(P(0, 1, 0), "wait 100", nil, {})
-	S.ensure_visual(pos)
-	S.ensure_visual(pos)                      -- twice: still one
+	cogwork.ensure_visual(pos)
+	cogwork.ensure_visual(pos)                      -- twice: still one
 	local one = visuals_at(pos)
 	local mesh = one[1] and one[1]:get_properties().mesh
 	local off_face = one[1] and one[1]:get_properties().textures[2]
 
-	assert(S.start(pos))
+	assert(cogwork.start(pos))
 	local lit = visuals_at(pos)[1]:get_properties().textures[2]
-	S.stop(pos, "")
+	cogwork.stop(pos, "")
 	local dark = visuals_at(pos)[1]:get_properties().textures[2]
 
 	-- nothing under it: the hover model
 	local up = make_robot(P(4, 1, 0), "stop", nil, {})
-	S.refresh_variant(up)
+	cogwork.refresh_variant(up)
 	local hover = visuals_at(up)[1] and visuals_at(up)[1]:get_properties().mesh
 	report("a robot is drawn by one entity with the right model and face",
 		#one == 1 and mesh == "cogwork_robot.obj" and off_face == "cogwork_face.png"
@@ -1683,25 +1682,25 @@ test("a drone has four rotors that spin while it runs, and thrusters give partic
 	core.set_node(P(0, 0, 0), { name = material })
 	-- a drone on the floor: rotors, no particles
 	local grounded = make_robot(P(0, 1, 0), "wait 100", nil, { "cogwork:upgrade_flight" })
-	S.refresh_variant(grounded)
+	cogwork.refresh_variant(grounded)
 	local le = visuals_at(grounded)[1]:get_luaentity()
 	local rotors = #(le.rotors or {})
 	local still = le.rotors[1]:get_properties().automatic_rotate == 0
 	local no_particles = le.spawner == nil
 
-	assert(S.start(grounded))
+	assert(cogwork.start(grounded))
 	le = visuals_at(P(0, 1, 0))[1]:get_luaentity()
 	local spins = le.rotors[1]:get_properties().automatic_rotate > 0 and le.rotors[4]:get_properties().automatic_rotate > 0
-	S.stop(grounded, "")
+	cogwork.stop(grounded, "")
 	le = visuals_at(P(0, 1, 0))[1]:get_luaentity()
 	local stops = le.rotors[1]:get_properties().automatic_rotate == 0
 
 	-- the same in the air, and a hover robot: thruster particles
 	local flying = make_robot(P(5, 3, 0), "stop", nil, { "cogwork:upgrade_flight" })
-	S.refresh_variant(flying)
+	cogwork.refresh_variant(flying)
 	local fle = visuals_at(flying)[1]:get_luaentity()
 	local hovering = make_robot(P(8, 3, 0), "stop", nil, {})
-	S.refresh_variant(hovering)
+	cogwork.refresh_variant(hovering)
 	local hle = visuals_at(hovering)[1]:get_luaentity()
 	report("a drone has four rotors that spin while it runs, and thrusters give particles in the air",
 		rotors == 4 and still and no_particles and spins and stops and fle.spawner ~= nil and hle.spawner ~= nil,
@@ -1716,8 +1715,8 @@ test("the visual goes along when the robot moves and is gone when it is dug", fu
 	core.set_node(P(0, 0, 1), { name = material })
 	core.set_node(P(0, 0, 2), { name = material })
 	local pos = make_robot(P(0, 1, 0), "move forward\nmove forward", nil, {})
-	S.ensure_visual(pos)
-	assert(S.start(pos))
+	cogwork.ensure_visual(pos)
+	assert(cogwork.start(pos))
 	wait_for(pos, 20, function (timeout)
 		local at_new = #visuals_at(P(0, 1, 2))
 		local at_old = #visuals_at(P(0, 1, 0)) + #visuals_at(P(0, 1, 1))
@@ -1739,12 +1738,12 @@ test("a robot's body is not an entity to the robots around it", function (done)
 	core.set_node(P(0, 0, 0), { name = material })
 	local pos = make_robot(P(0, 1, 0), "if entity front = \"\"\n  move up", nil, {})
 	local other = make_robot(P(0, 1, 1), "stop", nil, {})
-	S.ensure_visual(other)
-	S.ensure_visual(pos)
-	assert(S.start(pos))
+	cogwork.ensure_visual(other)
+	cogwork.ensure_visual(pos)
+	assert(cogwork.start(pos))
 	wait_for(pos, 20, function (timeout)
 		report("a robot's body is not an entity to the robots around it",
-			not timeout and S.is_robot(name_at(P(0, 2, 0))), "no move")
+			not timeout and cogwork.is_robot(name_at(P(0, 2, 0))), "no move")
 		done()
 	end)
 end)
@@ -1760,14 +1759,14 @@ end
 test("the viewscreen draws what the robot sees, with the nodes' own colours", function (done)
 	clear_area()
 	for _, obj in ipairs(core.get_objects_inside_radius(P(0, 1, 5), 30)) do
-		if not obj:is_player() and not S.is_visual(obj) then obj:remove() end
+		if not obj:is_player() and not cogwork.is_visual(obj) then obj:remove() end
 	end
 	-- a wall of a block with a known colour 6 blocks ahead of a robot facing +z
 	for x = -8, 8 do for y = -2, 2 do core.set_node(P(x, y, 7), { name = material }) end end
-	local want = S.view_node_color(material, "side")
-	local job = S.view_job(P(0, 1, 0), { x = 0, y = 0, z = 1 })
+	local want = cogwork.view_node_color(material, "side")
+	local job = cogwork.view_job(P(0, 1, 0), { x = 0, y = 0, z = 1 })
 	local t0 = os.clock()
-	while not S.view_step(job, 10) do end
+	while not cogwork.view_step(job, 10) do end
 	local ms = (os.clock() - t0) * 1000
 
 	local cr, cg, cb = pixel(job, job.W / 2, job.H / 2)             -- straight ahead: the wall
@@ -1784,14 +1783,14 @@ test("the viewscreen sees far, and unloaded terrain is haze, not an error", func
 	clear_area()
 	-- a column 90 blocks ahead is seen as a column
 	for y = -3, 6 do core.set_node(P(0, y, 29), { name = material }) end
-	local job = S.view_job(P(0, 1, 0), { x = 0, y = 0, z = 1 })
-	while not S.view_step(job, 10) do end
+	local job = cogwork.view_job(P(0, 1, 0), { x = 0, y = 0, z = 1 })
+	while not cogwork.view_step(job, 10) do end
 	-- the far column is within the loaded area: not the sky colour
 	local r, g, b = pixel(job, job.W / 2, job.H / 2)
 	-- look into terrain beyond what is loaded: no error, a picture
-	local far = S.view_job(P(0, 1, 0), { x = 1, y = 0, z = 0 })
+	local far = cogwork.view_job(P(0, 1, 0), { x = 1, y = 0, z = 0 })
 	far.ox = far.ox + 200
-	while not S.view_step(far, 10) do end
+	while not cogwork.view_step(far, 10) do end
 	report("the viewscreen sees far, and unloaded terrain is haze, not an error",
 		#job.pixels == job.W * job.H and #far.pixels == far.W * far.H and not (b > r + 40),
 		("%d,%d,%d"):format(r, g, b))
@@ -1799,24 +1798,24 @@ test("the viewscreen sees far, and unloaded terrain is haze, not an error", func
 end)
 
 test("a room is out of the way of the room container mods and nobody builds in it", function (done)
-	local o = S.room_origin(1)
+	local o = cogwork.room_origin(1)
 	local inside = { x = o.x + 5, y = o.y + 3, z = o.z + 5 }
 	local between = { x = o.x + 20, y = o.y + 3, z = o.z + 5 }       -- the gap between two rooms
 	local clear_of_sbz = not (o.y + 10 >= -28000 - 64 and o.y <= -15000 + 64)
 	local level = 16 * (tonumber(core.settings:get("area_containers_y_level_blocks")) or 1931)
 	local clear_of_area = not (o.y <= level + 16 and o.y + 10 >= level)
 	report("a room is out of the way of the room container mods and nobody builds in it",
-		S.room_at(inside) == 1 and S.room_at(between) == nil
+		cogwork.room_at(inside) == 1 and cogwork.room_at(between) == nil
 		-- the harness replaces core.is_protected on Mineclonia (see the top), which drops our hook
 		and (core.get_modpath("mcl_levelgen") or core.is_protected(inside, "tester"))
-		and clear_of_sbz and clear_of_area and S.room_origin(2).x ~= o.x,
+		and clear_of_sbz and clear_of_area and cogwork.room_origin(2).x ~= o.x,
 		("y=%d"):format(o.y))
 	done()
 end)
 
 test("the first room slot that clashes with Skyblock: Zero's rooms is skipped", function (done)
-	local blocked = S.room_next()
-	local o = S.room_origin(blocked)
+	local blocked = cogwork.room_next()
+	local o = cogwork.room_origin(blocked)
 	local old = rawget(_G, "sbz_room_containers")
 	local store = AreaStore()
 	store:insert_area(o, vector.add(o, 15), "someone's room")
@@ -1827,7 +1826,7 @@ test("the first room slot that clashes with Skyblock: Zero's rooms is skipped", 
 	local pos = make_robot(P(0, 1, 0), "stop", nil, {})
 	local fake = { get_player_name = function () return "tester" end, is_player = function () return true end,
 		get_meta = function () return { get_string = function () return "" end, set_string = function () end } end }
-	S.room_enter(pos, fake)
+	cogwork.room_enter(pos, fake)
 	local id = core.get_meta(pos):get_int("room_id")
 	rawset(_G, "sbz_room_containers", old)
 	report("the first room slot that clashes with Skyblock: Zero's rooms is skipped",
@@ -1841,10 +1840,10 @@ test("a room is built with a door, a chest, a bay, a terminal, a controller and 
 	local pos = make_robot(P(0, 1, 0), "stop", nil, {})
 	local fake = { get_player_name = function () return "tester" end, is_player = function () return true end,
 		get_meta = function () return { get_string = function () return "" end, set_string = function () end } end }
-	S.room_enter(pos, fake)
+	cogwork.room_enter(pos, fake)
 	local id = core.get_meta(pos):get_int("room_id")
-	S.room_prepare(id, function ()
-		local o = S.room_origin(id)
+	cogwork.room_prepare(id, function ()
+		local o = cogwork.room_origin(id)
 		local function at (x, y, z) return core.get_node({ x = o.x + x, y = o.y + y, z = o.z + z }).name end
 		local ok = at(0, 5, 5) == "cogwork:room_wall" and at(7, 0, 7) == "cogwork:room_floor"
 			and at(7, 1, 0) == "cogwork:room_exit" and at(2, 1, 7) == "cogwork:room_chest"
@@ -1864,19 +1863,19 @@ test("the screen of a room shows pictures", function (done)
 	local pos = make_robot(P(0, 1, 0), "stop", nil, {})
 	local fake = { get_player_name = function () return "tester" end, is_player = function () return true end,
 		get_meta = function () return { get_string = function () return "" end, set_string = function () end } end }
-	S.room_enter(pos, fake)
+	cogwork.room_enter(pos, fake)
 	local id = core.get_meta(pos):get_int("room_id")
-	S.room_prepare(id, function ()
+	cogwork.room_prepare(id, function ()
 		-- with a player in the room its block is active; here the test keeps it so
-		local origin = S.room_origin(id)
+		local origin = cogwork.room_origin(id)
 		core.forceload_block(origin, true)
-		S.room_guard_off = true
-		S.room_open_view(id)
+		cogwork.room_guard_off = true
+		cogwork.room_open_view(id)
 		-- a busy server draws slowly (4 ms of every step): wait for the first picture
 		local waited = 0
 		local function look ()
-			local o = S.room_origin(id)
-			local sc = S.ROOM_SCREEN
+			local o = cogwork.room_origin(id)
+			local sc = cogwork.ROOM_SCREEN
 			local found
 			for _, obj in ipairs(core.get_objects_inside_radius({ x = o.x + sc.x, y = o.y + sc.y, z = o.z + sc.z }, 0.6)) do
 				local le = obj:get_luaentity()
@@ -1884,9 +1883,9 @@ test("the screen of a room shows pictures", function (done)
 			end
 			local tex = found and found:get_properties().textures[1] or ""
 			if (tex:sub(1, 5) == "[png:" and #tex > 200) or waited >= 25 then
-				local state = S.view_state(id)
-				S.view_unwatch(id)
-				S.room_guard_off = nil
+				local state = cogwork.view_state(id)
+				cogwork.view_unwatch(id)
+				cogwork.room_guard_off = nil
 				core.forceload_free_block(origin, true)
 				report("the screen of a room shows pictures", found ~= nil and tex:sub(1, 5) == "[png:" and #tex > 200,
 					found and ("texture " .. #tex .. " chars after " .. waited .. " s, " .. state) or "no screen")
@@ -1908,7 +1907,7 @@ test("the controller drives the robot, and costs power", function (done)
 	-- a real room id: entering allocates it (the fake player never arrives)
 	local blank = { get_player_name = function () return "tester" end, is_player = function () return true end,
 		get_meta = function () return { get_string = function () return "" end, set_string = function () end } end }
-	S.room_enter(pos, blank)
+	cogwork.room_enter(pos, blank)
 	local id = core.get_meta(pos):get_int("room_id")
 	local fake = { get_player_name = function () return "tester" end, is_player = function () return true end,
 		get_meta = function () return { get_string = function () return tostring(id) end, set_string = function () end } end }
@@ -1920,9 +1919,9 @@ test("the controller drives the robot, and costs power", function (done)
 	end
 	local start = cell_charge(pos)
 	press("ctl_fwd")
-	local moved = S.is_robot(name_at(P(0, 1, 1))) and not S.is_robot(name_at(P(0, 1, 0)))
+	local moved = cogwork.is_robot(name_at(P(0, 1, 1))) and not cogwork.is_robot(name_at(P(0, 1, 0)))
 	local paid = math.abs(cell_charge(P(0, 1, 1)) - (start - 1)) < 0.01
-	local registry = S.room_robot(id) ~= nil and vector.equals(S.room_robot(id), P(0, 1, 1))
+	local registry = cogwork.room_robot(id) ~= nil and vector.equals(cogwork.room_robot(id), P(0, 1, 1))
 
 	core.after(0.5, function ()
 		local before = core.get_node(P(0, 1, 1)).param2
@@ -1930,11 +1929,11 @@ test("the controller drives the robot, and costs power", function (done)
 		local turned = core.get_node(P(0, 1, 1)).param2 ~= before
 
 		-- while a program runs it will not be driven
-		assert(S.start(P(0, 1, 1)))
+		assert(cogwork.start(P(0, 1, 1)))
 		core.after(0.5, function ()
 			press("ctl_fwd")
-			local refused = S.is_robot(name_at(P(0, 1, 1))) and not S.is_robot(name_at(P(0, 1, 2)))
-			S.stop(P(0, 1, 1), "")
+			local refused = cogwork.is_robot(name_at(P(0, 1, 1))) and not cogwork.is_robot(name_at(P(0, 1, 2)))
+			cogwork.stop(P(0, 1, 1), "")
 			report("the controller drives the robot, and costs power", moved and paid and registry and turned and refused,
 				("moved=%s paid=%s registry=%s turned=%s refused=%s"):format(tostring(moved), tostring(paid), tostring(registry), tostring(turned), tostring(refused)))
 			done()
@@ -1949,11 +1948,11 @@ test("the chest, the bay and the terminal open the robot at their own tab", func
 	local fake = { get_player_name = function () return "tester" end, is_player = function () return true end,
 		get_inventory = function () return nil end, get_player_control = function () return {} end,
 		get_meta = function () return { get_string = function () return "" end, set_string = function () end } end }
-	S.room_enter(pos, fake)
+	cogwork.room_enter(pos, fake)
 	local id = core.get_meta(pos):get_int("room_id")
-	S.room_prepare(id, function ()
-		local o = S.room_origin(id)
-		local sess = S.editor_session(fake)
+	cogwork.room_prepare(id, function ()
+		local o = cogwork.room_origin(id)
+		local sess = cogwork.editor_session(fake)
 		local result = {}
 		for kind, tab in pairs({ chest = "storage", bay = "structure", terminal = "program" }) do
 			local p = ({ chest = { 2, 1, 7 }, bay = { 2, 1, 9 }, terminal = { 13, 1, 7 } })[kind]
@@ -1982,9 +1981,9 @@ test("a robot keeps its room when dug and placed again, and digging it ejects no
 	local pos2 = P(4, 1, 0)
 	core.set_node(pos2, { name = "cogwork:robot" })
 	node.after_place_node(pos2, nil, drop)
-	local again = core.get_meta(pos2):get_int("room_id") == 7 and S.room_robot_at ~= nil
+	local again = core.get_meta(pos2):get_int("room_id") == 7 and cogwork.room_robot_at ~= nil
 	-- no one inside: digging does nothing odd
-	local ok = pcall(S.room_robot_gone, pos2)
+	local ok = pcall(cogwork.room_robot_gone, pos2)
 	report("a robot keeps its room when dug and placed again, and digging it ejects nobody into the void",
 		carried and again and ok)
 	done()
@@ -1992,7 +1991,7 @@ end)
 
 -- armor numbers: the lightest 24, 7 more every tier
 test("armor takes 24, 31 and 38", function (done)
-	local function max_of (name) return select(2, S.armor_info(ItemStack(name))) end
+	local function max_of (name) return select(2, cogwork.armor_info(ItemStack(name))) end
 	report("armor takes 24, 31 and 38",
 		max_of("cogwork:armor_basic") == 24 and max_of("cogwork:armor_reinforced") == 31 and max_of("cogwork:armor_heavy") == 38)
 	done()
@@ -2005,7 +2004,7 @@ test("a new robot comes with armor and a cell, and is marked no_emc", function (
 	local pos = P(0, 1, 0)
 	core.set_node(pos, { name = "cogwork:robot" })
 	node.after_place_node(pos, nil, ItemStack("cogwork:robot"))
-	local fresh = S.has_armor(pos) and #S.cells_of(pos) == 1 and core.get_meta(pos):get_string("no_emc") == "true"
+	local fresh = cogwork.has_armor(pos) and #cogwork.cells_of(pos) == 1 and core.get_meta(pos):get_string("no_emc") == "true"
 
 	-- dug: the item carries no_emc
 	local drop = ItemStack("cogwork:robot")
@@ -2016,7 +2015,7 @@ test("a new robot comes with armor and a cell, and is marked no_emc", function (
 	local pos2 = P(3, 1, 0)
 	core.set_node(pos2, { name = "cogwork:robot" })
 	node.after_place_node(pos2, nil, drop)
-	local again = not S.has_armor(pos2) and #S.cells_of(pos2) == 0 and core.get_meta(pos2):get_string("no_emc") == "true"
+	local again = not cogwork.has_armor(pos2) and #cogwork.cells_of(pos2) == 0 and core.get_meta(pos2):get_string("no_emc") == "true"
 	report("a new robot comes with armor and a cell, and is marked no_emc", fresh and marked and again,
 		tostring(fresh) .. " " .. tostring(marked) .. " " .. tostring(again))
 	done()
@@ -2031,7 +2030,7 @@ test("no inventory slot or text overlaps another on any tab", function (done)
 	local problems = {}
 	for _, tab in ipairs({ "storage", "structure", "packages", "settings", "program" }) do
 		local sess = { tab = tab, line = 1, tok = 0, scroll = 0, cat = "check", msg = "", player = fake, pos = pos }
-		local fs = S.formspec(pos, sess)
+		local fs = cogwork.formspec(pos, sess)
 		local lists, labels = {}, {}
 		for x, y, w, h in fs:gmatch("list%[[^;]*;[^;]*;([%d%.%-]+),([%d%.%-]+);([%d%.]+),([%d%.]+);") do
 			x, y, w, h = tonumber(x), tonumber(y), tonumber(w), tonumber(h)
@@ -2075,7 +2074,7 @@ local function node_event_test (name, change, detail, setup, trigger)
 		if setup then setup() end
 		core.after(1.5, trigger)
 	end, function (_, timeout)
-		assert(not timeout and S.is_robot(core.get_node(P(0, 2, 0)).name), "handler did not run")
+		assert(not timeout and cogwork.is_robot(core.get_node(P(0, 2, 0)).name), "handler did not run")
 	end)
 end
 
@@ -2103,7 +2102,7 @@ if rawget(_G, "sbz_api") and core.registered_nodes["sbz_power:battery"] then
 		clear_area()
 		core.set_node(P(0, 1, 1), { name = "sbz_power:battery" })
 		core.get_meta(P(0, 1, 1)):set_int("power", 1250)
-		local info = S.machine_info(P(0, 1, 1))
+		local info = cogwork.machine_info(P(0, 1, 1))
 		report("sbz_power reading and switching", info and info.mod == "sbz_power"
 			and info.power == 1250 and info.capacity == 5000 and info.level == 25,
 			info and ("level=" .. tostring(info.level) .. " cap=" .. tostring(info.capacity)) or "no reading")
@@ -2136,11 +2135,11 @@ test("technic and techage readings", function (done)
 	core.get_meta(P(0, 1, 3)):set_string("enabled", "1")
 	core.set_node(P(0, 1, 2), { name = material })
 
-	local box = S.machine_info(P(0, 1, 1))
-	local machine = S.machine_info(P(0, 1, 3))
-	local ta = S.machine_info(P(0, 1, 2))
-	local switched = S.machine_switch(P(0, 1, 3), false)
-	local ta_on = S.machine_switch(P(0, 1, 2), true)
+	local box = cogwork.machine_info(P(0, 1, 1))
+	local machine = cogwork.machine_info(P(0, 1, 3))
+	local ta = cogwork.machine_info(P(0, 1, 2))
+	local switched = cogwork.machine_switch(P(0, 1, 3), false)
+	local ta_on = cogwork.machine_switch(P(0, 1, 2), true)
 	rawset(_G, "technic", nil)
 	rawset(_G, "techage", nil)
 
@@ -2161,12 +2160,12 @@ test("editor formspec", function (done)
 	local ok, err = true, nil
 	for _, tab in ipairs({ "program", "text", "storage", "structure", "packages", "settings", "help" }) do
 		s.tab = tab
-		local good, res = pcall(S.formspec, pos, s)
+		local good, res = pcall(cogwork.formspec, pos, s)
 		if not good or type(res) ~= "string" or #res < 50 then ok, err = false, tab .. ": " .. tostring(res) end
 	end
 	for _, cat in ipairs({ "flow", "move", "world", "inventory", "var", "check", "fn" }) do
 		s.tab, s.cat = "program", cat
-		local good, res = pcall(S.formspec, pos, s)
+		local good, res = pcall(cogwork.formspec, pos, s)
 		if not good then ok, err = false, cat .. ": " .. tostring(res) end
 	end
 	report("editor formspec", ok, err)
@@ -2174,7 +2173,7 @@ test("editor formspec", function (done)
 end)
 
 test("robot can be dug by hand", function (done)
-	for _, name in ipairs(S.ROBOT_NODES) do
+	for _, name in ipairs(cogwork.ROBOT_NODES) do
 		local def = core.registered_nodes[name]
 		local ok, info
 		if core.get_modpath("mcl_core") then
@@ -2198,10 +2197,10 @@ test("editor events and check", function (done)
 		get_inventory = function () return nil end, is_player = function () return true end,
 		get_player_control = function () return {} end }
 	local function send (fields)
-		S.on_editor_fields(fake, "cogwork:ed", fields)
+		cogwork.on_editor_fields(fake, "cogwork:ed", fields)
 	end
 	local function lines () return core.get_meta(pos):get_string("program") end
-	local s = S.editor_session(fake)
+	local s = cogwork.editor_session(fake)
 	s.pos, s.player, s.tab = pos, fake, "program"
 
 	s.line, s.tok = 1, 2
@@ -2212,19 +2211,19 @@ test("editor events and check", function (done)
 	send({ val = "hello world", val_text = "As text" })
 	report("as text quotes it", lines():find('chat "hello world"', 1, true), lines())
 
-	local ok, msg, line = S.check_program(pos, "move up\nmove sideways")
+	local ok, msg, line = cogwork.check_program(pos, "move up\nmove sideways")
 	report("check finds bad direction", ok == false and line == 2, tostring(msg))
-	ok, msg = S.check_program(pos, "place front nomod:nothing")
+	ok, msg = cogwork.check_program(pos, "place front nomod:nothing")
 	report("check finds unknown item", ok == true and msg:find("unknown item"), tostring(msg))
-	ok, msg, line = S.check_program(pos, "move up")
+	ok, msg, line = cogwork.check_program(pos, "move up")
 	report("check passes", ok and line == nil, tostring(msg))
 
 	core.get_meta(pos):set_string("program", "move up\nmove up")
 	s.tab = "program"
 	send({ quit = "true", op_runclose = "Run and close" })
-	report("run and close starts", S.is_running(pos))
+	report("run and close starts", cogwork.is_running(pos))
 	report("run and close forgets the form", s.pos == nil)
-	S.stop(pos, "")
+	cogwork.stop(pos, "")
 	-- a form closed with Esc must not come back
 	s.pos = pos
 	send({ quit = "true" })
@@ -2238,20 +2237,20 @@ test("robot callbacks do not open the editor while a program runs", function (do
 	local fake = { get_player_name = function () return "tester" end,
 		get_inventory = function () return nil end, is_player = function () return true end,
 		get_player_control = function () return {} end }
-	local s = S.editor_session(fake)
+	local s = cogwork.editor_session(fake)
 	s.pos = nil
 	local def = core.registered_nodes["cogwork:robot"]
-	S.acting = true
+	cogwork.acting = true
 	def.on_rightclick(pos, core.get_node(pos), fake, ItemStack(""), { type = "node", under = pos, above = pos })
-	S.acting = false
+	cogwork.acting = false
 	report("rightclick ignored while acting", s.pos == nil)
 	done()
 end)
 
 test("packages compile", function (done)
 	local ok = true
-	for _, name in ipairs(S.list_packages()) do
-		local good, err = S.check_package(name)
+	for _, name in ipairs(cogwork.list_packages()) do
+		local good, err = cogwork.check_package(name)
 		if not good then ok = false report("package " .. name, false, err) end
 	end
 	report("packages compile", ok)
@@ -2267,10 +2266,10 @@ test("recipes registered", function (done)
 end)
 
 test("package disk round trip", function (done)
-	local lib = S.extract_functions("move up\nfn go n\n  repeat n\n    move forward\nuse movement\ncall go 2")
-	local ok, err = S.validate_library(lib or "")
+	local lib = cogwork.extract_functions("move up\nfn go n\n  repeat n\n    move forward\nuse movement\ncall go 2")
+	local ok, err = cogwork.validate_library(lib or "")
 	report("extract functions", lib ~= nil and ok, err or lib)
-	local bad = S.validate_library("move up")
+	local bad = cogwork.validate_library("move up")
 	report("library rejects statements", bad == nil)
 	done()
 end)

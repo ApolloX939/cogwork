@@ -12,16 +12,16 @@
 -- Chat is limited per player (settings.chat_limit messages in
 -- settings.chat_window seconds), robot to robot and robot to owner are not.
 
-local S = ...
-local lang, settings = S.lang, S.settings
-local Bot = S.Bot
-local T = S.S
+local cogwork = ...
+local lang, settings = cogwork.lang, cogwork.settings
+local Bot = cogwork.Bot
+local S = cogwork.S
 
 local QUEUE_MAX = 32
 local PER_SCAN_MAX = 8
 local MIN_INTERVAL = 0.5
 
-S.event_kinds = { nodes = true, entities = true, items = true, chat = true,
+cogwork.event_kinds = { nodes = true, entities = true, items = true, chat = true,
 	whisper = true, bot = true }
 
 local function now () return core.get_us_time() / 1e6 end
@@ -90,7 +90,7 @@ end
 function Bot:event_register (ctx, kind, radius, handler)
 	kind = lang.tostr(kind):lower()
 	handler = lang.tostr(handler)
-	if not S.event_kinds[kind] then
+	if not cogwork.event_kinds[kind] then
 		rt_error(ctx, "unknown event '" .. kind .. "' (nodes, entities, items, chat, whisper, bot)")
 	end
 	if not lang.find_fn(ctx.unit, handler) then
@@ -155,7 +155,7 @@ local function snapshot (p, name)
 	local timer = core.get_node_timer(p)
 	snap.timer = { started = timer:is_started(), elapsed = timer:get_elapsed() }
 
-	local info = S.machine_info(p)
+	local info = cogwork.machine_info(p)
 	if info then
 		snap.state = info.state
 		snap.level = info.level or info.network_level
@@ -240,7 +240,7 @@ local function scan_objects (bot, ctx, reg, kind)
 	for _, obj in ipairs(core.get_objects_inside_radius(bot.pos, reg.radius)) do
 		local item = is_item(obj)
 		-- the robots' own bodies are no entities to react to
-		if not S.is_visual(obj) and item == (kind == "items") then
+		if not cogwork.is_visual(obj) and item == (kind == "items") then
 			local id = object_id(obj)
 			reg.seen[id] = true
 			if last and not last[id] and fired < PER_SCAN_MAX then
@@ -298,7 +298,7 @@ end
 -- every running program (with its position) listening for this kind
 local function listening (kind)
 	local out = {}
-	for _, r in pairs(S.running) do
+	for _, r in pairs(cogwork.running) do
 		if r.ctx.events and r.ctx.events.reg[kind] then out[#out + 1] = r end
 	end
 	return out
@@ -316,7 +316,7 @@ core.register_on_chat_message(function (name, message)
 end)
 
 -- a private message to a robot by its name; true, count or false, reason
-function S.whisper_to_bot (player, botname, message)
+function cogwork.whisper_to_bot (player, botname, message)
 	local want = botname:lower()
 	local found, delivered, limited = 0, 0, 0
 
@@ -335,9 +335,9 @@ function S.whisper_to_bot (player, botname, message)
 		end
 	end
 
-	if found == 0 then return false, T("No robot called '@1' is listening to you.", botname) end
+	if found == 0 then return false, S("No robot called '@1' is listening to you.", botname) end
 	if delivered == 0 and limited > 0 then
-		return false, T("Slow down: @1 messages every @2 seconds.", settings.chat_limit, settings.chat_window)
+		return false, S("Slow down: @1 messages every @2 seconds.", settings.chat_limit, settings.chat_window)
 	end
 	return true, delivered
 end
@@ -375,9 +375,9 @@ local function parse_allow (meta)
 	for entry in meta:get_string("bot_allow"):gmatch("[^\n]+") do list[#list + 1] = entry end
 	return list
 end
-S.bot_allow_list = function (pos) return parse_allow(core.get_meta(pos)) end
+cogwork.bot_allow_list = function (pos) return parse_allow(core.get_meta(pos)) end
 
-function S.bot_allow_set (pos, list)
+function cogwork.bot_allow_set (pos, list)
 	core.get_meta(pos):set_string("bot_allow", table.concat(list, "\n"))
 end
 
@@ -411,7 +411,7 @@ local function listeners_of (pos)
 end
 
 -- "Owner/Name" of each, for the Settings tab and the program
-function S.listeners_of (pos)
+function cogwork.listeners_of (pos)
 	local names = {}
 	for _, l in ipairs(listeners_of(pos)) do names[#names + 1] = l.owner .. "/" .. l.name end
 	table.sort(names)
@@ -419,7 +419,7 @@ function S.listeners_of (pos)
 end
 
 function Bot:listeners ()
-	return S.listeners_of(self.pos)
+	return cogwork.listeners_of(self.pos)
 end
 
 local function deliver (self, ctx_filter, text)

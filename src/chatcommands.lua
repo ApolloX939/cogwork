@@ -1,23 +1,23 @@
-local S = ...
-local lang = S.lang
-local T = S.S
+local cogwork = ...
+local lang = cogwork.lang
+local S = cogwork.S
 
 core.register_chatcommand("cogwork", {
 	params = "packages | package <name> | items",
-	description = T("Information about Cogwork packages and item names"),
+	description = S("Information about Cogwork packages and item names"),
 	func = function (name, param)
 		local cmd, arg = param:match("^(%S*)%s*(.-)%s*$")
 
 		if cmd == "packages" or cmd == "" then
 			local out = {}
-			for _, p in ipairs(S.list_packages()) do
+			for _, p in ipairs(cogwork.list_packages()) do
 				local pkg = lang.packages[p]
 				out[#out + 1] = p .. " - " .. (pkg.meta.description or "")
 			end
 			return true, table.concat(out, "\n")
 
 		elseif cmd == "package" then
-			if not lang.packages[arg] then return false, T("No package '@1'.", arg) end
+			if not lang.packages[arg] then return false, S("No package '@1'.", arg) end
 			local ok, unit = pcall(lang.get_package, arg, 0)
 			if not ok then return false, lang.format_error(unit) end
 			local names = {}
@@ -29,26 +29,26 @@ core.register_chatcommand("cogwork", {
 
 		elseif cmd == "items" then
 			local out = {}
-			for _, key in ipairs(S.compat.alias_names()) do
-				out[#out + 1] = "@" .. key .. " = " .. tostring(S.compat.item(key))
+			for _, key in ipairs(cogwork.compat.alias_names()) do
+				out[#out + 1] = "@" .. key .. " = " .. tostring(cogwork.compat.item(key))
 			end
 			return true, table.concat(out, "\n")
 		end
 
-		return false, T("Usage: /cogwork packages | package <name> | items")
+		return false, S("Usage: /cogwork packages | package <name> | items")
 	end,
 })
 
 core.register_chatcommand("bot", {
 	params = "<robot name> <message>",
-	description = T("Send a private message to a robot that is listening for them"),
+	description = S("Send a private message to a robot that is listening for them"),
 	func = function (name, param)
 		-- a name with spaces goes in quotes: /bot "Farm bot" hello
 		local botname, message = param:match('^"([^"]+)"%s+(.+)$')
 		if not botname then botname, message = param:match("^(%S+)%s+(.+)$") end
-		if not botname then return false, T("Usage: /bot <robot name> <message>") end
-		local ok, res = S.whisper_to_bot(name, botname, message)
+		if not botname then return false, S("Usage: /bot <robot name> <message>") end
+		local ok, res = cogwork.whisper_to_bot(name, botname, message)
 		if not ok then return false, res end
-		return true, T("Sent to @1 robot(s).", res)
+		return true, S("Sent to @1 robot(s).", res)
 	end,
 })

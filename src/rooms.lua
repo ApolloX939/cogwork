@@ -13,16 +13,16 @@
 -- Zero's rooms between y -28000 and -15000; these are at the bottom), and every slot
 -- is checked against the one that is installed.
 
-local S = ...
-local T = S.S
-local settings = S.settings
+local cogwork = ...
+local S = cogwork.S
+local settings = cogwork.settings
 local storage = core.get_mod_storage()
 
 local SIZE = { x = 16, y = 10, z = 16 }
 local SPACING = 32
 local floor = math.floor
 
-S.ROOM_SIZE = SIZE
+cogwork.ROOM_SIZE = SIZE
 
 --------------------------------------------------------------------------
 -- where the rooms are
@@ -64,14 +64,14 @@ local function columns ()
 	return math.max(1, math.min(100, floor((2 * map_limit() - 1000) / SPACING)))
 end
 
-function S.room_origin (id)
+function cogwork.room_origin (id)
 	base = base or choose_base()
 	local cols = columns()
 	return { x = base.x + ((id - 1) % cols) * SPACING, y = base.y, z = base.z + floor((id - 1) / cols) * SPACING }
 end
 
 -- the room a position is inside of (its chamber), or nil
-function S.room_at (pos)
+function cogwork.room_at (pos)
 	base = base or choose_base()
 	if pos.y < base.y or pos.y >= base.y + SIZE.y then return nil end
 	local dx, dz = pos.x - base.x, pos.z - base.z
@@ -111,7 +111,7 @@ end)
 
 -- a room that does not clash with anything: skips slots the room containers use
 local function slot_free (id)
-	local o = S.room_origin(id)
+	local o = cogwork.room_origin(id)
 	local max = { x = o.x + SIZE.x, y = o.y + SIZE.y, z = o.z + SIZE.z }
 	local sbz = rawget(_G, "sbz_room_containers")
 	if sbz and sbz.room_areastore then
@@ -130,26 +130,26 @@ local function alloc (owner)
 	return id
 end
 
-function S.room_id (pos)
+function cogwork.room_id (pos)
 	return core.get_meta(pos):get_int("room_id")
 end
 
 -- the robot of a room: its position, with its block loaded; nil when it is not placed
-function S.room_robot (id)
+function cogwork.room_robot (id)
 	local r = reg.rooms[id]
 	local pos = r and r.robot
 	if not pos then return nil end
 	core.load_area(pos)
 	local node = core.get_node_or_nil(pos)
-	if node and S.is_robot(node.name) and S.room_id(pos) == id then return pos end
+	if node and cogwork.is_robot(node.name) and cogwork.room_id(pos) == id then return pos end
 end
 
-function S.room_owner (id)
+function cogwork.room_owner (id)
 	return reg.rooms[id] and reg.rooms[id].owner
 end
 
 -- the robot of room id is here now (placed, moved)
-function S.room_robot_at (id, pos)
+function cogwork.room_robot_at (id, pos)
 	if id == 0 or not reg.rooms[id] then return end
 	reg.rooms[id].robot = { x = pos.x, y = pos.y, z = pos.z }
 	dirty = true
@@ -172,11 +172,11 @@ local SPOTS = {
 	console = { { 6, 1, 11 }, { 8, 1, 11 } },
 	light = { { 4, 9, 4 }, { 11, 9, 4 }, { 4, 9, 11 }, { 11, 9, 11 }, { 2, 0, 2 }, { 13, 0, 2 }, { 2, 0, 13 }, { 13, 0, 13 } },
 }
-S.ROOM_SPAWN = { x = 7.5, y = 1, z = 2.5 }
-S.ROOM_SCREEN = { x = 7.5, y = 5, z = 14.46, w = 8, h = 5 }
+cogwork.ROOM_SPAWN = { x = 7.5, y = 1, z = 2.5 }
+cogwork.ROOM_SCREEN = { x = 7.5, y = 5, z = 14.46, w = 8, h = 5 }
 
 local function build (id)
-	local o = S.room_origin(id)
+	local o = cogwork.room_origin(id)
 	local min, max = o, { x = o.x + SIZE.x - 1, y = o.y + SIZE.y - 1, z = o.z + SIZE.z - 1 }
 	local vm = core.get_voxel_manip()
 	local emin, emax = vm:read_from_map(min, max)
@@ -213,7 +213,7 @@ end
 
 -- the chamber exists and is built: then call back
 local function ready (id, callback)
-	local o = S.room_origin(id)
+	local o = cogwork.room_origin(id)
 	local max = { x = o.x + SIZE.x - 1, y = o.y + SIZE.y - 1, z = o.z + SIZE.z - 1 }
 	core.emerge_area(o, max, function (_, _, remaining)
 		if remaining > 0 then return end
@@ -245,20 +245,20 @@ local function occupants (id)
 	return list
 end
 
-function S.room_of_player (player)
+function cogwork.room_of_player (player)
 	local id = tonumber(player:get_meta():get_string("cogwork_room"))
 	return id and id > 0 and id or nil
 end
 
 -- the viewscreen of a room: shown while somebody is in it
 local function watch (id)
-	local o = S.room_origin(id)
-	local sc = S.ROOM_SCREEN
+	local o = cogwork.room_origin(id)
+	local sc = cogwork.ROOM_SCREEN
 	local pos = { x = o.x + sc.x, y = o.y + sc.y, z = o.z + sc.z }
 	local size = { x = sc.w, y = sc.h }
-	S.view_screen(pos, size)
-	S.view_watch(id, pos, function ()
-		local rp = S.room_robot(id)
+	cogwork.view_screen(pos, size)
+	cogwork.view_watch(id, pos, function ()
+		local rp = cogwork.room_robot(id)
 		if not rp then return nil end
 		local node = core.get_node(rp)
 		return rp, vector.multiply(core.facedir_to_dir(node.param2 % 32), -1)
@@ -285,13 +285,13 @@ local function set_inside (player, id)
 end
 
 local function set_outside (player)
-	local id = S.room_of_player(player)
+	local id = cogwork.room_of_player(player)
 	player:get_meta():set_string("cogwork_room", "")
 	if id and inside[id] then
 		inside[id][player:get_player_name()] = nil
 		if next(inside[id]) == nil then
 			inside[id] = nil
-			S.view_unwatch(id)
+			cogwork.view_unwatch(id)
 			keep_loaded(id, false)
 		end
 	end
@@ -312,7 +312,7 @@ end
 local function standing_spot (pos)
 	local node = core.get_node_or_nil(pos)
 	local front = { x = 0, y = 0, z = 1 }
-	if node and S.is_robot(node.name) then front = vector.multiply(core.facedir_to_dir(node.param2 % 32), -1) end
+	if node and cogwork.is_robot(node.name) then front = vector.multiply(core.facedir_to_dir(node.param2 % 32), -1) end
 	local candidates = {
 		vector.add(pos, front), vector.add(pos, { x = 0, y = 1, z = 0 }),
 		vector.add(pos, vector.multiply(front, -1)),
@@ -333,22 +333,22 @@ end
 -- The lock on the room's entrance (the robot's "room_lock"): "" = whoever can
 -- use the robot, "allow" = its owner and the players in its allow list (the
 -- Settings tab), "owner" = its owner only. Admins with protection_bypass pass.
-S.ROOM_LOCKS = { "", "allow", "owner" }
+cogwork.ROOM_LOCKS = { "", "allow", "owner" }
 
-function S.room_lock (pos)
+function cogwork.room_lock (pos)
 	local lock = core.get_meta(pos):get_string("room_lock")
 	return (lock == "allow" or lock == "owner") and lock or ""
 end
 
-function S.can_enter (pos, player)
-	if not S.can_access(pos, player) then return false end
-	local lock = S.room_lock(pos)
+function cogwork.can_enter (pos, player)
+	if not cogwork.can_access(pos, player) then return false end
+	local lock = cogwork.room_lock(pos)
 	if lock == "" then return true end
 	local name = player:get_player_name()
 	local owner = core.get_meta(pos):get_string("owner")
 	if owner == "" or owner == name or core.check_player_privs(name, { protection_bypass = true }) then return true end
 	if lock == "allow" then
-		for _, entry in ipairs(S.bot_allow_list(pos)) do
+		for _, entry in ipairs(cogwork.bot_allow_list(pos)) do
 			if (entry:match("^([^/]+)/") or entry) == name then return true end
 		end
 	end
@@ -356,15 +356,15 @@ function S.can_enter (pos, player)
 end
 
 -- Sneak + punch: the player goes into the robot at pos.
-function S.room_enter (pos, player)
+function cogwork.room_enter (pos, player)
 	if not settings.rooms then return false end
-	if S.room_of_player(player) then return false end
+	if cogwork.room_of_player(player) then return false end
 	local name = player:get_player_name()
-	if not S.can_enter(pos, player) then
-		if S.can_access(pos, player) then
-			core.chat_send_player(name, T("The room of this robot is locked."))
+	if not cogwork.can_enter(pos, player) then
+		if cogwork.can_access(pos, player) then
+			core.chat_send_player(name, S("The room of this robot is locked."))
 		else
-			core.chat_send_player(name, T("This robot belongs to @1.", core.get_meta(pos):get_string("owner")))
+			core.chat_send_player(name, S("This robot belongs to @1.", core.get_meta(pos):get_string("owner")))
 		end
 		return false
 	end
@@ -375,58 +375,58 @@ function S.room_enter (pos, player)
 		id = alloc(meta:get_string("owner"))
 		meta:set_int("room_id", id)
 	end
-	S.room_robot_at(id, pos)
+	cogwork.room_robot_at(id, pos)
 
-	core.chat_send_player(name, T("Going into the robot..."))
+	core.chat_send_player(name, S("Going into the robot..."))
 	ready(id, function ()
 		local p = core.get_player_by_name(name)
-		if not p or S.room_of_player(p) then return end
-		local o = S.room_origin(id)
+		if not p or cogwork.room_of_player(p) then return end
+		local o = cogwork.room_origin(id)
 		set_inside(p, id)
-		p:set_pos({ x = o.x + S.ROOM_SPAWN.x, y = o.y + S.ROOM_SPAWN.y - 0.4, z = o.z + S.ROOM_SPAWN.z })
+		p:set_pos({ x = o.x + cogwork.ROOM_SPAWN.x, y = o.y + cogwork.ROOM_SPAWN.y - 0.4, z = o.z + cogwork.ROOM_SPAWN.z })
 		p:set_look_horizontal(0)
 	end)
 	return true
 end
 
 -- the door: back out next to the robot
-function S.room_exit (player)
-	local id = S.room_of_player(player)
+function cogwork.room_exit (player)
+	local id = cogwork.room_of_player(player)
 	if not id then return false end
-	local pos = S.room_robot(id)
+	local pos = cogwork.room_robot(id)
 	set_outside(player)
 	if pos then
 		teleport_out(player, pos)
 	else
-		core.chat_send_player(player:get_player_name(), T("The robot is not there: you are put at the spawn."))
+		core.chat_send_player(player:get_player_name(), S("The robot is not there: you are put at the spawn."))
 		player:set_pos(core.setting_get_pos("static_spawnpoint") or { x = 0, y = 10, z = 0 })
 	end
 	return true
 end
 
 -- The lock changed: whoever it no longer lets in is put out next to the robot.
-function S.room_recheck (pos)
-	local id = S.room_id(pos)
+function cogwork.room_recheck (pos)
+	local id = cogwork.room_id(pos)
 	if not id then return end
 	for _, p in ipairs(occupants(id)) do
-		if not S.can_enter(pos, p) then
-			core.chat_send_player(p:get_player_name(), T("The room was locked: you are put out."))
-			S.room_exit(p)
+		if not cogwork.can_enter(pos, p) then
+			core.chat_send_player(p:get_player_name(), S("The room was locked: you are put out."))
+			cogwork.room_exit(p)
 		end
 	end
 end
 
 -- The robot is dug (or destroyed): whoever is inside comes out where it stood.
-function S.room_robot_gone (pos)
-	local id = S.room_id(pos)
+function cogwork.room_robot_gone (pos)
+	local id = cogwork.room_id(pos)
 	if id == 0 or not reg.rooms[id] then return end
 	for _, player in ipairs(occupants(id)) do
 		set_outside(player)
 		teleport_out(player, pos)
-		core.chat_send_player(player:get_player_name(), T("The robot was taken apart: you are out."))
+		core.chat_send_player(player:get_player_name(), S("The robot was taken apart: you are out."))
 	end
 	inside[id] = nil
-	S.view_unwatch(id)
+	cogwork.view_unwatch(id)
 	if reg.rooms[id].robot then
 		keep_loaded(id, false)
 		reg.rooms[id].robot = nil
@@ -435,17 +435,17 @@ function S.room_robot_gone (pos)
 end
 
 -- The robot moved: its room knows where it is, and the block that is kept loaded follows.
-function S.room_robot_moved (from, to)
-	local id = S.room_id(to)
+function cogwork.room_robot_moved (from, to)
+	local id = cogwork.room_id(to)
 	if id == 0 or not reg.rooms[id] then return end
 	local watching = inside[id] and next(inside[id])
 	if watching then keep_loaded(id, false) end
-	S.room_robot_at(id, to)
+	cogwork.room_robot_at(id, to)
 	if watching then keep_loaded(id, true) end
 end
 
 core.register_on_joinplayer(function (player)
-	local id = S.room_of_player(player)
+	local id = cogwork.room_of_player(player)
 	if id then
 		inside[id] = inside[id] or {}
 		inside[id][player:get_player_name()] = true
@@ -456,12 +456,12 @@ core.register_on_joinplayer(function (player)
 end)
 
 core.register_on_leaveplayer(function (player)
-	local id = S.room_of_player(player)
+	local id = cogwork.room_of_player(player)
 	if id and inside[id] then
 		inside[id][player:get_player_name()] = nil
 		if next(inside[id]) == nil then
 			inside[id] = nil
-			S.view_unwatch(id)
+			cogwork.view_unwatch(id)
 			keep_loaded(id, false)
 		end
 	end
@@ -474,11 +474,11 @@ core.register_globalstep(function (dt)
 	guard = guard + dt
 	if guard < 3 then return end
 	guard = 0
-	if S.room_guard_off then return end      -- tests with a player who is not online
-	for _, id in ipairs(S.view_watched()) do
+	if cogwork.room_guard_off then return end      -- tests with a player who is not online
+	for _, id in ipairs(cogwork.view_watched()) do
 		if #occupants(id) == 0 then
 			inside[id] = nil
-			S.view_unwatch(id)
+			cogwork.view_unwatch(id)
 			keep_loaded(id, false)
 		end
 	end
@@ -489,11 +489,11 @@ core.register_on_respawnplayer(function (player)
 end)
 
 core.register_chatcommand("leave_robot", {
-	description = T("Leave the robot you are inside of"),
+	description = S("Leave the robot you are inside of"),
 	func = function (name)
 		local player = core.get_player_by_name(name)
-		if not player or not S.room_of_player(player) then return false, T("You are not inside a robot.") end
-		S.room_exit(player)
+		if not player or not cogwork.room_of_player(player) then return false, S("You are not inside a robot.") end
+		cogwork.room_exit(player)
 		return true
 	end,
 })
@@ -503,12 +503,12 @@ core.register_chatcommand("leave_robot", {
 
 local is_protected = core.is_protected
 function core.is_protected (pos, name)
-	if S.room_at(pos) then return true end
+	if cogwork.room_at(pos) then return true end
 	return is_protected(pos, name)
 end
 
 -- the room's exports for the nodes and for tests
-S.room_occupants = occupants
-S.room_prepare = ready            -- the chamber exists and is built, then call back
-S.room_open_view = watch          -- draw the screen of a room
-S.room_next = function () return reg.next end
+cogwork.room_occupants = occupants
+cogwork.room_prepare = ready            -- the chamber exists and is built, then call back
+cogwork.room_open_view = watch          -- draw the screen of a room
+cogwork.room_next = function () return reg.next end

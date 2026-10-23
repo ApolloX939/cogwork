@@ -11,7 +11,7 @@
 -- removed when it is dug, and made again when its block loads (LBM) or an ABM finds
 -- one missing. A visual whose node is gone removes itself.
 
-local S = ...
+local cogwork = ...
 
 local VISUAL, ROTOR = "cogwork:visual", "cogwork:rotor"
 local SPIN = 25   -- rotor speed, radians a second
@@ -38,7 +38,7 @@ local function parts (name)
 	return name:match("^cogwork:(%a+)"), name:sub(-3) == "_on"
 end
 
-function S.is_visual (obj)
+function cogwork.is_visual (obj)
 	local le = obj:get_luaentity()
 	return le ~= nil and (le.name == VISUAL or le.name == ROTOR)
 end
@@ -82,7 +82,7 @@ core.register_entity(VISUAL, {
 		local pos = self.object:get_pos()
 		if not pos then return end
 		local node = core.get_node_or_nil(vector.round(pos))
-		if node and not S.is_robot(node.name) then
+		if node and not cogwork.is_robot(node.name) then
 			forget(self)
 			self.object:remove()
 		end
@@ -155,7 +155,7 @@ local function set_rotors (obj, self, wanted, spinning)
 end
 
 local function set_particles (obj, self, kind, flying)
-	local want = S.settings.particles and flying and THRUST[kind] and kind or nil
+	local want = cogwork.settings.particles and flying and THRUST[kind] and kind or nil
 	if self.spawner and self.spawner_kind ~= want then
 		core.delete_particlespawner(self.spawner)
 		self.spawner = nil
@@ -177,9 +177,9 @@ end
 
 -- Make the visual of the robot at pos match it: model, face, direction, rotors,
 -- particles. It is made when there is none.
-function S.update_visual (pos, obj)
+function cogwork.update_visual (pos, obj)
 	local node = core.get_node_or_nil(pos)
-	if not node or not S.is_robot(node.name) then return end
+	if not node or not cogwork.is_robot(node.name) then return end
 
 	obj = obj or find_visual(pos) or core.add_entity(vector.new(pos), VISUAL)
 	local self = obj and obj:get_luaentity()
@@ -195,15 +195,15 @@ function S.update_visual (pos, obj)
 	obj:set_yaw(core.dir_to_yaw(core.facedir_to_dir(node.param2 % 32)))
 
 	set_rotors(obj, self, kind == "drone", on)
-	set_particles(obj, self, kind, S.gap_below(pos, 1) >= 1)
+	set_particles(obj, self, kind, cogwork.gap_below(pos, 1) >= 1)
 end
 
-function S.ensure_visual (pos)
-	S.update_visual(pos)
+function cogwork.ensure_visual (pos)
+	cogwork.update_visual(pos)
 end
 
 -- the robot node at pos is gone (dug)
-function S.remove_visual (pos)
+function cogwork.remove_visual (pos)
 	local obj = find_visual(pos)
 	if obj then
 		forget(obj:get_luaentity())
@@ -212,16 +212,16 @@ function S.remove_visual (pos)
 end
 
 -- the robot moved from one block to the next: its visual glides along
-function S.move_visual (from, to)
+function cogwork.move_visual (from, to)
 	local obj = find_visual(from)
 	if obj then obj:move_to(vector.new(to), true) end
-	S.update_visual(to, obj)
+	cogwork.update_visual(to, obj)
 end
 
 core.register_lbm({
 	label = "Cogwork visual",
 	name = "cogwork:visual",
-	nodenames = S.ROBOT_NODES,
+	nodenames = cogwork.ROBOT_NODES,
 	run_at_every_load = true,
-	action = function (pos) S.ensure_visual(pos) end,
+	action = function (pos) cogwork.ensure_visual(pos) end,
 })

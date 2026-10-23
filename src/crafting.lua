@@ -1,7 +1,7 @@
 -- Recipes. Each game gets ingredients that exist in it.
 
-local S = ...
-local compat = S.compat
+local cogwork = ...
+local compat = cogwork.compat
 
 compat.register_recipes(function (c)
 	local function first (...)

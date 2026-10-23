@@ -2,8 +2,8 @@
 -- the Self-Repair Module, the Self-Generator and the Combat Upgrade. The
 -- Creative Capacitor is creative-only: it has none.
 
-local S = ...
-local compat = S.compat
+local cogwork = ...
+local compat = cogwork.compat
 
 compat.register_recipes(function (c)
 	local function first (...)

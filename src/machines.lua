@@ -11,7 +11,7 @@
 -- Each adapter reads the mod's own fields and API; a mod that is not
 -- installed is skipped.
 
-local S = ...
+local cogwork = ...
 
 local function pct (v, max)
 	if not v or not max or max <= 0 then return nil end
@@ -149,7 +149,7 @@ local READERS = { sbz_info, technic_info, techage_info }
 local SWITCHES = { sbz_switch, technic_switch, techage_switch }
 
 -- the reading for the node at pos, or nil when it is not a machine of a known mod
-function S.machine_info (pos)
+function cogwork.machine_info (pos)
 	local node = core.get_node_or_nil(pos)
 	if not node or node.name == "ignore" then return nil end
 	local def = core.registered_nodes[node.name] or {}
@@ -160,7 +160,7 @@ function S.machine_info (pos)
 end
 
 -- true when switched, false when the machine cannot be, nil when none
-function S.machine_switch (pos, on)
+function cogwork.machine_switch (pos, on)
 	local node = core.get_node_or_nil(pos)
 	if not node or node.name == "ignore" then return nil end
 	for _, switch in ipairs(SWITCHES) do
@@ -172,18 +172,18 @@ end
 --------------------------------------------------------------------------
 -- for programs (see commands.lua)
 
-local Bot = S.Bot
-local lang = S.lang
+local Bot = cogwork.Bot
+local lang = cogwork.lang
 
 -- "" when the block is not a machine of a mod we know
 function Bot:machine_state (dir)
-	local info = S.machine_info(self:target(dir))
+	local info = cogwork.machine_info(self:target(dir))
 	return info and info.state or ""
 end
 
 -- a number of the reading, -1 when the block has no such value
 function Bot:machine_reading (dir, key)
-	local info = S.machine_info(self:target(dir))
+	local info = cogwork.machine_info(self:target(dir))
 	local v = info and info[key]
 	return v == nil and -1 or v
 end
@@ -218,6 +218,6 @@ end
 -- switch the machine in the block on or off
 function Bot:machine_switch (dir, on)
 	local pos = self:target(dir)
-	if self:protected(pos) then return false, S.settings.action_delay end
-	return S.machine_switch(pos, on) == true, S.settings.action_delay
+	if self:protected(pos) then return false, cogwork.settings.action_delay end
+	return cogwork.machine_switch(pos, on) == true, cogwork.settings.action_delay
 end

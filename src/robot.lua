@@ -1,11 +1,11 @@
 -- The robot node.
 
-local S = ...
-local compat, settings = S.compat, S.settings
-local T = S.S
+local cogwork = ...
+local compat, settings = cogwork.compat, cogwork.settings
+local S = cogwork.S
 
 
-function S.can_access (pos, player)
+function cogwork.can_access (pos, player)
 	if not player then return false end
 	local name = player:get_player_name()
 	local meta = core.get_meta(pos)
@@ -16,7 +16,7 @@ function S.can_access (pos, player)
 	return core.check_player_privs(name, { protection_bypass = true })
 end
 
-function S.set_persist (pos, on)
+function cogwork.set_persist (pos, on)
 	local meta = core.get_meta(pos)
 	if on then
 		-- false means the limit is reached; nil is "already loaded another way"
@@ -33,12 +33,12 @@ end
 
 local function display_name (meta)
 	local name = meta:get_string("bot_name")
-	local text = name ~= "" and T("Robot: @1", name) or T("Robot")
-	if meta:get_string("flooded") ~= "" then text = T("@1 (flooded)", text) end
+	local text = name ~= "" and S("Robot: @1", name) or S("Robot")
+	if meta:get_string("flooded") ~= "" then text = S("@1 (flooded)", text) end
 	return text
 end
 
-function S.update_infotext (pos)
+function cogwork.update_infotext (pos)
 	local meta = core.get_meta(pos)
 	meta:set_string("infotext", display_name(meta))
 end
@@ -46,24 +46,24 @@ end
 local function on_construct (pos)
 	local meta = core.get_meta(pos)
 	local inv = meta:get_inventory()
-	inv:set_size("main", S.STORAGE_BASE)
+	inv:set_size("main", cogwork.STORAGE_BASE)
 	inv:set_size("disk", 1)
-	inv:set_size("upgrades", S.UPGRADE_SLOTS)
-	for list, size in pairs(S.STRUCTURE_LISTS) do inv:set_size(list, size) end
+	inv:set_size("upgrades", cogwork.UPGRADE_SLOTS)
+	for list, size in pairs(cogwork.STRUCTURE_LISTS) do inv:set_size(list, size) end
 	-- a new robot has no armor and no cells: it does not run until it gets them
 	meta:set_int("structure_v", 1)
-	meta:set_string("infotext", T("Robot"))
+	meta:set_string("infotext", S("Robot"))
 end
 
 local function on_destruct (pos)
-	if S.moving then return end
-	S.room_robot_gone(pos)
-	S.stop(pos)
+	if cogwork.moving then return end
+	cogwork.room_robot_gone(pos)
+	cogwork.stop(pos)
 	if core.get_meta(pos):get_int("persist") == 1 then
 		core.forceload_free_block(pos, false)
 	end
 	-- last: stopping refreshes the model, which would make a new one
-	S.remove_visual(pos)
+	cogwork.remove_visual(pos)
 end
 
 local function after_place_node (pos, placer, itemstack)
@@ -92,7 +92,7 @@ local function after_place_node (pos, placer, itemstack)
 	local room = imeta:get_int("room_id")
 	if room > 0 then
 		meta:set_int("room_id", room)
-		S.room_robot_at(room, pos)
+		cogwork.room_robot_at(room, pos)
 	end
 
 	-- A robot item that was never placed (crafted, /give, creative) comes with a Basic
@@ -108,8 +108,8 @@ local function after_place_node (pos, placer, itemstack)
 
 	meta:set_string("infotext", display_name(meta))
 
-	if imeta:get_int("persist") == 1 then S.set_persist(pos, true) end
-	S.ensure_visual(pos)
+	if imeta:get_int("persist") == 1 then cogwork.set_persist(pos, true) end
+	cogwork.ensure_visual(pos)
 end
 
 local function preserve_metadata (pos, oldnode, oldmeta, drops)
@@ -126,17 +126,17 @@ local function preserve_metadata (pos, oldnode, oldmeta, drops)
 	if fields.no_emc == "true" then imeta:set_string("no_emc", "true") end
 	if tonumber(fields.room_id) and tonumber(fields.room_id) > 0 then imeta:set_int("room_id", tonumber(fields.room_id)) end
 	if fields.bot_name and fields.bot_name ~= "" then
-		imeta:set_string("description", T("Robot: @1", fields.bot_name))
+		imeta:set_string("description", S("Robot: @1", fields.bot_name))
 	end
 end
 
 local function can_dig (pos, player)
-	return S.can_access(pos, player)
+	return cogwork.can_access(pos, player)
 end
 
 -- whatever was inside comes out with the robot
 local function after_dig_node (pos, oldnode, oldmetadata, digger)
-	S.restore_water(pos, oldmetadata and oldmetadata.fields)
+	cogwork.restore_water(pos, oldmetadata and oldmetadata.fields)
 	local lists = oldmetadata and oldmetadata.inventory or {}
 	for _, list in pairs(lists) do
 		for _, item in pairs(list) do
@@ -153,24 +153,24 @@ local function after_dig_node (pos, oldnode, oldmetadata, digger)
 end
 
 local function on_rightclick (pos, node, clicker, itemstack, pointed_thing)
-	if S.acting then return itemstack end
-	if not S.can_access(pos, clicker) then
-		core.chat_send_player(clicker:get_player_name(), T("This robot belongs to @1.",
+	if cogwork.acting then return itemstack end
+	if not cogwork.can_access(pos, clicker) then
+		core.chat_send_player(clicker:get_player_name(), S("This robot belongs to @1.",
 			core.get_meta(pos):get_string("owner")))
 		return itemstack
 	end
 
 	-- an empty bucket takes the water a flooded robot sits in, instead of opening it
-	local filled = S.fill_bucket(pos, clicker, itemstack)
+	local filled = cogwork.fill_bucket(pos, clicker, itemstack)
 	if filled then return filled end
 
 	local held = itemstack:get_name()
 	if clicker:get_player_control().sneak then
-		local res = S.cassette_load and S.cassette_load(pos, clicker, itemstack)
+		local res = cogwork.cassette_load and cogwork.cassette_load(pos, clicker, itemstack)
 		if res then return res end
 	end
 
-	S.show_editor(pos, clicker)
+	cogwork.show_editor(pos, clicker)
 	return itemstack
 end
 
@@ -183,7 +183,7 @@ local function weapon_damage (stack)
 end
 
 local function on_punch (pos, node, puncher, pointed_thing)
-	if S.acting then return end
+	if cogwork.acting then return end
 	if not puncher then return end
 
 	-- somebody else hitting the robot with a weapon: the armor takes it
@@ -193,68 +193,68 @@ local function on_punch (pos, node, puncher, pointed_thing)
 		local wielded = puncher:get_wielded_item()
 		local damage = weapon_damage(wielded)
 		if damage > 1 and wielded:get_name() ~= "cogwork:cassette" then
-			S.damage(pos, damage * S.ARMOR_PER_DAMAGE)
-			if S.is_running(pos) and S.cannot_run(pos) then S.stop(pos, S.cannot_run(pos)) end
+			cogwork.damage(pos, damage * cogwork.ARMOR_PER_DAMAGE)
+			if cogwork.is_running(pos) and cogwork.cannot_run(pos) then cogwork.stop(pos, cogwork.cannot_run(pos)) end
 		end
 	end
 
-	if not S.can_access(pos, puncher) then return end
+	if not cogwork.can_access(pos, puncher) then return end
 
 	if puncher:get_player_control().sneak then
 		-- sneak + punch goes into the robot (its room); with rooms off it stops a running one
-		if S.settings.rooms then
-			S.room_enter(pos, puncher)
+		if cogwork.settings.rooms then
+			cogwork.room_enter(pos, puncher)
 			return
-		elseif S.is_running(pos) then
-			S.stop(pos, "")
-			core.chat_send_player(puncher:get_player_name(), T("Robot stopped."))
+		elseif cogwork.is_running(pos) then
+			cogwork.stop(pos, "")
+			core.chat_send_player(puncher:get_player_name(), S("Robot stopped."))
 			return
 		end
 	end
 
-	if S.cassette_save then S.cassette_save(pos, puncher) end
+	if cogwork.cassette_save then cogwork.cassette_save(pos, puncher) end
 end
 
 -- may this item go in this list of the robot?
 local function list_accepts (listname, name)
 	if listname == "disk" then return name == "cogwork:disk" end
-	if listname == "upgrades" then return S.UPGRADE_ITEMS[name] == true end
-	if S.STRUCTURE_LISTS[listname] then return S.structure_accepts(listname, name) end
+	if listname == "upgrades" then return cogwork.UPGRADE_ITEMS[name] == true end
+	if cogwork.STRUCTURE_LISTS[listname] then return cogwork.structure_accepts(listname, name) end
 	return true
 end
 
 local function allow_put (pos, listname, index, stack, player)
 	if not list_accepts(listname, stack:get_name()) then return 0 end
-	return S.can_access(pos, player) and stack:get_count() or 0
+	return cogwork.can_access(pos, player) and stack:get_count() or 0
 end
 -- a Storage Upgrade stays while the slots it gives hold items: they would be lost
 local function storage_blocked (pos, listname, name, player)
-	if listname ~= "upgrades" or not S.storage_removal_blocked(pos, name) then return false end
+	if listname ~= "upgrades" or not cogwork.storage_removal_blocked(pos, name) then return false end
 	if player and player.get_player_name then
-		core.chat_send_player(player:get_player_name(), T("Empty the last storage slots first: the Storage Upgrade gives them."))
+		core.chat_send_player(player:get_player_name(), S("Empty the last storage slots first: the Storage Upgrade gives them."))
 	end
 	return true
 end
 
 local function allow_take (pos, listname, index, stack, player)
 	if storage_blocked(pos, listname, stack:get_name(), player) then return 0 end
-	return S.can_access(pos, player) and stack:get_count() or 0
+	return cogwork.can_access(pos, player) and stack:get_count() or 0
 end
 local function allow_move (pos, from_list, from_index, to_list, to_index, count, player)
 	local moved = core.get_meta(pos):get_inventory():get_stack(from_list, from_index):get_name()
 	if not list_accepts(to_list, moved) then return 0 end
 	if to_list ~= "upgrades" and storage_blocked(pos, from_list, moved, player) then return 0 end
-	return S.can_access(pos, player) and count or 0
+	return cogwork.can_access(pos, player) and count or 0
 end
 
 -- a part put in or taken out: a Flight Upgrade changes how the robot looks, the
 -- structure lists change what it can do (and may stop it)
 local function inventory_changed (pos, listname)
 	if listname == "upgrades" then
-		S.refresh_variant(pos)
-		S.sync_storage(pos)
+		cogwork.refresh_variant(pos)
+		cogwork.sync_storage(pos)
 	end
-	S.structure_changed(pos, listname)
+	cogwork.structure_changed(pos, listname)
 end
 local function on_inventory_put (pos, listname) inventory_changed(pos, listname) end
 local function on_inventory_take (pos, listname) inventory_changed(pos, listname) end
@@ -265,9 +265,9 @@ end
 
 local function register (name, on, model)
 	local def = {
-		description = T("Robot"),
-		short_description = T("Robot"),
-		_tt_help = T("A programmable robot"),
+		description = S("Robot"),
+		short_description = S("Robot"),
+		_tt_help = S("A programmable robot"),
 		-- drawn by the robot's visual entity (visual.lua), the node is its invisible body
 		drawtype = "airlike",
 		inventory_image = "cogwork_robot_inv.png",
@@ -294,7 +294,7 @@ local function register (name, on, model)
 		allow_metadata_inventory_put = allow_put,
 		allow_metadata_inventory_take = allow_take,
 		allow_metadata_inventory_move = allow_move,
-		on_timer = function (pos) return S.structure_tick(pos) end,
+		on_timer = function (pos) return cogwork.structure_tick(pos) end,
 		on_metadata_inventory_put = on_inventory_put,
 		on_metadata_inventory_take = on_inventory_take,
 		on_metadata_inventory_move = on_inventory_move,

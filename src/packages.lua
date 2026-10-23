@@ -4,10 +4,10 @@
 --   * players keep their own on package disks and install them into a robot;
 --     those live in the robot (meta "packages") and shadow the registered ones.
 
-local S = ...
-local lang = S.lang
+local cogwork = ...
+local lang = cogwork.lang
 
-local dir = S.modpath .. "/packages"
+local dir = cogwork.modpath .. "/packages"
 
 for _, file in ipairs(core.get_dir_list(dir, false)) do
 	local name = file:match("^(.+)%.cog$")
@@ -16,7 +16,7 @@ for _, file in ipairs(core.get_dir_list(dir, false)) do
 		local source = f:read("*a")
 		f:close()
 
-		S.register_package({
+		cogwork.register_package({
 			name = name,
 			title = source:match("# title:%s*([^\n]+)") or name,
 			description = source:match("# description:%s*([^\n]+)") or "",
@@ -27,8 +27,8 @@ end
 
 -- check them all now so a typo shows at startup, not in front of a player
 core.register_on_mods_loaded(function ()
-	for _, name in ipairs(S.list_packages()) do
-		local ok, err = S.check_package(name)
+	for _, name in ipairs(cogwork.list_packages()) do
+		local ok, err = cogwork.check_package(name)
 		if not ok then
 			core.log("error", "[cogwork] package '" .. name .. "': " .. err)
 		end
@@ -44,18 +44,18 @@ local function installed (meta)
 	return core.deserialize(raw) or {}
 end
 
-function S.robot_packages (pos)
+function cogwork.robot_packages (pos)
 	return installed(core.get_meta(pos))
 end
 
-function S.install_package (pos, name, source)
+function cogwork.install_package (pos, name, source)
 	local meta = core.get_meta(pos)
 	local all = installed(meta)
 	all[name] = source
 	meta:set_string("packages", core.serialize(all))
 end
 
-function S.remove_package (pos, name)
+function cogwork.remove_package (pos, name)
 	local meta = core.get_meta(pos)
 	local all = installed(meta)
 	all[name] = nil
@@ -63,9 +63,9 @@ function S.remove_package (pos, name)
 end
 
 -- Compile a program with the robot's own packages in scope.
-function S.compile_for (pos, text)
+function cogwork.compile_for (pos, text)
 	local overlay = {}
-	for name, source in pairs(S.robot_packages(pos)) do
+	for name, source in pairs(cogwork.robot_packages(pos)) do
 		overlay[name] = { source = source, meta = {}, name = name }
 	end
 	return lang.compile_text(text, overlay)
@@ -73,7 +73,7 @@ end
 
 -- The function definitions of a program, as library text for a disk.
 -- Returns nil when the program has no functions.
-function S.extract_functions (text)
+function cogwork.extract_functions (text)
 	local out, keep, has_fn = {}, false, false
 
 	for _, line in ipairs(lang.parse_text(text)) do
@@ -91,7 +91,7 @@ end
 
 -- Check a library text: compiles with no top-level statements. Returns
 -- nil, message when it is not usable as a package.
-function S.validate_library (text)
+function cogwork.validate_library (text)
 	local lines = lang.parse_text(text)
 	for i, line in ipairs(lines) do
 		local kw = line.tokens[1]

@@ -15,12 +15,12 @@
 --   cogwork:charger_sbz      a Skyblock: Zero machine: its power network, with its
 --                            batteries, feeds it.
 
-local S = ...
-local T = S.S
-local compat = S.compat
+local cogwork = ...
+local S = cogwork.S
+local compat = cogwork.compat
 
 local RATE = 25                 -- cell units per second and cell
-S.CHARGE_RATE = RATE
+cogwork.CHARGE_RATE = RATE
 
 -- what a cell costs to charge for a second, in the units of each power system
 local TECHNIC_COST = { LV = 150, MV = 100 }   -- EU
@@ -35,28 +35,28 @@ local function above (pos) return { x = pos.x, y = pos.y + 1, z = pos.z } end
 -- what a charger does to the robot on it
 
 -- The robot on the charger and the cells of it that are not full.
-function S.charger_needs (pos)
+function cogwork.charger_needs (pos)
 	local rp = above(pos)
 	local node = core.get_node_or_nil(rp)
-	if not node or not S.is_robot(node.name) then return nil, {} end
+	if not node or not cogwork.is_robot(node.name) then return nil, {} end
 	-- a Creative Capacitor keeps the cells full anyway
-	if S.has_augment(rp, S.ITEM_CAPACITOR) then return rp, {} end
+	if cogwork.has_augment(rp, cogwork.ITEM_CAPACITOR) then return rp, {} end
 
 	local need = {}
-	for _, cell in ipairs(S.cells_of(rp)) do
+	for _, cell in ipairs(cogwork.cells_of(rp)) do
 		if cell.charge < cell.capacity - 0.01 then need[#need + 1] = cell end
 	end
 	return rp, need
 end
 
 -- Give each of the cells up to units; returns what was given in all.
-function S.charge_cells (robot_pos, cells, units)
+function cogwork.charge_cells (robot_pos, cells, units)
 	local inv = core.get_meta(robot_pos):get_inventory()
 	local given = 0
 	for _, cell in ipairs(cells) do
 		local add = math.min(units, cell.capacity - cell.charge)
 		if add > 0 then
-			S.set_cell_charge(cell.stack, cell.charge + add)
+			cogwork.set_cell_charge(cell.stack, cell.charge + add)
 			inv:set_stack("cells", cell.index, cell.stack)
 			given = given + add
 		end
@@ -79,7 +79,7 @@ end
 -- How much a stack in the source slot can give, in cell units.
 local function source_units (stack)
 	if stack:is_empty() then return 0 end
-	local charge = S.cell_info(stack)
+	local charge = cogwork.cell_info(stack)
 	if charge then return charge * CELL_EFFICIENCY end
 	if technic_tool(stack:get_name()) then
 		return (technic.get_charge(stack)) * TECHNIC_UNITS_PER_EU
@@ -89,34 +89,34 @@ end
 
 -- take units out of the source stack (in place)
 local function drain_source (stack, units)
-	local charge = S.cell_info(stack)
+	local charge = cogwork.cell_info(stack)
 	if charge then
-		S.set_cell_charge(stack, charge - units / CELL_EFFICIENCY)
+		cogwork.set_cell_charge(stack, charge - units / CELL_EFFICIENCY)
 	elseif technic_tool(stack:get_name()) then
 		technic.set_charge(stack, math.max(0, (technic.get_charge(stack)) - math.ceil(units / TECHNIC_UNITS_PER_EU)))
 	end
 end
 
 local function source_accepts (name)
-	return S.cell_info(ItemStack(name)) ~= nil or technic_tool(name) ~= nil
+	return cogwork.cell_info(ItemStack(name)) ~= nil or technic_tool(name) ~= nil
 end
 
-function S.charger_base_tick (pos)
-	local rp, need = S.charger_needs(pos)
-	if not rp then status(pos, T("Charger: put a robot on top")) return true end
-	if #need == 0 then status(pos, T("Charger: the cells are full")) return true end
+function cogwork.charger_base_tick (pos)
+	local rp, need = cogwork.charger_needs(pos)
+	if not rp then status(pos, S("Charger: put a robot on top")) return true end
+	if #need == 0 then status(pos, S("Charger: the cells are full")) return true end
 
 	local inv = core.get_meta(pos):get_inventory()
 	local stack = inv:get_stack("source", 1)
 	local available = source_units(stack)
-	if available <= 0 then status(pos, T("Charger: nothing in the source slot has charge")) return true end
+	if available <= 0 then status(pos, S("Charger: nothing in the source slot has charge")) return true end
 
 	-- each cell takes its rate, as far as the source reaches
 	local each = math.min(RATE, available / #need)
-	local given = S.charge_cells(rp, need, each)
+	local given = cogwork.charge_cells(rp, need, each)
 	drain_source(stack, given)
 	inv:set_stack("source", 1, stack)
-	status(pos, T("Charger: charging @1 cell(s), @2 units/s", #need, math.floor(each * #need)))
+	status(pos, S("Charger: charging @1 cell(s), @2 units/s", #need, math.floor(each * #need)))
 	return true
 end
 
@@ -124,20 +124,20 @@ end
 -- Technic: the machine says what it wants (<TIER>_EU_demand) and the network
 -- says what it gives (<TIER>_EU_input) once a second
 
-function S.charger_technic_run (tier, per_cell)
+function cogwork.charger_technic_run (tier, per_cell)
 	local key = tier .. "_EU_"
 	return function (pos)
 		local meta = core.get_meta(pos)
-		local rp, need = S.charger_needs(pos)
+		local rp, need = cogwork.charger_needs(pos)
 		local demand = #need * per_cell
 		meta:set_int(key .. "demand", demand)
 		if not rp or #need == 0 then
-			meta:set_string("infotext", T("@1 Charger: idle", tier))
+			meta:set_string("infotext", S("@1 Charger: idle", tier))
 		elseif meta:get_int(key .. "input") >= demand then
-			S.charge_cells(rp, need, RATE)
-			meta:set_string("infotext", T("@1 Charger: charging @2 cell(s)", tier, #need))
+			cogwork.charge_cells(rp, need, RATE)
+			meta:set_string("infotext", S("@1 Charger: charging @2 cell(s)", tier, #need))
 		else
-			meta:set_string("infotext", T("@1 Charger: not enough power", tier))
+			meta:set_string("infotext", S("@1 Charger: not enough power", tier))
 		end
 	end
 end
@@ -146,31 +146,31 @@ end
 
 local TA_CYCLE = 2
 
-function S.charger_techage_tick (pos)
+function cogwork.charger_techage_tick (pos)
 	local Cable = techage.ElectricCable
-	local rp, need = S.charger_needs(pos)
+	local rp, need = cogwork.charger_needs(pos)
 	if not rp or #need == 0 then
-		status(pos, T("TA Charger: idle"))
+		status(pos, S("TA Charger: idle"))
 		return true
 	end
 	local demand = #need * TECHAGE_COST
 	local consumed = networks.power.consume_power(pos, Cable, nil, demand) or 0
 	if consumed > 0 then
 		-- what the network gave decides what the cells get
-		S.charge_cells(rp, need, RATE * TA_CYCLE * consumed / demand)
-		status(pos, T("TA Charger: charging @1 cell(s)", #need))
+		cogwork.charge_cells(rp, need, RATE * TA_CYCLE * consumed / demand)
+		status(pos, S("TA Charger: charging @1 cell(s)", #need))
 	else
-		status(pos, T("TA Charger: no power"))
+		status(pos, S("TA Charger: no power"))
 	end
 	return true
 end
 
 -- Skyblock: Zero: the machine reports its consumption to the network
 
-function S.charger_sbz_action (pos, node, meta, supply, demand)
-	local rp, need = S.charger_needs(pos)
+function cogwork.charger_sbz_action (pos, node, meta, supply, demand)
+	local rp, need = cogwork.charger_needs(pos)
 	if not rp or #need == 0 then
-		meta:set_string("infotext", T("Charger: idle"))
+		meta:set_string("infotext", S("Charger: idle"))
 		return 0
 	end
 	-- as many cells as the network has power to spare for, at least one
@@ -178,8 +178,8 @@ function S.charger_sbz_action (pos, node, meta, supply, demand)
 	local n = math.max(1, math.min(#need, free))
 	local cells = {}
 	for i = 1, n do cells[i] = need[i] end
-	S.charge_cells(rp, cells, RATE)
-	meta:set_string("infotext", T("Charger: charging @1 cell(s)", n))
+	cogwork.charge_cells(rp, cells, RATE)
+	meta:set_string("infotext", S("Charger: charging @1 cell(s)", n))
 	return n * SBZ_COST
 end
 
@@ -206,21 +206,21 @@ end
 
 local function source_formspec ()
 	return "formspec_version[4]size[10.5,9]"
-		.. "label[0.5,0.6;" .. core.formspec_escape(T("Source: a spare Power Cell or a Technic battery")) .. "]"
+		.. "label[0.5,0.6;" .. core.formspec_escape(S("Source: a spare Power Cell or a Technic battery")) .. "]"
 		.. "list[context;source;0.5,1;1,1;]"
-		.. "label[0.5,2.4;" .. core.formspec_escape(T("A robot on top gets its cells charged from it.")) .. "]"
+		.. "label[0.5,2.4;" .. core.formspec_escape(S("A robot on top gets its cells charged from it.")) .. "]"
 		.. "list[current_player;main;0.4,3.6;8,4;]listring[]"
 end
 
-register("cogwork:charger", "base", T("Charger"), {
-	_tt_help = T("Charges the robot on top from a spare Power Cell or a Technic battery"),
+register("cogwork:charger", "base", S("Charger"), {
+	_tt_help = S("Charges the robot on top from a spare Power Cell or a Technic battery"),
 	on_construct = function (pos)
 		local meta = core.get_meta(pos)
 		meta:get_inventory():set_size("source", 1)
 		meta:set_string("formspec", source_formspec())
 		core.get_node_timer(pos):start(1)
 	end,
-	on_timer = function (pos) return S.charger_base_tick(pos) end,
+	on_timer = function (pos) return cogwork.charger_base_tick(pos) end,
 	allow_metadata_inventory_put = function (pos, listname, index, stack)
 		return source_accepts(stack:get_name()) and stack:get_count() or 0
 	end,
@@ -234,15 +234,15 @@ register("cogwork:charger", "base", T("Charger"), {
 if rawget(_G, "technic") and technic.register_machine then
 	for tier, cost in pairs(TECHNIC_COST) do
 		local name = "cogwork:charger_" .. tier:lower()
-		register(name, tier:lower(), T("@1 Charger", tier), {
-			_tt_help = T("Technic machine: charges the robot on top, @1 EU a second per cell", cost),
+		register(name, tier:lower(), S("@1 Charger", tier), {
+			_tt_help = S("Technic machine: charges the robot on top, @1 EU a second per cell", cost),
 			groups = (function ()
 				local g = compat.robot_groups({ technic_machine = 1 })
 				g["technic_" .. tier:lower()] = 1
 				return g
 			end)(),
 			connect_sides = { "bottom", "front", "back", "left", "right" },
-			technic_run = S.charger_technic_run(tier, cost),
+			technic_run = cogwork.charger_technic_run(tier, cost),
 		})
 		technic.register_machine(tier, name, technic.receiver)
 	end
@@ -252,15 +252,15 @@ end
 if rawget(_G, "techage") and techage.ElectricCable and rawget(_G, "networks") and networks.power then
 	local Cable = techage.ElectricCable
 	local name = "cogwork:charger_ta"
-	register(name, "techage", T("TA Charger"), {
-		_tt_help = T("Techage consumer: charges the robot on top from the electric network"),
+	register(name, "techage", S("TA Charger"), {
+		_tt_help = S("Techage consumer: charges the robot on top from the electric network"),
 		paramtype2 = "facedir",
 		after_place_node = function (pos)
 			Cable:after_place_node(pos)
 			core.get_node_timer(pos):start(TA_CYCLE)
 		end,
 		after_dig_node = function (pos) Cable:after_dig_node(pos) end,
-		on_timer = function (pos) return S.charger_techage_tick(pos) end,
+		on_timer = function (pos) return cogwork.charger_techage_tick(pos) end,
 	})
 	networks.power.register_nodes({ name }, Cable, "con", { "B", "R", "F", "L", "D" })
 end
@@ -268,15 +268,15 @@ end
 -- Skyblock: Zero
 if rawget(_G, "sbz_api") and sbz_api.register_machine then
 	sbz_api.register_machine("cogwork:charger_sbz", {
-		description = T("Power Charger"),
-		short_description = T("Power Charger"),
-		_tt_help = T("Charges the robot on top from the power network"),
+		description = S("Power Charger"),
+		short_description = S("Power Charger"),
+		_tt_help = S("Charges the robot on top from the power network"),
 		tiles = tiles("sbz"),
 		sounds = compat.metal_sounds(),
 		groups = { sbz_machine = 1, pipe_conducts = 1, pipe_connects = 1, matter = 3, cracky = 3 },
 		is_ground_content = false,
 		power_needed = SBZ_COST,
-		action = S.charger_sbz_action,
+		action = cogwork.charger_sbz_action,
 	})
 end
 
