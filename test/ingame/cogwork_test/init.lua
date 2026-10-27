@@ -2841,6 +2841,52 @@ test("chat command events skip the hidden ones", function (done)
 	end)
 end)
 
+test("state is kept in the robot and a robot can resume after a restart", function (done)
+	clear_area()
+	local prog = "use state\nset s = call state.get_or \"step\" 0\ncall state.keep \"step\" s + 5\n"
+		.. "call state.keep \"who\" \"bob\"\nset b = call state.bump \"runs\"\nstate_forget \"nothing\""
+	local pos = make_robot(P(0, 1, 0), prog, nil)
+	assert(cogwork.start(pos))
+	wait_for(pos, 20, function ()
+		local first = cogwork.state_of(pos).step
+		assert(cogwork.start(pos))
+		wait_for(pos, 20, function ()
+			local st = cogwork.state_of(pos)
+			local ok_has = st.step == 10 and st.who == "bob" and st.runs == 2 and first == 5
+
+			-- too long and too many are refused
+			local long = cogwork.state_set(pos, "big", string.rep("x", 300))
+			local named = cogwork.state_set(pos, string.rep("n", 30), 1)
+			cogwork.state_clear(pos)
+			local cleared = next(cogwork.state_of(pos)) == nil
+
+			-- resume: the node says it was running when the world was saved
+			local lbm
+			for _, l in ipairs(core.registered_lbms) do if l.name == "cogwork:resume" then lbm = l end end
+			local stay = make_robot(P(5, 1, 0), "wait 600", nil)
+			local resumes = make_robot(P(8, 1, 0), "wait 600", nil)
+			core.get_meta(resumes):set_int("resume", 1)
+			local started = true
+			for _, p in ipairs({ stay, resumes }) do
+				started = cogwork.start(p) and started
+				cogwork.running[core.hash_node_position(p)] = nil   -- the restart
+				lbm.action(p)
+			end
+			local r_stay = cogwork.is_running(stay)
+			local r_res = cogwork.is_running(resumes)
+			cogwork.stop(resumes)
+			cogwork.stop(stay)
+
+			report("state is kept in the robot and a robot can resume after a restart",
+				ok_has and not long and not named and cleared and started and not r_stay and r_res,
+				("first=%s step=%s who=%s runs=%s long=%s named=%s cleared=%s stay=%s res=%s"):format(
+					tostring(first), tostring(st.step), tostring(st.who), tostring(st.runs), tostring(long),
+					tostring(named), tostring(cleared), tostring(r_stay), tostring(r_res)))
+			done()
+		end)
+	end)
+end)
+
 local function run_all ()
 	local i = 0
 	local function nextt ()

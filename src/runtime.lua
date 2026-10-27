@@ -170,7 +170,7 @@ core.register_lbm({
 	run_at_every_load = true,
 	action = function (pos)
 		if running[hash(pos)] then return end
-		if settings.resume_on_start then
+		if settings.resume_on_start or core.get_meta(pos):get_int("resume") == 1 then
 			cogwork.start(pos)
 		else
 			set_variant(pos, false)

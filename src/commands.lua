@@ -264,6 +264,12 @@ for _, key in ipairs({ "x", "y", "z", "facing" }) do
 	end)
 end
 
+-- values kept in the robot, to carry on after a restart (see state.lua; the `state` package wraps these)
+action("state_set", "flow", { VAL, VAL }, function (ctx, name, value) return ctx.bot:state_set(lang.tostr(name), value) end)
+action("state_forget", "flow", { VAL }, function (ctx, name) return ctx.bot:state_forget(lang.tostr(name)) end)
+query("state_has", "check", { VAL }, function (ctx, name) return ctx.bot:state_has(lang.tostr(name)) end)
+query("state_get", "check", { VAL }, function (ctx, name) return ctx.bot:state_get(lang.tostr(name)) end)
+
 query("random", "check", { VAL }, function (ctx, n)
 	n = intpart(ctx, n, "random")
 	if n < 1 then lang.rt_error(ctx, "'random' needs a number above zero") end
@@ -278,7 +284,7 @@ local COSTS = {
 	trash = 0.25, trash_stack = 0.25,
 	chat = 0.2, say = 0.2, command = 1, whisper = 0.2, tell_bot = 0.2, tell_bots = 0.2,
 	machine_switch = 1, install = 2, uninstall = 2,
-	waypoint_save = 0, waypoint_forget = 0,
+	waypoint_save = 0, waypoint_forget = 0, state_set = 0, state_forget = 0,
 	wait = 0, stop = 0, event_register = 0, event_process = 0, event_leave = 0, path_cancel = 0,
 }
 for name, cost in pairs(COSTS) do

@@ -232,11 +232,12 @@ local function after_place_node (pos, placer, itemstack)
 		end
 	end
 
-	for _, key in ipairs({ "program", "bot_name", "packages", "bot_allow", "room_lock", "waypoints" }) do
+	for _, key in ipairs({ "program", "bot_name", "packages", "bot_allow", "room_lock", "waypoints", "state" }) do
 		local v = imeta:get_string(key)
 		if v ~= "" then meta:set_string(key, v) end
 	end
 	meta:set_int("public", imeta:get_int("public"))
+	meta:set_int("resume", imeta:get_int("resume"))
 	-- somebody else's robot never acts as its new owner
 	if imeta:get_string("owner_cmds") == meta:get_string("owner") then
 		meta:set_int("owner_cmds", 1)
@@ -332,10 +333,11 @@ local function preserve_metadata (pos, oldnode, oldmeta, drops)
 		carried[core.hash_node_position(pos)] = true
 	end
 
-	for _, key in ipairs({ "program", "bot_name", "packages", "bot_allow", "room_lock", "waypoints" }) do
+	for _, key in ipairs({ "program", "bot_name", "packages", "bot_allow", "room_lock", "waypoints", "state" }) do
 		if fields[key] and fields[key] ~= "" then imeta:set_string(key, fields[key]) end
 	end
 	imeta:set_int("public", tonumber(fields.public) or 0)
+	imeta:set_int("resume", tonumber(fields.resume) or 0)
 	if tonumber(fields.owner_cmds) == 1 then imeta:set_string("owner_cmds", fields.owner or "") end
 	imeta:set_int("persist", tonumber(fields.persist) or 0)
 	if fields.no_emc == "true" then imeta:set_string("no_emc", "true") end

@@ -130,6 +130,8 @@ local function palette_entries (cat, lines, view)
 		add({ "command_reply" }, "token", S("What the last command answered, or why it was refused"))
 	elseif cat == "move" then
 		add({ "waypoint_save", '"home"' }, "line", S("Remember this place and the way I face under a name"))
+		add({ "state_set", '"step"', "1" }, "line", S("Keep a number or text in the robot, to carry on after a restart"))
+		add({ "state_forget", '"step"' }, "line", S("Forget a kept value"))
 		add({ "waypoint_forget", '"home"' }, "line", S("Forget a waypoint"))
 		add({ "move", "forward" }, "line", S("Move one block"))
 		add({ "turn", "left" }, "line", S("Turn the robot"))
@@ -164,7 +166,7 @@ local function palette_entries (cat, lines, view)
 	elseif cat == "check" then
 		for _, v in ipairs({ "detect", "node", "entity", "contains", "fits", "count", "even", "odd",
 			"pos_x", "pos_y", "pos_z", "facing", "waypoint_has", "waypoint_x", "waypoint_y", "waypoint_z",
-			"waypoint_facing" }) do
+			"waypoint_facing", "state_has", "state_get" }) do
 			add({ v }, "token", S("@1", v))
 		end
 		for _, v in ipairs({ "not", "and", "or", "matches", "=", "!=", "<", ">", "<=", ">=" }) do
@@ -869,12 +871,14 @@ local function settings_tab (fs, pos, s)
 	local meta = core.get_meta(pos)
 	fs[#fs + 1] = ("field[0.5,1.5;6,0.8;bot_name;%s;%s]"):format(esc(S("Robot name")), esc(meta:get_string("bot_name")))
 	fs[#fs + 1] = ("button[6.7,1.5;2,0.8;name_set;%s]"):format(esc(S("Set")))
-	fs[#fs + 1] = ("checkbox[0.5,3;public;%s;%s]"):format(esc(S("Public: anyone can use this robot")), meta:get_int("public") == 1 and "true" or "false")
+	fs[#fs + 1] = ("checkbox[0.5,2.6;public;%s;%s]"):format(esc(S("Public: anyone can use this robot")), meta:get_int("public") == 1 and "true" or "false")
 	if cogwork.settings.owner_commands and s.player and s.player:get_player_name() == meta:get_string("owner") then
 		fs[#fs + 1] = ("checkbox[0.5,3.6;owner_cmds;%s;%s]"):format(
 			esc(S("Run commands as me, also when I am away (only I can use this robot then)")),
 			meta:get_int("owner_cmds") == 1 and "true" or "false")
 	end
+	fs[#fs + 1] = ("checkbox[0.5,3.1;resume;%s;%s]"):format(esc(S("Resume after a restart (from the first line)")),
+		(meta:get_int("resume") == 1 or cogwork.settings.resume_on_start) and "true" or "false")
 	fs[#fs + 1] = ("label[0.5,4.2;%s]"):format(esc(S("Owner: @1", meta:get_string("owner"))))
 	fs[#fs + 1] = ("label[0.5,5;%s]"):format(esc(S("Position: @1", core.pos_to_string(pos))))
 	fs[#fs + 1] = ("button[0.5,8.2;4,0.8;pick_up;%s]"):format(esc(S("Pick up this robot")))
@@ -1350,6 +1354,9 @@ cogwork.on_editor_fields = function (player, formname, fields)
 		end
 		if fields.public ~= nil then
 			meta:set_int("public", fields.public == "true" and 1 or 0)
+		end
+		if fields.resume ~= nil and not cogwork.settings.resume_on_start then
+			meta:set_int("resume", fields.resume == "true" and 1 or 0)
 		end
 		if fields.owner_cmds ~= nil and cogwork.settings.owner_commands and pname == meta:get_string("owner") then
 			meta:set_int("owner_cmds", fields.owner_cmds == "true" and 1 or 0)

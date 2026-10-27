@@ -81,6 +81,7 @@ if detect front @stone and contains @torch
 | `punch <dir> [item]` | with no item: pick up dropped items there, else hit the entity there bare-handed; with an item from storage: hit with that tool (it wears). Players are never hit |
 | `craft <item>` | craft from the robot's storage |
 | `waypoint_save name`, `waypoint_forget name` | remember the robot's place and facing under a name / forget it |
+| `state_set name value`, `state_forget name` | keep a number or text in the robot / forget it (see Resuming after a restart) |
 | `wait n` | wait n tenths of a second |
 | `chat text` | message to the owner, no limits |
 | `say text` | public chat message (limited per player, see Events) |
@@ -98,7 +99,7 @@ item (`_stack`: a whole stack). Items can be `group:name`.
 `entity <dir>` (name of the entity in that block, `""` if none), `counter` (loop turn, from 0), `ok` (did the last action work), `detect <dir>
 [item]`, `node <dir>`, `contains [item]`, `fits [item]`, `count item`,
 `pos_x pos_y pos_z`, `facing` (`north` `east` `south` `west`: north is +Z, east +X),
-`waypoint_has name`, `waypoint_x name` (`_y` `_z`), `waypoint_facing name` (0 or `""`
+`state_has name`, `state_get name` (0 when not kept), `waypoint_has name`, `waypoint_x name` (`_y` `_z`), `waypoint_facing name` (0 or `""`
 for a waypoint that is not there), `battery_level`, `even n`, `odd n`, `floor n`, `length text`,
 `random n`, numbers, `"text"`, items (`default:stone`, or `@stone`), `true`,
 `false`, variables. Operators: `+ - * / %` (`+` joins text), `= != < > <= >=
@@ -146,6 +147,7 @@ available; `call mining.tunnel 5` works without `use`. Built in:
 | `storage` | `unload`, `load`, `take item n`, `give item n` |
 | `math` | `abs min max sign clamp power` |
 | `waypoint` | `save name`, `forget name`, `has name`, `x name` `y name` `z name`, `direction name`, `distance name`, `face name`, `go name`, `go_face name` |
+| `state` | `keep name value`, `has name`, `get name`, `get_or name other`, `forget name`, `bump name` |
 | `pathfind` | `goto x y z`, `goto_entity name`, `start`, `start_entity`, `step`, `left`, `cancel` |
 | `events` | `register_nodes`, `register_entities r`, `register_items r`, `register_chat`, `register_whisper`, `register_bot`, `register_chatcommand`, `register_join_player`, `register_new_player`, `register_leave_player`, `register kind r handler`, `process`, `leave` |
 
@@ -535,6 +537,29 @@ stop when the server restarts), statements per tick.
   throwaway world in the `luanti` docker image (`minetest_game`, `mineclonia`,
   `mineclone2`, `hades_revisited`, `skyblock_zero`).
 - `python3 tools/gen_textures.py` redraws every texture and `src/icons.lua`.
+
+## Resuming after a restart
+
+A running program cannot be saved in the middle (it is a coroutine), so a robot that
+resumes starts its program from the first line. Two parts make that useful:
+
+- **Settings tab, *Resume after a restart*** (per robot; the server setting
+  `cogwork_resume_on_start` does it for every robot). A robot that was running when
+  the server stopped starts again when its block loads (at once when it keeps its
+  area loaded). A robot you stopped stays off.
+- **Kept values**: `use state`, then `call state.keep "step" 3`, `call state.get_or "step" 0`,
+  `state.has`, `state.forget`, `state.bump "runs"`. Up to 32 values (numbers or text of
+  200 characters) stay in the robot, also when it is dug up. Start the program by asking
+  where it was:
+
+```
+use state
+set step = call state.get_or "step" 0
+loop step < 10
+  move forward
+  set step = step + 1
+  call state.keep "step" step
+```
 
 ## Commands as the owner
 

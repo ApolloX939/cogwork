@@ -1,0 +1,39 @@
+# title: State
+# description: Keep numbers and text in the robot, so a program can carry on after the server restarted. They stay in the robot until forgotten.
+# A resumed robot (Settings tab: "Resume after a restart") starts its program from the first line. Ask here where it was:
+#
+#   use state
+#   set step = call state.get_or "step" 0
+#   ...
+#   call state.keep "step" step + 1
+#
+# A value is a number or text (up to 200 characters); a name has up to 24 characters; a robot keeps 32.
+
+# keep a value under a name
+fn keep name value
+  state_set name value
+
+# is there a value of that name
+fn has name
+  return state_has name
+
+# the value (0 when there is none: ask has first)
+fn get name
+  return state_get name
+
+# the value, or the given one when there is none
+fn get_or name other
+  if state_has name
+    return state_get name
+  return other
+
+# forget a value
+fn forget name
+  state_forget name
+
+# add 1 to a kept number (0 when there is none) and return the new value
+fn bump name
+  set n = call get_or name 0
+  set n = n + 1
+  state_set name n
+  return n

@@ -616,6 +616,10 @@ def p_tell_bots(c):
     c.arrow(23, 16, 0, length=12, w=2.8, head=6)
 
 
+def p_gem_check(c):
+    g_gem(c)
+
+
 def p_command(c):
     c.line([(6, 8), (14, 16), (6, 24)], 3)
     c.line([(17, 25), (28, 25)], 3)
@@ -758,6 +762,8 @@ reg("event_process", "flow", lambda c: g_loop(c))
 reg("event_leave", "flow", lambda c: g_exit(c))
 reg("path_cancel", "flow", p_path_cancel)
 reg("waypoint_save", "flow", lambda c: g_pin(c))
+reg("state_set", "flow", lambda c: g_gem(c))
+reg("state_forget", "flow", lambda c: (g_gem(c), c.line([(5, 5), (27, 27)], 2.6)))
 reg("waypoint_forget", "flow", p_path_cancel)
 reg("machine_switch", "world", p_machine_switch)
 reg("install", "inventory", p_install)
@@ -772,7 +778,7 @@ for _tok, _p in (("armor_level", p_armor_level), ("battery_level", p_battery_lev
                  ("network_level", p_network_level), ("node_stock", p_node_stock),
                  ("node_timer", p_node_timer), ("path_plan", p_path_plan),
                  ("path_plan_entity", p_path_plan_entity), ("path_step", p_path_step),
-                 ("path_left", p_path_left), ("upgrade_count", p_height_limit), ("waypoint_has", p_path_plan),
+                 ("path_left", p_path_left), ("upgrade_count", p_height_limit), ("waypoint_has", p_path_plan), ("state_has", p_path_plan), ("state_get", p_gem_check),
                  ("waypoint_x", p_path_plan), ("waypoint_y", p_path_plan),
                  ("waypoint_z", p_path_plan), ("waypoint_facing", p_path_plan)):
     reg(_tok, "check", _p)
