@@ -23,8 +23,9 @@ Craft a robot, place it (it looks the way you look), right-click it.
   toolbar under the sheet inserts, deletes, duplicates, indents and moves
   lines and blocks. The power button runs it; the second button keeps the
   area loaded while it works.
-- **Text tab**: the same program as plain text (two spaces per indent level).
-  Edit it there and press Apply.
+- **Text tab**: the same program as plain text (two spaces per indent level),
+  each line shown with its number (`12 | move up`; the numbers are not part of the
+  program, lines you type without one are fine). Edit it there and press Apply.
 - **Storage tab**: the robot's storage, 8 x 2 slots, 4 more for every Storage Upgrade (up to 40).
 - **Structure tab**: armor, armor modification, power cells, power augmentation and
   the six upgrade slots (see below). The text beside the slots follows what you put

@@ -643,9 +643,36 @@ local function program_tab (fs, pos, s, lines)
 	fs[#fs + 1] = ("tooltip[pick_item;%s]"):format(esc(S("Choose an item from the robot's storage or your inventory")))
 end
 
+-- The text box shows "  7 | line"; a textarea has no gutter that scrolls with it.
+-- Lines typed without a number are fine, the numbers are made again on the next
+-- redraw. strip_numbers takes them off before the text is parsed or kept.
+local function number_lines (text)
+	local out, n = {}, 0
+	for _ in (text .. "\n"):gmatch("([^\n]*)\n") do n = n + 1 end
+	if text == "" then n = 1 end
+	local width = #tostring(n)
+	local i = 0
+	for line in (text .. "\n"):gmatch("([^\n]*)\n") do
+		i = i + 1
+		out[i] = ("%" .. width .. "d | %s"):format(i, line)
+		if i == n then break end
+	end
+	return table.concat(out, "\n")
+end
+
+local function strip_numbers (text)
+	local out = {}
+	for line in (text .. "\n"):gmatch("([^\n]*)\n") do
+		out[#out + 1] = line:gsub("^ *%d* *| ?", "", 1)
+	end
+	return table.concat(out, "\n")
+end
+cogwork.text_number_lines, cogwork.text_strip_numbers = number_lines, strip_numbers
+
 local function text_tab (fs, pos, s, lines)
 	local text = lang.to_text(lines)
-	fs[#fs + 1] = ("textarea[0.3,0.9;13.2,9.6;text;%s;%s]"):format(esc(S("Program text (two spaces per level)")), esc(text))
+	fs[#fs + 1] = "style[text;font=mono]"
+	fs[#fs + 1] = ("textarea[0.3,0.9;13.2,9.6;text;%s;%s]"):format(esc(S("Program text (two spaces per level, the line numbers are not part of it)")), esc(number_lines(text)))
 	fs[#fs + 1] = ("button[0.3,10.9;3,0.9;text_apply;%s]"):format(esc(S("Apply")))
 	fs[#fs + 1] = ("button[3.4,10.9;3,0.9;text_check;%s]"):format(esc(S("Check program")))
 	local unit, err = cogwork.compile_for(pos, text)
@@ -1202,13 +1229,13 @@ cogwork.on_editor_fields = function (player, formname, fields)
 		end
 
 		if fields.text_check and fields.text then
-			local tl = lang.parse_text((fields.text:gsub("\r", "")))
+			local tl = lang.parse_text(strip_numbers((fields.text:gsub("\r", ""))))
 			local ok, msg, line = check_program(pos, tl)
 			s.check = { ok = ok, msg = msg, line = line }
 		end
 
 		if fields.text_apply and fields.text then
-			local text = fields.text:gsub("\r", "")
+			local text = strip_numbers((fields.text:gsub("\r", "")))
 			if #text <= MAX_TEXT then
 				meta:set_string("program", text)
 				meta:set_string("error", "")
