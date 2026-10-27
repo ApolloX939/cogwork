@@ -147,7 +147,7 @@ available; `call mining.tunnel 5` works without `use`. Built in:
 | `math` | `abs min max sign clamp power` |
 | `waypoint` | `save name`, `forget name`, `has name`, `x name` `y name` `z name`, `direction name`, `distance name`, `face name`, `go name`, `go_face name` |
 | `pathfind` | `goto x y z`, `goto_entity name`, `start`, `start_entity`, `step`, `left`, `cancel` |
-| `events` | `register_nodes`, `register_entities r`, `register_items r`, `register_chat`, `register_whisper`, `register_bot`, `register kind r handler`, `process`, `leave` |
+| `events` | `register_nodes`, `register_entities r`, `register_items r`, `register_chat`, `register_whisper`, `register_bot`, `register_chatcommand`, `register_join_player`, `register_new_player`, `register_leave_player`, `register kind r handler`, `process`, `leave` |
 
 `/cogwork packages`, `/cogwork package <name>`, `/cogwork items` list them.
 
@@ -182,6 +182,10 @@ call events.process
 | `events.register_chat h` | `player message`: a public chat message |
 | `events.register_whisper h` | `player message`: a private message, sent with `/bot <robot name> <message>` (quote names with spaces) |
 | `events.register_bot h` | `from message`: another robot's message, `from` is `Owner/RobotName` |
+| `events.register_chatcommand h` | `player command params`: a player ran a chat command, `command` without the `/` (not `/bot` and the others in `cogwork_chatcommand_hidden`, not commands robots run as their owner; limited per player like chat) |
+| `events.register_join_player h` | `player`: a player joined the server |
+| `events.register_new_player h` | `player`: a player joined for the first time (heard just before `join_player`) |
+| `events.register_leave_player h` | `player timed_out`: a player left; `timed_out` is true when the connection was lost |
 
 **What a `nodes` handler hears** (`change`, `detail`; `block` is the node name):
 

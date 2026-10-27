@@ -983,8 +983,11 @@ for n, f in (("abs", fp_text("|x|", 15)), ("min", fp_text("min", 11)),
 # events and pathfind functions
 for n, f in (("register", lambda c: (g_bell(c, -2, 1), c.line([(25, 4), (25, 12)], 2.6), c.line([(21, 8), (29, 8)], 2.6))),
              ("register_nodes", g_cube), ("register_entities", g_person), ("register_items", g_gem),
-             ("register_chat", lambda c: g_bubble(c)), ("register_whisper", g_whisper),
+             ("register_chat", lambda c: g_bubble(c)), ("register_chatcommand", lambda c: p_command(c)), ("register_whisper", g_whisper),
              ("register_bot", lambda c: robot_head(c, 7, 8, 18)),
+             ("register_join_player", lambda c: (g_person(c, -3, 0), c.line([(22, 16), (30, 16)], 2.6), c.line([(26, 12), (30, 16), (26, 20)], 2.6))),
+             ("register_new_player", lambda c: (g_person(c, -3, 0), c.line([(26, 6), (26, 14)], 2.6), c.line([(22, 10), (30, 10)], 2.6))),
+             ("register_leave_player", lambda c: (g_person(c, -3, 0), c.line([(22, 16), (30, 16)], 2.6), c.line([(26, 12), (22, 16), (26, 20)], 2.6))),
              ("process", g_loop), ("leave", g_exit)):
     fn_icon("events", n, f)
 for n, f in (("start", g_pin), ("start_entity", lambda c: (g_person(c, -3, 0), c.ellipse(21, 20, 27, 26, outline=c.ink, w=2))),

@@ -91,3 +91,6 @@ cogwork_command_interval (Seconds between a robot's commands) float 1 0 60
 
 # Commands a robot never runs for its owner, separated by commas (a command can also refuse robots itself)
 cogwork_command_denylist (Commands robots may not run) string grant,grantme,revoke,setpassword,clearpassword,remove_player,auth_reload,shutdown,rollback,set,deleteblocks
+
+# Chat commands the chatcommand event never reports to robots (private or secret ones), separated by commas
+cogwork_chatcommand_hidden (Commands robots do not hear) string bot,password,setpassword,clearpassword,msg,tell,pm,dm,mail,login,register

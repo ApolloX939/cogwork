@@ -2788,6 +2788,59 @@ test("commands as the owner", function (done)
 	end)
 end)
 
+test("player events: join, new and leave", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "use events\nset j = 0\nset n = 0\nset l = 0\nset t = 0\n"
+		.. "fn on_join p\n  add j 1\nfn on_new p\n  add n 1\nfn on_leave p timed\n  add l 1\n  if timed\n    add t 1\n"
+		.. "call events.register_join_player \"on_join\"\ncall events.register_new_player \"on_new\"\n"
+		.. "call events.register_leave_player \"on_leave\"\ncall events.process", nil)
+	assert(cogwork.start(pos))
+
+	core.after(1.0, function ()
+		cogwork.tell_listeners("new_player", { "newbie" })
+		cogwork.tell_listeners("join_player", { "newbie" })
+		cogwork.tell_listeners("leave_player", { "newbie", false })
+		cogwork.tell_listeners("leave_player", { "newbie", true })
+	end)
+
+	core.after(4.0, function ()
+		local r = cogwork.running[core.hash_node_position(pos)]
+		local g = r and r.ctx.globals or {}
+		cogwork.stop(pos)
+		report("player events: join, new and leave", g.j == 1 and g.n == 1 and g.l == 2 and g.t == 1,
+			("j=%s n=%s l=%s t=%s"):format(tostring(g.j), tostring(g.n), tostring(g.l), tostring(g.t)))
+		done()
+	end)
+end)
+
+test("chat command events skip the hidden ones", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "use events\nset c = 0\nset b = 0\n"
+		.. "fn on_cmd p cmd params\n  add c 1\n  if cmd = \"bot\"\n    add b 1\n"
+		.. "call events.register_chatcommand \"on_cmd\"\ncall events.process", nil)
+	assert(cogwork.start(pos))
+
+	core.after(1.0, function ()
+		for _, f in ipairs(core.registered_on_chatcommands) do
+			f("tester", "time", "7000")
+			f("tester", "bot", "Scout hi")
+			f("tester", "password", "secret")
+		end
+		cogwork.running_owner_command = true
+		for _, f in ipairs(core.registered_on_chatcommands) do f("tester", "time", "8000") end
+		cogwork.running_owner_command = nil
+	end)
+
+	core.after(4.0, function ()
+		local r = cogwork.running[core.hash_node_position(pos)]
+		local g = r and r.ctx.globals or {}
+		cogwork.stop(pos)
+		report("chat command events skip the hidden ones", g.c == 1 and g.b == 0,
+			("c=%s b=%s"):format(tostring(g.c), tostring(g.b)))
+		done()
+	end)
+end)
+
 local function run_all ()
 	local i = 0
 	local function nextt ()

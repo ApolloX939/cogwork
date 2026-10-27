@@ -39,9 +39,14 @@ function cogwork.run_as_owner (owner, text)
 		return false, S("@1 lacks the privileges for @2: @3", owner, name, table.concat(missing, ", "))
 	end
 
+	cogwork.running_owner_command = true
 	for _, callback in ipairs(core.registered_on_chatcommands) do
-		if callback(owner, name, param) then return false, S("A mod stopped the command @1", name) end
+		if callback(owner, name, param) then
+			cogwork.running_owner_command = nil
+			return false, S("A mod stopped the command @1", name)
+		end
 	end
+	cogwork.running_owner_command = nil
 
 	core.log("action", ("[cogwork] a robot runs /%s %s as %s"):format(name, param, owner))
 	local called, done, answer = pcall(def.func, owner, param)

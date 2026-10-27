@@ -1,5 +1,5 @@
 # title: Events
-# description: Sit and react: nodes next to the robot, entities, dropped items, chat, private messages and messages from other robots.
+# description: Sit and react: nodes next to the robot, entities, dropped items, chat, private messages, messages from other robots, chat commands and players joining and leaving.
 # Register handlers by function name, then call events.process.
 #
 #   call events.register_nodes "on_node"          on_node dir block change detail
@@ -8,6 +8,10 @@
 #   call events.register_chat "on_chat"           on_chat player message
 #   call events.register_whisper "on_whisper"     on_whisper player message
 #   call events.register_bot "on_bot"             on_bot from message
+#   call events.register_chatcommand "on_cmd"     on_cmd player command params (not /bot and other private commands, not robots')
+#   call events.register_join_player "on_join"    on_join player
+#   call events.register_new_player "on_new"      on_new player (the first time a player joins, just before on_join)
+#   call events.register_leave_player "on_leave"  on_leave player timed_out (true when the connection was lost)
 #   call events.process
 #
 # nodes: dir is front back left right up down. change tells what happened to that block:
@@ -20,7 +24,7 @@
 # A handler may take fewer parameters than shown. Radius 1 to the limit in the
 # settings (6): the larger it is, the longer between scans.
 
-# kind: nodes entities items chat whisper bot; radius only matters for entities and items
+# kind: nodes entities items chat whisper bot join_player new_player leave_player chatcommand; radius only matters for entities and items
 fn register kind radius handler
   event_register kind radius handler
 
@@ -41,6 +45,18 @@ fn register_whisper handler
 
 fn register_bot handler
   event_register "bot" 0 handler
+
+fn register_chatcommand handler
+  event_register "chatcommand" 0 handler
+
+fn register_join_player handler
+  event_register "join_player" 0 handler
+
+fn register_new_player handler
+  event_register "new_player" 0 handler
+
+fn register_leave_player handler
+  event_register "leave_player" 0 handler
 
 # handle events until events.leave is called from a handler
 fn process

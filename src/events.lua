@@ -8,6 +8,10 @@
 --   chat      a public chat message                           (player, message)
 --   whisper   a player sent the robot a private message       (player, message)
 --   bot       another robot sent a message                    (from, message)
+--   join_player   a player joined                             (player)
+--   new_player    a player joined for the first time (before join_player)  (player)
+--   leave_player  a player left                               (player, timed_out)
+--   chatcommand   a player ran a chat command (not the hidden ones, nor robots') (player, command, params)
 --
 -- Chat is limited per player (settings.chat_limit messages in
 -- settings.chat_window seconds), robot to robot and robot to owner are not.
@@ -22,7 +26,8 @@ local PER_SCAN_MAX = 8
 local MIN_INTERVAL = 0.5
 
 cogwork.event_kinds = { nodes = true, entities = true, items = true, chat = true,
-	whisper = true, bot = true }
+	whisper = true, bot = true, join_player = true, new_player = true, leave_player = true,
+	chatcommand = true }
 
 local function now () return core.get_us_time() / 1e6 end
 
@@ -91,7 +96,7 @@ function Bot:event_register (ctx, kind, radius, handler)
 	kind = lang.tostr(kind):lower()
 	handler = lang.tostr(handler)
 	if not cogwork.event_kinds[kind] then
-		rt_error(ctx, "unknown event '" .. kind .. "' (nodes, entities, items, chat, whisper, bot)")
+		rt_error(ctx, "unknown event '" .. kind .. "' (nodes, entities, items, chat, whisper, bot, join_player, new_player, leave_player, chatcommand)")
 	end
 	if not lang.find_fn(ctx.unit, handler) then
 		rt_error(ctx, "unknown function '" .. handler .. "' for the " .. kind .. " event")
@@ -313,6 +318,38 @@ core.register_on_chat_message(function (name, message)
 	for _, r in ipairs(listening("chat")) do
 		if accept_from(r, "chat", name) then push(r.ctx, "chat", { name, message }) end
 	end
+end)
+
+-- chat commands, except the hidden ones (the /bot command among them) and those
+-- a robot runs as its owner (a handler could start itself again)
+local hidden = {}
+for name in settings.chatcommand_hidden:gmatch("[^,%s]+") do hidden[name:lower()] = true end
+hidden.bot = true
+
+core.register_on_chatcommand(function (name, command, params)
+	if cogwork.running_owner_command or hidden[command:lower()] then return end
+	for _, r in ipairs(listening("chatcommand")) do
+		if accept_from(r, "chatcommand", name) then push(r.ctx, "chatcommand", { name, command, params }) end
+	end
+end)
+
+-- players coming and going: every running program registered for it hears it
+local function tell_listeners (kind, args)
+	for _, r in ipairs(listening(kind)) do push(r.ctx, kind, args) end
+end
+
+cogwork.tell_listeners = tell_listeners
+
+core.register_on_newplayer(function (player)
+	tell_listeners("new_player", { player:get_player_name() })
+end)
+
+core.register_on_joinplayer(function (player)
+	tell_listeners("join_player", { player:get_player_name() })
+end)
+
+core.register_on_leaveplayer(function (player, timed_out)
+	tell_listeners("leave_player", { player:get_player_name(), timed_out and true or false })
 end)
 
 -- a private message to a robot by its name; true, count or false, reason
