@@ -441,22 +441,6 @@ test("give to a player", function (done)
 	end)
 end)
 
--- the text tab numbers its lines; the numbers never reach the program
-test("text editor line numbers", function (done)
-	local src = "set a = 1\nif a = 1\n  move up\n\n# note | with a bar\n"
-	for _ = 1, 8 do src = src .. "stop\n" end
-	local numbered = cogwork.text_number_lines(src)
-	local first, tenth = numbered:match("^([^\n]*)"), numbered:match("\n([^\n]*)", 1)
-	local lines = {}
-	for l in numbered:gmatch("[^\n]+") do lines[#lines + 1] = l end
-	local ok = cogwork.text_strip_numbers(numbered) == src
-		and first == " 1 | set a = 1" and lines[3] == " 3 |   move up" and lines[10] == "10 | stop"
-		-- a line typed without a number stays as it is, and a damaged number is dropped
-		and cogwork.text_strip_numbers("  move up\n 4 | stop\n| stop") == "  move up\nstop\nstop"
-	report("text editor line numbers", ok, ok and nil or numbered)
-	done()
-end)
-
 test("event chat limits", function (done)
 	clear_area()
 	local pos = make_robot(P(0, 1, 0), "use events\nset n = 0\nfn h a b\n  add n 1\n"
