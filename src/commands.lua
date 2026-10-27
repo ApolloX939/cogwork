@@ -113,6 +113,11 @@ action("whisper", "flow", { VAL, VAL }, function (ctx, player, text)
 	return ctx.bot:whisper(player, lang.tostr(text))
 end)
 
+-- a chat command as the owner, when the owner allowed it in the robot's Settings tab
+action("command", "flow", { VAL }, function (ctx, text)
+	return ctx.bot:command(ctx, lang.tostr(text))
+end)
+
 --------------------------------------------------------------------------
 -- events (see events.lua; the `events` package wraps these)
 
@@ -156,6 +161,8 @@ end)
 
 query("counter", "check", {}, function (ctx) return ctx.counter end)
 query("ok", "check", {}, function (ctx) return ctx.ok end)
+-- what the last command answered (or why it was refused)
+query("command_reply", "check", {}, function (ctx) return ctx.command_reply or "" end)
 
 query("detect", "check", { DIR8, OPTVAL }, function (ctx, dir, item)
 	return ctx.bot:detect(dir, item)
@@ -269,7 +276,7 @@ local COSTS = {
 	move = 1, turn = 0.5, dig = 2, place = 1, interact = 1, punch = 2, craft = 3,
 	pull = 0.5, pull_stack = 0.5, put = 0.5, put_stack = 0.5, drop = 0.5, drop_stack = 0.5,
 	trash = 0.25, trash_stack = 0.25,
-	chat = 0.2, say = 0.2, whisper = 0.2, tell_bot = 0.2, tell_bots = 0.2,
+	chat = 0.2, say = 0.2, command = 1, whisper = 0.2, tell_bot = 0.2, tell_bots = 0.2,
 	machine_switch = 1, install = 2, uninstall = 2,
 	waypoint_save = 0, waypoint_forget = 0,
 	wait = 0, stop = 0, event_register = 0, event_process = 0, event_leave = 0, path_cancel = 0,

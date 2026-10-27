@@ -86,6 +86,7 @@ if detect front @stone and contains @torch
 | `say text` | public chat message (limited per player, see Events) |
 | `whisper player text` | private chat message to a player (limited per player) |
 | `tell_bot name text`, `tell_bots text` | message to other robots (see Events) |
+| `command text` | run a chat command as the owner, also while the owner is offline (see Commands as the owner); `command_reply` is its answer |
 | `stop` | end the program |
 
 `<dir>` is `front front_up front_down back back_up back_down up down`.
@@ -530,3 +531,20 @@ stop when the server restarts), statements per tick.
   throwaway world in the `luanti` docker image (`minetest_game`, `mineclonia`,
   `mineclone2`, `hades_revisited`, `skyblock_zero`).
 - `python3 tools/gen_textures.py` redraws every texture and `src/icons.lua`.
+
+## Commands as the owner
+
+`command "time 7000"` runs a chat command with the owner's name and privileges, also
+when the owner is not online. `ok` tells whether it ran, `command_reply` what it
+answered or why it was refused.
+
+- The owner switches it on per robot (Settings tab, *Run commands as me*). While it
+  is on only the owner (or a player with the `server` privilege) can use or program
+  that robot, public or not. It goes with the robot item only for the same owner.
+- The owner's privileges decide, as for a typed command. A command that needs its
+  player online fails by itself when the owner is away.
+- A command can refuse robots with `allow_bot = false` in its definition. The
+  server never runs the commands in `cogwork_command_denylist` (`grant`, `revoke`,
+  `shutdown`, `set`, ... by default). Mods that cancel commands are asked first.
+- One command per `cogwork_command_interval` seconds and robot, each one logged.
+  `cogwork_owner_commands = false` turns the feature off for the server.

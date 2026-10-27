@@ -82,3 +82,12 @@ cogwork_view_range (Viewscreen range) float 96 16 256
 
 # Seconds between two pictures of the viewscreen
 cogwork_view_interval (Viewscreen interval) float 1 0.5 60
+
+# Let a robot run chat commands as its owner (the owner switches it on per robot, in its Settings tab)
+cogwork_owner_commands (Robots can run commands as their owner) bool true
+
+# Least seconds between two commands of one robot
+cogwork_command_interval (Seconds between a robot's commands) float 1 0 60
+
+# Commands a robot never runs for its owner, separated by commas (a command can also refuse robots itself)
+cogwork_command_denylist (Commands robots may not run) string grant,grantme,revoke,setpassword,clearpassword,remove_player,auth_reload,shutdown,rollback,set,deleteblocks

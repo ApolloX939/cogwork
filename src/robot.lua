@@ -10,9 +10,12 @@ function cogwork.can_access (pos, player)
 	local name = player:get_player_name()
 	local meta = core.get_meta(pos)
 	local owner = meta:get_string("owner")
-	if owner == "" or owner == name or meta:get_int("public") == 1 then
-		return true
+	if owner == "" or owner == name then return true end
+	-- a robot that runs commands as its owner is not for anybody else to program
+	if meta:get_int("owner_cmds") == 1 then
+		return core.check_player_privs(name, { server = true })
 	end
+	if meta:get_int("public") == 1 then return true end
 	return core.check_player_privs(name, { protection_bypass = true })
 end
 
@@ -234,6 +237,10 @@ local function after_place_node (pos, placer, itemstack)
 		if v ~= "" then meta:set_string(key, v) end
 	end
 	meta:set_int("public", imeta:get_int("public"))
+	-- somebody else's robot never acts as its new owner
+	if imeta:get_string("owner_cmds") == meta:get_string("owner") then
+		meta:set_int("owner_cmds", 1)
+	end
 
 	-- the room of a robot goes with it
 	local room = imeta:get_int("room_id")
@@ -329,6 +336,7 @@ local function preserve_metadata (pos, oldnode, oldmeta, drops)
 		if fields[key] and fields[key] ~= "" then imeta:set_string(key, fields[key]) end
 	end
 	imeta:set_int("public", tonumber(fields.public) or 0)
+	if tonumber(fields.owner_cmds) == 1 then imeta:set_string("owner_cmds", fields.owner or "") end
 	imeta:set_int("persist", tonumber(fields.persist) or 0)
 	if fields.no_emc == "true" then imeta:set_string("no_emc", "true") end
 	if tonumber(fields.room_id) and tonumber(fields.room_id) > 0 then imeta:set_int("room_id", tonumber(fields.room_id)) end

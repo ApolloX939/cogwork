@@ -2733,6 +2733,61 @@ test("the camera looks up: a ceiling shows when it is tilted and not when it is 
 	done()
 end)
 
+-- commands as the owner
+local cmd_ran
+core.register_chatcommand("cwtest", { privs = {}, func = function (name, param)
+	cmd_ran = { name, param }
+	return true, "did " .. param
+end })
+core.register_chatcommand("cwtest_shy", { privs = {}, allow_bot = false, func = function () return true end })
+core.register_chatcommand("cwtest_admin", { privs = { cwtest_priv = true }, func = function () return true end })
+
+test("commands as the owner", function (done)
+	local auth = core.get_auth_handler()
+	if not auth.get_auth("tester") then auth.create_auth("tester", "x") end
+	local prog = 'command "cwtest hi"\nif ok\n  move up'
+
+	clear_area()
+	local off = make_robot(P(0, 1, 0), prog, nil)
+	assert(cogwork.start(off))
+	wait_for(off, 20, function ()
+		local ran_off = cmd_ran ~= nil
+		local stayed = vector.equals(find_robot() or P(9, 9, 9), P(0, 1, 0))
+
+		clear_area()
+		local on = make_robot(P(0, 1, 0), prog, nil)
+		core.get_meta(on):set_int("owner_cmds", 1)
+		assert(cogwork.start(on))
+		wait_for(on, 20, function ()
+			local went = lifted()
+			local ran_on = cmd_ran and cmd_ran[1] == "tester" and cmd_ran[2] == "hi"
+
+			local ok_shy = cogwork.run_as_owner("tester", "/cwtest_shy")
+			local ok_priv, why_priv = cogwork.run_as_owner("tester", "cwtest_admin")
+			local ok_deny = cogwork.run_as_owner("tester", "grant tester interact")
+			local ok_none = cogwork.run_as_owner("tester", "no_such_command_x")
+			local ok_cmd, answer = cogwork.run_as_owner("tester", "  /cwtest  a b ")
+
+			local stranger = { get_player_name = function () return "stranger" end }
+			local at = find_robot()   -- it flew up
+			local meta = core.get_meta(at)
+			meta:set_int("public", 1)
+			local locked = meta:get_int("owner_cmds") == 1 and not cogwork.can_access(at, stranger)
+			meta:set_int("owner_cmds", 0)
+			local open = cogwork.can_access(at, stranger)
+
+			report("commands as the owner", not ran_off and stayed and went and ran_on
+				and not ok_shy and not ok_priv and why_priv:find("cwtest_priv") and not ok_deny
+				and not ok_none and ok_cmd and answer == "did a b" and locked and open,
+				("off ran=%s stayed=%s on went=%s ran=%s shy=%s priv=%s deny=%s none=%s cmd=%s %s locked=%s open=%s"):format(
+					tostring(ran_off), tostring(stayed), tostring(went), tostring(ran_on), tostring(ok_shy),
+					tostring(ok_priv), tostring(ok_deny), tostring(ok_none), tostring(ok_cmd), tostring(answer),
+					tostring(locked), tostring(open)))
+			done()
+		end)
+	end)
+end)
+
 local function run_all ()
 	local i = 0
 	local function nextt ()

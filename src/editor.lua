@@ -126,6 +126,8 @@ local function palette_entries (cat, lines, view)
 		add({ "whisper", '"name"', '"hello"' }, "line", S("Private chat message to a player (limited per player)"))
 		add({ "tell_bot", '"name"', '"hello"' }, "line", S("Message a robot that allows this one"))
 		add({ "tell_bots", '"hello"' }, "line", S("Message every robot that allows this one"))
+		add({ "command", '"time 7000"' }, "line", S("Run a chat command as the owner (switched on in the Settings tab)"))
+		add({ "command_reply" }, "token", S("What the last command answered, or why it was refused"))
 	elseif cat == "move" then
 		add({ "waypoint_save", '"home"' }, "line", S("Remember this place and the way I face under a name"))
 		add({ "waypoint_forget", '"home"' }, "line", S("Forget a waypoint"))
@@ -868,6 +870,11 @@ local function settings_tab (fs, pos, s)
 	fs[#fs + 1] = ("field[0.5,1.5;6,0.8;bot_name;%s;%s]"):format(esc(S("Robot name")), esc(meta:get_string("bot_name")))
 	fs[#fs + 1] = ("button[6.7,1.5;2,0.8;name_set;%s]"):format(esc(S("Set")))
 	fs[#fs + 1] = ("checkbox[0.5,3;public;%s;%s]"):format(esc(S("Public: anyone can use this robot")), meta:get_int("public") == 1 and "true" or "false")
+	if cogwork.settings.owner_commands and s.player and s.player:get_player_name() == meta:get_string("owner") then
+		fs[#fs + 1] = ("checkbox[0.5,3.6;owner_cmds;%s;%s]"):format(
+			esc(S("Run commands as me, also when I am away (only I can use this robot then)")),
+			meta:get_int("owner_cmds") == 1 and "true" or "false")
+	end
 	fs[#fs + 1] = ("label[0.5,4.2;%s]"):format(esc(S("Owner: @1", meta:get_string("owner"))))
 	fs[#fs + 1] = ("label[0.5,5;%s]"):format(esc(S("Position: @1", core.pos_to_string(pos))))
 	fs[#fs + 1] = ("button[0.5,8.2;4,0.8;pick_up;%s]"):format(esc(S("Pick up this robot")))
@@ -1343,6 +1350,9 @@ cogwork.on_editor_fields = function (player, formname, fields)
 		end
 		if fields.public ~= nil then
 			meta:set_int("public", fields.public == "true" and 1 or 0)
+		end
+		if fields.owner_cmds ~= nil and cogwork.settings.owner_commands and pname == meta:get_string("owner") then
+			meta:set_int("owner_cmds", fields.owner_cmds == "true" and 1 or 0)
 		end
 
 		if fields.pick_up then

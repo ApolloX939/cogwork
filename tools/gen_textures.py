@@ -440,6 +440,7 @@ for tok, label, px in (("set", "=", 24), ("add", "+=", 16), ("sub", "-=", 16),
 
 reg("counter", "check", p_query_counter)
 reg("ok", "check", p_ok)
+reg("command_reply", "check", lambda c: p_command(c))
 reg("detect", "check", p_detect)
 reg("node", "check", p_node)
 reg("contains", "check", p_contains)
@@ -615,6 +616,11 @@ def p_tell_bots(c):
     c.arrow(23, 16, 0, length=12, w=2.8, head=6)
 
 
+def p_command(c):
+    c.line([(6, 8), (14, 16), (6, 24)], 3)
+    c.line([(17, 25), (28, 25)], 3)
+
+
 def p_event_register(c):
     g_bell(c, -2, 1)
     c.line([(25, 4), (25, 12)], 2.6)
@@ -746,6 +752,7 @@ reg("say", "flow", p_say)
 reg("whisper", "flow", lambda c: g_whisper(c))
 reg("tell_bot", "flow", p_tell_bot)
 reg("tell_bots", "flow", p_tell_bots)
+reg("command", "flow", p_command)
 reg("event_register", "flow", p_event_register)
 reg("event_process", "flow", lambda c: g_loop(c))
 reg("event_leave", "flow", lambda c: g_exit(c))

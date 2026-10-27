@@ -41,13 +41,17 @@ cogwork.settings = {
 	rooms = core.settings:get_bool("cogwork_rooms", true),
 	chat_limit = math.max(1, math.floor(tonumber(core.settings:get("cogwork_chat_limit")) or 5)),
 	chat_window = math.max(1, tonumber(core.settings:get("cogwork_chat_window")) or 10),
+	owner_commands = core.settings:get_bool("cogwork_owner_commands", true),
+	command_interval = math.max(0, tonumber(core.settings:get("cogwork_command_interval")) or 1),
+	command_denylist = core.settings:get("cogwork_command_denylist")
+		or "grant,grantme,revoke,setpassword,clearpassword,remove_player,auth_reload,shutdown,rollback,set,deleteblocks",
 }
 
 cogwork.lang = assert(loadfile(modpath .. "/src/lang.lua"))()
 assert(loadfile(modpath .. "/src/commands.lua"))(cogwork.lang)
 cogwork.compat = assert(loadfile(modpath .. "/src/compat.lua"))()
 
-for _, file in ipairs({ "robot_ops", "upgrades", "structure", "waypoints", "machines", "viewscreen", "rooms", "proxy_inventory", "room_nodes", "control", "runtime", "events", "pathfind", "api", "visual", "gravity", "packages", "examples", "robot", "editor",
+for _, file in ipairs({ "robot_ops", "upgrades", "structure", "waypoints", "machines", "viewscreen", "rooms", "proxy_inventory", "room_nodes", "control", "runtime", "events", "owner_commands", "pathfind", "api", "visual", "gravity", "packages", "examples", "robot", "editor",
 	"cassette", "crafting", "structure_recipes", "charger", "chatcommands" }) do
 	assert(loadfile(modpath .. "/src/" .. file .. ".lua"))(cogwork)
 end
