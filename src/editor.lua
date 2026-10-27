@@ -166,7 +166,7 @@ local function palette_entries (cat, lines, view)
 	elseif cat == "check" then
 		for _, v in ipairs({ "detect", "node", "entity", "contains", "fits", "count", "even", "odd",
 			"pos_x", "pos_y", "pos_z", "facing", "waypoint_has", "waypoint_x", "waypoint_y", "waypoint_z",
-			"waypoint_facing", "state_has", "state_get" }) do
+			"waypoint_facing", "state_has", "state_get", "player_online", "player_seen", "players_online", "player_nth" }) do
 			add({ v }, "token", S("@1", v))
 		end
 		for _, v in ipairs({ "not", "and", "or", "matches", "=", "!=", "<", ">", "<=", ">=" }) do

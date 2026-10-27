@@ -2887,6 +2887,24 @@ test("state is kept in the robot and a robot can resume after a restart", functi
 	end)
 end)
 
+test("players: online, last seen, counted", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "use players\nset a = call players.online \"nobody_x\"\nset s = call players.seen \"nobody_x\"\n"
+		.. "set c = call players.total\nset n = call players.nth 1\nset l = length n\n", nil)
+	assert(cogwork.start(pos))
+	local r = cogwork.running[core.hash_node_position(pos)]
+	wait_for(pos, 20, function ()
+		local g = r.ctx.globals
+		local online = cogwork.player_online("nobody_x")
+		cogwork.player_online = function (n) return n == "nobody_x" end
+		local now = cogwork.player_seen("nobody_x")
+		report("players: online, last seen, counted",
+			not g.a and g.s == -1 and g.c == #core.get_connected_players() and g.l == 0 and not online and now == 0,
+			("a=%s s=%s c=%s l=%s now=%s"):format(tostring(g.a), tostring(g.s), tostring(g.c), tostring(g.l), tostring(now)))
+		done()
+	end)
+end)
+
 local function run_all ()
 	local i = 0
 	local function nextt ()

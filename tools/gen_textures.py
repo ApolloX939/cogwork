@@ -778,7 +778,7 @@ for _tok, _p in (("armor_level", p_armor_level), ("battery_level", p_battery_lev
                  ("network_level", p_network_level), ("node_stock", p_node_stock),
                  ("node_timer", p_node_timer), ("path_plan", p_path_plan),
                  ("path_plan_entity", p_path_plan_entity), ("path_step", p_path_step),
-                 ("path_left", p_path_left), ("upgrade_count", p_height_limit), ("waypoint_has", p_path_plan), ("state_has", p_path_plan), ("state_get", p_gem_check),
+                 ("path_left", p_path_left), ("upgrade_count", p_height_limit), ("waypoint_has", p_path_plan), ("state_has", p_path_plan), ("player_online", lambda c: g_person(c)), ("player_seen", lambda c: g_person(c)), ("players_online", lambda c: g_person(c)), ("player_nth", lambda c: g_person(c)), ("state_get", p_gem_check),
                  ("waypoint_x", p_path_plan), ("waypoint_y", p_path_plan),
                  ("waypoint_z", p_path_plan), ("waypoint_facing", p_path_plan)):
     reg(_tok, "check", _p)

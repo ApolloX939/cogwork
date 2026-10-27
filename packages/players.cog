@@ -1,0 +1,24 @@
+# title: Players
+# description: Who is online, and how long ago a player was last seen.
+# Names are written exactly as the player's name (capital letters count).
+#
+#   use players
+#   if call players.online "Alice"
+#     chat "Alice is here"
+
+# is the player online now
+fn online name
+  return player_online name
+
+# seconds since the player was online: 0 when online now, -1 when never seen
+# (only players who left since the mod was installed are known)
+fn seen name
+  return player_seen name
+
+# how many players are online
+fn total
+  return players_online
+
+# the name of the n-th player online, from 1 ("" when there is none), in alphabetical order
+fn nth n
+  return player_nth n

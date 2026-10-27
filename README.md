@@ -99,7 +99,7 @@ item (`_stack`: a whole stack). Items can be `group:name`.
 `entity <dir>` (name of the entity in that block, `""` if none), `counter` (loop turn, from 0), `ok` (did the last action work), `detect <dir>
 [item]`, `node <dir>`, `contains [item]`, `fits [item]`, `count item`,
 `pos_x pos_y pos_z`, `facing` (`north` `east` `south` `west`: north is +Z, east +X),
-`state_has name`, `state_get name` (0 when not kept), `waypoint_has name`, `waypoint_x name` (`_y` `_z`), `waypoint_facing name` (0 or `""`
+`player_online name`, `player_seen name`, `players_online`, `player_nth n`, `state_has name`, `state_get name` (0 when not kept), `waypoint_has name`, `waypoint_x name` (`_y` `_z`), `waypoint_facing name` (0 or `""`
 for a waypoint that is not there), `battery_level`, `even n`, `odd n`, `floor n`, `length text`,
 `random n`, numbers, `"text"`, items (`default:stone`, or `@stone`), `true`,
 `false`, variables. Operators: `+ - * / %` (`+` joins text), `= != < > <= >=
@@ -147,6 +147,7 @@ available; `call mining.tunnel 5` works without `use`. Built in:
 | `storage` | `unload`, `load`, `take item n`, `give item n` |
 | `math` | `abs min max sign clamp power` |
 | `waypoint` | `save name`, `forget name`, `has name`, `x name` `y name` `z name`, `direction name`, `distance name`, `face name`, `go name`, `go_face name` |
+| `players` | `online name`, `seen name`, `total`, `nth n` |
 | `state` | `keep name value`, `has name`, `get name`, `get_or name other`, `forget name`, `bump name` |
 | `pathfind` | `goto x y z`, `goto_entity name`, `start`, `start_entity`, `step`, `left`, `cancel` |
 | `events` | `register_nodes`, `register_entities r`, `register_items r`, `register_chat`, `register_whisper`, `register_bot`, `register_chatcommand`, `register_join_player`, `register_new_player`, `register_leave_player`, `register kind r handler`, `process`, `leave` |
@@ -537,6 +538,15 @@ stop when the server restarts), statements per tick.
   throwaway world in the `luanti` docker image (`minetest_game`, `mineclonia`,
   `mineclone2`, `hades_revisited`, `skyblock_zero`).
 - `python3 tools/gen_textures.py` redraws every texture and `src/icons.lua`.
+
+## Who is online
+
+`player_online "Alice"` is true while that player is connected. `player_seen "Alice"` is
+the seconds since the player was last online: 0 when online now, -1 when never seen
+leaving (players are known from the time this was installed on). `players_online` counts
+the players online and `player_nth n` names the n-th (from 1, in alphabetical order, `""`
+when there is none). The `players` package wraps them: `online`, `seen`, `total`, `nth`.
+Names are written exactly, capital letters count.
 
 ## Resuming after a restart
 

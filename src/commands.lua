@@ -187,6 +187,15 @@ query("odd", "check", { VAL }, function (ctx, v) return intpart(ctx, v, "odd") %
 query("floor", "check", { VAL }, function (ctx, v) return intpart(ctx, v, "floor") end)
 query("length", "check", { VAL }, function (ctx, v) return #lang.tostr(v) end)
 
+-- who is online (see players.lua; the `players` package wraps these)
+query("player_online", "check", { VAL }, function (ctx, name) return ctx.bot:player_online(name) end)
+query("player_seen", "check", { VAL }, function (ctx, name) return ctx.bot:player_seen(name) end)
+query("players_online", "check", {}, function (ctx) return ctx.bot:players_online() end)
+query("player_nth", "check", { VAL }, function (ctx, n)
+	n = intpart(ctx, n, "player_nth")
+	return ctx.bot:player_nth(n)
+end)
+
 -- robots that are running, listen for robot messages and allow this one
 query("listeners", "check", {}, function (ctx) return #ctx.bot:listeners() end)
 query("listener", "check", { VAL }, function (ctx, n)
