@@ -1,0 +1,140 @@
+# title: Strings
+# description: Work with text: part of it, find, upper and lower case, title case, trim, replace, and split a list like "a,b,c" into its pieces. Positions count from 1, like Lua's strings.
+# Built on str_sub, str_find, str_lower and str_upper. The command length gives the length of a text.
+# part is Lua's string.sub (the end is optional: the rest of the text); find does not use
+# patterns. Lists are text with a separator: "stone,dirt,sand" with ",".
+
+# the text from position from to position to (inclusive); to may be left out
+# a negative position counts from the end: -1 is the last character
+fn part s from to
+  return str_sub s from to
+
+# where needle is first found in s, 0 when it is not there
+fn find s needle
+  return str_find s needle 1
+
+# where needle is found at or after position from, 0 when it is not there
+fn find_from s needle from
+  return str_find s needle from
+
+fn lower s
+  return str_lower s
+
+fn upper s
+  return str_upper s
+
+# every word starts with a capital, the rest is lower case
+fn title s
+  set low = str_lower s
+  set out = ""
+  set at = 1
+  set last = length low
+  set capital = true
+  loop at <= last
+    set ch = str_sub low at at
+    if capital
+      join out (str_upper ch)
+    else
+      join out ch
+    if ch = " "
+      set capital = true
+    else
+      set capital = false
+    add at 1
+  return out
+
+# without the spaces at both ends
+fn trim s
+  set first = 1
+  set last = length s
+  loop first <= last and (str_sub s first first) = " "
+    add first 1
+  loop last >= first and (str_sub s last last) = " "
+    sub last 1
+  if first > last
+    return ""
+  return str_sub s first last
+
+fn starts_with s prefix
+  if (str_sub s 1 (length prefix)) = prefix
+    return true
+  return false
+
+fn ends_with s suffix
+  if length suffix = 0
+    return true
+  if length suffix > length s
+    return false
+  if (str_sub s (0 - length suffix)) = suffix
+    return true
+  return false
+
+# every old in s replaced by new
+fn replace s old new
+  if length old = 0
+    return s
+  set out = ""
+  set from = 1
+  forever
+    set at = str_find s old from
+    if at = 0
+      break
+    join out (str_sub s from (at - 1))
+    join out new
+    set from = at + length old
+  join out (str_sub s from)
+  return out
+
+# s written n times
+fn times s n
+  set out = ""
+  repeat n
+    join out s
+  return out
+
+fn reverse s
+  set out = ""
+  set at = length s
+  loop at >= 1
+    join out (str_sub s at at)
+    sub at 1
+  return out
+
+# how many pieces a list has: parts "a,b,c" "," is 3 (an empty text has none)
+fn parts s sep
+  if length s = 0
+    return 0
+  set total = 1
+  set from = 1
+  forever
+    set at = str_find s sep from
+    if at = 0
+      return total
+    add total 1
+    set from = at + length sep
+
+# the n-th piece of a list ("" when there is none): split "a,b,c" "," 2 is "b"
+fn split s sep n
+  set from = 1
+  set index = 1
+  loop index < n
+    set at = str_find s sep from
+    if at = 0
+      return ""
+    set from = at + length sep
+    add index 1
+  set at = str_find s sep from
+  if at = 0
+    return str_sub s from
+  return str_sub s from (at - 1)
+
+# is item one of the pieces of the list
+fn has_part s sep item
+  set total = call parts s sep
+  set index = 1
+  loop index <= total
+    set piece = call split s sep index
+    if piece = item
+      return true
+    add index 1
+  return false

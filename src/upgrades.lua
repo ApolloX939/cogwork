@@ -169,6 +169,23 @@ function cogwork.height_text (pos)
 	return S("Up to @1 block(s) above the floor", limit)
 end
 
+-- How many of an upgrade the robot has: "combat", "hover", "flight" or "storage".
+local UPGRADE_KINDS = { combat = COMBAT, hover = HOVER, flight = FLIGHT, storage = STORAGE_UP }
+
+function cogwork.upgrade_count (pos, kind)
+	local item = UPGRADE_KINDS[kind]
+	local n = 0
+	if not item then return 0 end
+	for _, stack in ipairs(core.get_meta(pos):get_inventory():get_list("upgrades") or {}) do
+		if stack:get_name() == item then n = n + 1 end
+	end
+	return n
+end
+
+function cogwork.Bot:upgrade_count (kind)
+	return cogwork.upgrade_count(self.pos, tostring(kind))
+end
+
 -- for programs: blocks above the floor allowed, -1 when flying
 function cogwork.Bot:height_limit ()
 	return cogwork.height_limit(self.pos) or -1

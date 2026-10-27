@@ -1,0 +1,30 @@
+# title: Crafter bot
+# description: Takes materials from the chest in front of it, crafts the product and puts it in the chest behind it. Waits when there is nothing to do.
+# Setup: the robot stands between two chests, facing the one with the materials (pull
+# takes from the container in front, the product goes to the chest behind). Change the
+# items for what you want to make. This one makes torches: a coal and a stick give four.
+# Any recipe works; craft finds it in the robot's storage.
+
+# --- settings ---
+set product = "default:torch"
+set material_a = "default:coal_lump"
+set material_b = "default:stick"
+set per_round = 4
+
+forever
+  # fetch the materials
+  repeat per_round
+    pull material_a
+    pull material_b
+  # craft while there is enough of both
+  loop contains material_a and contains material_b
+    craft product
+    if not ok
+      break
+  # deliver the product to the chest behind, and turn back
+  turn around
+  loop contains product
+    put product
+  turn around
+  # nothing to do: look again in ten seconds
+  wait 100

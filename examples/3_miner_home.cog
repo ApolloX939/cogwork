@@ -1,0 +1,30 @@
+# title: Miner that comes home
+# description: Digs a tunnel forward until its storage is full or its power is low, then walks back to where it started, empties out and stops. Made for a robot that starts on a charger.
+# Setup: put the robot on a charger (the charger charges the robot on top of it), facing
+# the rock to dig, with a chest behind it. Give it a Hover Upgrade if the way back is
+# not on the floor. Everything it digs goes into its storage.
+use waypoint
+
+# --- settings ---
+set low_power = 30
+set longest = 200
+
+call waypoint.save "home"
+set dug = 0
+
+# dig on while there is a free slot, power and tunnel left to dig
+loop fits and battery_level > low_power and dug < longest
+  dig front
+  move forward
+  if not ok
+    break
+  add dug 1
+
+# back along the tunnel, to the spot and the facing it started with
+call waypoint.go_face "home"
+
+# the chest behind: everything out, then stay and charge
+turn around
+put
+turn around
+chat "Back home, tunnel length " + dug

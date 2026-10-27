@@ -1,0 +1,133 @@
+# title: Combat guard
+# description: Visits its waypoints and hunts the hostile mobs it finds with a sword, fetches another sword when one breaks, and goes to the charger when its power is low and back to exactly where it was.
+# Setup
+#  1. Waypoints tab: save the posts it visits (post1, post2 ... in route below), "charger"
+#     (the robot stands on a charger) and, if you want spare swords, "armory" (the robot
+#     in front of a chest of swords, facing the chest). Save them with the robot standing
+#     at each place facing the way it should face. Set armory = "" for none.
+#  2. Put a sword in the robot's storage. When it breaks the robot uses the next one it
+#     has; when it has none it walks to the armory and takes one out of the chest.
+#  3. monsters is a list of entity names separated by commas, without spaces: the
+#     hostile mobs of Mobs Monster and of MineClone / VoxeLibre / Mineclonia. Add the
+#     names of your own (the entity front query tells a name: chat entity front).
+#
+# Players: a robot with a Combat Upgrade can hit players (never its owner, and only where
+# pvp is on). Put names in enemies, "griefer,thief", and with one Combat Upgrade they
+# are hunted like the monsters. With two or more upgrades the punch reaches one block
+# further for each, so the robot hits while it is still walking up to its target.
+use waypoint
+use pathfind
+use strings
+
+# --- settings ---
+set route = "post1,post2"
+set charger = "charger"
+set armory = "armory"
+set weapon = "group:sword"
+set low_power = 30
+set full_power = 95
+set monsters = "mobs_monster:dirt_monster,mobs_monster:stone_monster,mobs_monster:sand_monster,mobs_monster:tree_monster,mobs_monster:mese_monster,mobs_monster:spider,mobs_monster:oerkki,mobs_monster:dungeon_master,mobs_monster:lava_flan,mobs_mc:zombie,mobs_mc:husk,mobs_mc:drowned,mobs_mc:skeleton,mobs_mc:stray,mobs_mc:spider,mobs_mc:cave_spider,mobs_mc:creeper,mobs_mc:witch,mobs_mc:slime_big,mobs_mc:slime_small,mobs_mc:silverfish,mobs_mc:pillager"
+set enemies = ""
+
+# whom it fights: the monsters, and the players in enemies when it has a Combat Upgrade
+set combat = upgrade_count "combat"
+set targets = monsters
+if combat >= 1 and length enemies > 0
+  set targets = monsters + "," + enemies
+
+# take a sword out of the armory chest and come back to where I was
+fn fetch_weapon
+  set known = call waypoint.has armory
+  if not known
+    return false
+  call waypoint.save "back"
+  set arrived = call waypoint.go_face armory
+  if arrived = 0
+    pull weapon
+  call waypoint.go_face "back"
+  return contains weapon
+
+# is there a sword in storage (fetched when not)
+fn armed
+  if contains weapon
+    return true
+  set got = call fetch_weapon
+  return got
+
+# hit what is in front until it is gone, the swords are gone or the power is low
+fn swing seen
+  loop entity front = seen and counter < 100 and battery_level >= low_power
+    set ready = call armed
+    if not ready
+      break
+    punch front weapon
+
+# look all around: hit what is hostile next to me; true when it fought
+fn fight
+  set fought = false
+  repeat 4
+    set seen = entity front
+    if seen != ""
+      set hostile = call strings.has_part targets "," seen
+      if hostile
+        call swing seen
+        set fought = true
+    turn right
+  return fought
+
+# the name of the nearest hostile entity in sight, "" when there is none
+fn nearest
+  set total = call strings.parts targets ","
+  set best = ""
+  set best_steps = 0
+  set index = 1
+  loop index <= total
+    set kind = call strings.split targets "," index
+    set steps = call pathfind.start_entity kind
+    if steps >= 0 and (best = "" or steps < best_steps)
+      set best = kind
+      set best_steps = steps
+    add index 1
+  call pathfind.cancel
+  return best
+
+# walk up to the nearest entity of that name (hitting on the way with more Combat Upgrades)
+fn approach kind
+  set left = call pathfind.start_entity kind
+  loop left > 0 and battery_level >= low_power
+    set left = call pathfind.step
+    if combat > 1 and contains weapon
+      punch front weapon
+
+# one round: find a hostile, walk up to it and fight it; false when there was none
+fn hunt
+  set target = call nearest
+  if target = ""
+    return false
+  call approach target
+  call fight
+  return true
+
+# power is low: remember the spot and the facing, charge, and come back to exactly there
+fn recharge
+  call waypoint.save "work"
+  call waypoint.go_face charger
+  loop battery_level < full_power
+    wait 100
+  call waypoint.go_face "work"
+
+set posts = call strings.parts route ","
+set visit = 1
+forever
+  if battery_level < low_power
+    call recharge
+  set post = call strings.split route "," visit
+  call waypoint.go_face post
+  # fight what is around, one after the other
+  set found = true
+  loop found and battery_level >= low_power
+    set found = call hunt
+  wait 20
+  add visit 1
+  if visit > posts
+    set visit = 1

@@ -750,6 +750,8 @@ reg("event_register", "flow", p_event_register)
 reg("event_process", "flow", lambda c: g_loop(c))
 reg("event_leave", "flow", lambda c: g_exit(c))
 reg("path_cancel", "flow", p_path_cancel)
+reg("waypoint_save", "flow", lambda c: g_pin(c))
+reg("waypoint_forget", "flow", p_path_cancel)
 reg("machine_switch", "world", p_machine_switch)
 reg("install", "inventory", p_install)
 reg("uninstall", "inventory", p_uninstall)
@@ -763,7 +765,9 @@ for _tok, _p in (("armor_level", p_armor_level), ("battery_level", p_battery_lev
                  ("network_level", p_network_level), ("node_stock", p_node_stock),
                  ("node_timer", p_node_timer), ("path_plan", p_path_plan),
                  ("path_plan_entity", p_path_plan_entity), ("path_step", p_path_step),
-                 ("path_left", p_path_left)):
+                 ("path_left", p_path_left), ("upgrade_count", p_height_limit), ("waypoint_has", p_path_plan),
+                 ("waypoint_x", p_path_plan), ("waypoint_y", p_path_plan),
+                 ("waypoint_z", p_path_plan), ("waypoint_facing", p_path_plan)):
     reg(_tok, "check", _p)
 
 
@@ -1721,6 +1725,25 @@ def p_settings_top(im, px):
     r_rect(px, 7, 7, 8, 8, P["o"])
 
 
+def p_waypoints(im, px):
+    r_border(px)
+    r_rect(px, 2, 2, 13, 10, P["k"])
+    for x in (5, 8, 11):
+        r_rect(px, x, 2, x, 10, P["d"])
+    for y in (5, 8):
+        r_rect(px, 2, y, 13, y, P["d"])
+    # a pin on the map
+    r_rect(px, 7, 4, 8, 5, P["o"])
+    px[7, 6] = px[8, 6] = P["O"]
+    r_rect(px, 4, 12, 11, 13, P["d"])
+
+
+def p_waypoints_top(im, px):
+    r_border(px)
+    r_rect(px, 4, 4, 11, 11, P["d"])
+    r_rect(px, 7, 6, 8, 7, P["o"])
+
+
 def p_cam(im, px):
     r_border(px)
     r_rect(px, 3, 3, 12, 11, P["d"])
@@ -1755,7 +1778,7 @@ for _name, _p in (("wall", p_wall), ("floor", p_floor), ("light", p_light), ("fr
                   ("screen", p_screen), ("console", p_console), ("console_top", p_console_top),
                   ("exit", p_exit), ("chest", p_chest), ("chest_top", p_chest_top), ("bay", p_bay),
                   ("terminal", p_terminal), ("terminal_top", p_terminal_top), ("settings", p_settings),
-                  ("settings_top", p_settings_top), ("cam", p_cam), ("cam_top", p_cam_top), ("ctl", p_ctl),
+                  ("settings_top", p_settings_top), ("cam", p_cam), ("cam_top", p_cam_top), ("waypoints", p_waypoints), ("waypoints_top", p_waypoints_top), ("ctl", p_ctl),
                   ("ctl_top", p_ctl_top)):
     room_tex(_name, _p)
 

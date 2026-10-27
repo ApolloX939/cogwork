@@ -30,6 +30,15 @@ Craft a robot, place it (it looks the way you look), right-click it.
   the six upgrade slots (see below). The text beside the slots follows what you put
   in or take out, and the charge as it changes. The **Draw from it** buttons choose
   which of the two cells the robot draws power from first (the other when that one is empty).
+- **Waypoints tab**: places with the way the robot faces there (north is +Z, east +X,
+  south -Z, west -X): *Save here* keeps the robot's place and facing under a name,
+  up to 32 per robot. They stay in the robot, also when it is dug up.
+- **Examples tab**: ready programs to read and copy into the robot (*Use as my program*
+  or *Add to my program*): an automatic farm, a crafter bot, a miner that comes home
+  when full or low on power (made for a robot that starts on a charger), a worker that
+  walks to its charger when the power runs low, recharges and comes back to carry on
+  exactly where it stopped, and a patrol between waypoints. Their notes tell how to
+  set each up.
 - **Packages tab**: browse packages, copy one (or your own functions) to a
   disk, install a disk in the robot.
 - **Settings tab**: name, public/private.
@@ -71,6 +80,7 @@ if detect front @stone and contains @torch
 | `drop`, `drop_stack`, `trash`, `trash_stack` | into the world / destroy |
 | `punch <dir> [item]` | with no item: pick up dropped items there, else hit the entity there bare-handed; with an item from storage: hit with that tool (it wears). Players are never hit |
 | `craft <item>` | craft from the robot's storage |
+| `waypoint_save name`, `waypoint_forget name` | remember the robot's place and facing under a name / forget it |
 | `wait n` | wait n tenths of a second |
 | `chat text` | message to the owner, no limits |
 | `say text` | public chat message (limited per player, see Events) |
@@ -86,7 +96,9 @@ item (`_stack`: a whole stack). Items can be `group:name`.
 
 `entity <dir>` (name of the entity in that block, `""` if none), `counter` (loop turn, from 0), `ok` (did the last action work), `detect <dir>
 [item]`, `node <dir>`, `contains [item]`, `fits [item]`, `count item`,
-`pos_x pos_y pos_z`, `facing`, `even n`, `odd n`, `floor n`, `length text`,
+`pos_x pos_y pos_z`, `facing` (`north` `east` `south` `west`: north is +Z, east +X),
+`waypoint_has name`, `waypoint_x name` (`_y` `_z`), `waypoint_facing name` (0 or `""`
+for a waypoint that is not there), `battery_level`, `even n`, `odd n`, `floor n`, `length text`,
 `random n`, numbers, `"text"`, items (`default:stone`, or `@stone`), `true`,
 `false`, variables. Operators: `+ - * / %` (`+` joins text), `= != < > <= >=
 matches`, `and or not`, brackets.
@@ -132,6 +144,7 @@ available; `call mining.tunnel 5` works without `use`. Built in:
 | `farming` | `plant_row n seed`, `harvest_row n`, `plant_field w d seed` |
 | `storage` | `unload`, `load`, `take item n`, `give item n` |
 | `math` | `abs min max sign clamp power` |
+| `waypoint` | `save name`, `forget name`, `has name`, `x name` `y name` `z name`, `direction name`, `distance name`, `face name`, `go name`, `go_face name` |
 | `pathfind` | `goto x y z`, `goto_entity name`, `start`, `start_entity`, `step`, `left`, `cancel` |
 | `events` | `register_nodes`, `register_entities r`, `register_items r`, `register_chat`, `register_whisper`, `register_bot`, `register kind r handler`, `process`, `leave` |
 

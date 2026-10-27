@@ -2406,6 +2406,146 @@ test("punching the robot's entity with a bare hand picks it up after a while", f
 	done()
 end)
 
+-- ---------------------------------------------------------------- waypoints and examples
+
+local function example_source (name)
+	for _, example in ipairs(cogwork.list_examples()) do
+		if example.name == name then return example.source end
+	end
+	error("no example " .. name)
+end
+
+local FACING_NORTH = core.dir_to_facedir({ x = 0, y = 0, z = -1 })      -- the robots of these tests face +z
+
+run_program("waypoints: save, walk away, turn, and walk back facing the same way",
+	"use waypoint\ncall waypoint.save \"a\"\nrepeat 3\n  move forward\nturn right\nset r = call waypoint.go_face \"a\"\nif r = 0\n  move up",
+	nil, nil, function (_, timeout)
+		assert(not timeout, "timeout")
+		local p = find_robot()
+		assert(vector.equals(p, P(0, 2, 0)), "ended at " .. core.pos_to_string(vector.subtract(p, ORIGIN)) .. " " .. err_of(p))
+		assert(core.get_node(p).param2 == FACING_NORTH, "does not face the saved way")
+	end)
+
+test("waypoints are kept in the robot, with names checked", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "stop", nil, {})
+	local ok1 = cogwork.waypoint_here(pos, "base")
+	local ok2 = cogwork.waypoint_here(pos, "bad,name")
+	local ok3 = cogwork.waypoint_here(pos, "")
+	local names = cogwork.waypoint_names(pos)
+	local wp = cogwork.waypoints_of(pos).base
+	local removed = cogwork.waypoint_remove(pos, "base")
+	report("waypoints are kept in the robot, with names checked",
+		ok1 and not ok2 and not ok3 and #names == 1 and wp.facing == "north" and wp.y == pos.y and removed
+		and #cogwork.waypoint_names(pos) == 0)
+	done()
+end)
+
+test("the examples and the waypoint package compile", function (done)
+	local bad = {}
+	local list = cogwork.list_examples()
+	for _, example in ipairs(list) do
+		local ok, err = cogwork.check_example(example)
+		if not ok then bad[#bad + 1] = example.name .. ": " .. tostring(err) end
+	end
+	local pkg_ok, pkg_err = cogwork.check_package("waypoint")
+	if not pkg_ok then bad[#bad + 1] = "waypoint: " .. tostring(pkg_err) end
+	report("the examples and the waypoint package compile", #bad == 0 and #list >= 5, table.concat(bad, "; "))
+	done()
+end)
+
+run_program("the miner example comes home when it has dug as far as it was told",
+	(example_source("3_miner_home"):gsub("set longest = 200", "set longest = 5")),
+	nil, nil, function (_, timeout)
+		assert(not timeout, "timeout")
+		local p = find_robot()
+		assert(vector.equals(p, P(0, 1, 0)), "ended at " .. core.pos_to_string(vector.subtract(p, ORIGIN)) .. " " .. err_of(p))
+		assert(core.get_node(p).param2 == FACING_NORTH, "does not face the way it started")
+	end)
+
+run_program("the recharging worker example goes to the charger and comes back to carry on",
+	(example_source("4_worker_recharge"):gsub("set goal = 120", "set goal = 5"):gsub("set low_power = 25", "set low_power = 101")
+		:gsub("set full_power = 95", "set full_power = 0")),
+	nil, nil, function (_, timeout)
+		assert(not timeout, "timeout")
+		local p = find_robot()
+		assert(vector.equals(p, P(0, 1, 0)), "ended at " .. core.pos_to_string(vector.subtract(p, ORIGIN)) .. " " .. err_of(p))
+	end)
+
+run_program("the strings package: part, find, case, trim, replace, split and the rest",
+	"use strings\n"
+	.. "set n = 0\n"
+	.. "if (call strings.upper \"abc\") = \"ABC\"\n  move up\n"
+	.. "if (call strings.lower \"AbC\") = \"abc\"\n  move up\n"
+	.. "if (call strings.title \"hello big WORLD\") = \"Hello Big World\"\n  move up\n"
+	.. "if (call strings.trim \"  hi there \") = \"hi there\"\n  move up\n"
+	.. "if (call strings.part \"hello\" 2 4) = \"ell\"\n  move up\n"
+	.. "if (call strings.find \"hello\" \"ll\") = 3\n  move up\n"
+	.. "if (call strings.parts \"a,b,c\" \",\") = 3\n  move up\n"
+	.. "if (call strings.split \"a,bb,c\" \",\" 2) = \"bb\"\n  move up\n"
+	.. "if (call strings.split \"a,bb,c\" \",\" 4) = \"\"\n  move up\n"
+	.. "if (call strings.has_part \"x,y,z\" \",\" \"y\")\n  move up\n"
+	.. "if (call strings.replace \"a-b-c\" \"-\" \"+\") = \"a+b+c\"\n  move up\n"
+	.. "if (call strings.starts_with \"hello\" \"he\")\n  move up\n"
+	.. "if (call strings.ends_with \"hello\" \"llo\")\n  move up\n"
+	.. "if (call strings.reverse \"abc\") = \"cba\"\n  move up\n"
+	.. "if (call strings.times \"ab\" 3) = \"ababab\"\n  move up",
+	nil, nil, function (_, timeout)
+		assert(not timeout, "timeout")
+		local p = find_robot()
+		-- one block up for each of the 15 checks that held
+		assert(p.y - (ORIGIN.y + 1) == 15, "checks that held: " .. (p.y - (ORIGIN.y + 1)) .. " " .. err_of(p))
+	end)
+
+test("the Combat Upgrade count can be asked", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "stop", nil, { "cogwork:upgrade_combat", "cogwork:upgrade_combat", "cogwork:upgrade_hover" })
+	report("the Combat Upgrade count can be asked",
+		cogwork.upgrade_count(pos, "combat") == 2 and cogwork.upgrade_count(pos, "hover") == 1
+		and cogwork.upgrade_count(pos, "flight") == 0 and cogwork.upgrade_count(pos, "nonsense") == 0)
+	done()
+end)
+
+test("the combat guard example hunts a mob and fights it with a sword", function (done)
+	clear_area()
+	for _, obj in ipairs(core.get_objects_inside_radius(P(0, 1, 3), 30)) do
+		if not obj:is_player() and not cogwork.is_visual(obj) then obj:remove() end
+	end
+	local source = example_source("6_combat_guard")
+		:gsub('set route = "[^"]*"', 'set route = "post"')
+		:gsub('set monsters = "[^"]*"', 'set monsters = "cogwork_test:mob"')
+		:gsub('set weapon = "group:sword"', 'set weapon = "cogwork_test:sword"')
+		:gsub('set armory = "armory"', 'set armory = ""')
+	local pos = make_robot(P(0, 1, 0), source, { "cogwork_test:sword" })
+	cogwork.waypoint_here(pos, "post")
+	cogwork.waypoint_here(pos, "charger")
+	local mob = core.add_entity(P(0, 1, 5), "cogwork_test:mob")
+	assert(cogwork.start(pos))
+	core.after(25, function ()
+		local dead = not mob:is_valid() or mob:get_hp() <= 0
+		local robot = find_robot()
+		local err = robot and err_of(robot) or "no robot"
+		if mob:is_valid() then mob:remove() end
+		if robot then cogwork.stop(robot, "") end
+		report("the combat guard example hunts a mob and fights it with a sword", dead and err == "", ("dead=%s err=%s"):format(tostring(dead), err))
+		done()
+	end)
+end)
+
+test("the Waypoints and Examples tabs are drawn", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "stop", nil, {})
+	cogwork.waypoint_here(pos, "base")
+	local fake = { get_player_name = function () return "tester" end, is_player = function () return true end }
+	local fs1 = cogwork.formspec(pos, { tab = "waypoints", line = 1, tok = 0, scroll = 0, cat = "flow", msg = "", player = fake, pos = pos })
+	local fs2 = cogwork.formspec(pos, { tab = "examples", line = 1, tok = 0, scroll = 0, cat = "flow", msg = "", player = fake, pos = pos, ex_sel = 2 })
+	report("the Waypoints and Examples tabs are drawn",
+		fs1:find("base", 1, true) and fs1:find("wp_save", 1, true) and fs2:find("ex_replace", 1, true)
+		and fs2:find("Crafter bot", 1, true))
+	done()
+end)
+
+
 -- ---------------------------------------------------------------- controls
 
 test("the line under the viewscreen gives the position and the looking direction", function (done)

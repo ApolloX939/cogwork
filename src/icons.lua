@@ -114,8 +114,16 @@ local tokens = {
 	["turn"] = "cogwork_t_turn.png",
 	["uninstall"] = "cogwork_t_uninstall.png",
 	["up"] = "cogwork_t_up.png",
+	["upgrade_count"] = "cogwork_t_upgrade_count.png",
 	["use"] = "cogwork_t_use.png",
 	["wait"] = "cogwork_t_wait.png",
+	["waypoint_facing"] = "cogwork_t_waypoint_facing.png",
+	["waypoint_forget"] = "cogwork_t_waypoint_forget.png",
+	["waypoint_has"] = "cogwork_t_waypoint_has.png",
+	["waypoint_save"] = "cogwork_t_waypoint_save.png",
+	["waypoint_x"] = "cogwork_t_waypoint_x.png",
+	["waypoint_y"] = "cogwork_t_waypoint_y.png",
+	["waypoint_z"] = "cogwork_t_waypoint_z.png",
 	["whisper"] = "cogwork_t_whisper.png",
 }
 local functions = {

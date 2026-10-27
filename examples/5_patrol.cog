@@ -1,0 +1,16 @@
+# title: Patrol the waypoints
+# description: Walks to the waypoints a, b and c in turn, forever, and tells you if there is no way to one of them.
+# Setup: move the robot to each place you want it to visit, face it the way it should look
+# there and use Save here in the Waypoints tab: a, b and c. Start the program from anywhere.
+use waypoint
+
+fn visit name
+  set steps = call waypoint.go_face name
+  if steps < 0
+    chat "No way to " + name
+  wait 30
+
+forever
+  call visit "a"
+  call visit "b"
+  call visit "c"

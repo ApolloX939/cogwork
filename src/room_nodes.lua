@@ -4,6 +4,7 @@
 --   chest       the robot's own storage (the editor's Storage tab)
 --   bay         armor, cells, augmentation and upgrades (the Structure tab)
 --   terminal    the program (the Program tab): program a robot in peace
+--   waypoints   the Waypoints tab: save the robot's place and facing, remove waypoints
 --   settings    the Settings tab: name, public, allow list and the entrance lock
 --   controller  drive the robot with the keys (control.lua); sneak: the buttons
 --   camera      turn and tilt the viewscreen's camera with the keys
@@ -81,6 +82,10 @@ register("terminal", {
 	on_rightclick = open_editor("program"),
 })
 
+register("waypoints", {
+	description = S("Waypoint manager"), tiles = { tex("waypoints_top"), tex("wall"), tex("waypoints") },
+	on_rightclick = open_editor("waypoints"),
+})
 register("settings", {
 	description = S("Settings panel"), tiles = { tex("settings_top"), tex("wall"), tex("settings") },
 	on_rightclick = open_editor("settings"),

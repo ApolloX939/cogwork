@@ -1,0 +1,61 @@
+# title: Waypoint
+# description: Remember places and the way the robot faced there, and walk back to them. Save them in the Waypoints tab or with call waypoint.save; they stay in the robot.
+# A waypoint has a name, a place and a facing (north is +Z, east +X, south -Z, west -X).
+# Walking uses the pathfind package: around obstacles, with the same limits.
+use pathfind
+use math
+
+# remember the robot's place and the way it faces under a name
+fn save name
+  waypoint_save name
+
+# forget a waypoint
+fn forget name
+  waypoint_forget name
+
+# is there a waypoint of that name
+fn has name
+  return waypoint_has name
+
+# the coordinates of a waypoint (0 when there is none: ask has first)
+fn x name
+  return waypoint_x name
+
+fn y name
+  return waypoint_y name
+
+fn z name
+  return waypoint_z name
+
+# the way a waypoint faces: "north" "east" "south" "west" ("" when there is none)
+fn direction name
+  return waypoint_facing name
+
+# blocks to a waypoint along the axes (-1 when there is none)
+fn distance name
+  if not waypoint_has name
+    return -1
+  set dx = call math.abs (waypoint_x name - pos_x)
+  set dy = call math.abs (waypoint_y name - pos_y)
+  set dz = call math.abs (waypoint_z name - pos_z)
+  return dx + dy + dz
+
+# turn to the way a waypoint faces
+fn face name
+  set want = waypoint_facing name
+  repeat 3
+    if facing != want
+      turn right
+
+# walk to a waypoint: 0 when there, -1 when there is none or no way
+fn go name
+  if not waypoint_has name
+    return -1
+  return call pathfind.goto (waypoint_x name) (waypoint_y name) (waypoint_z name)
+
+# walk to a waypoint and face the way it faces: 0 when there, -1 when not
+fn go_face name
+  set result = call go name
+  if result = 0
+    call face name
+  return result

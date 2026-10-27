@@ -1,0 +1,45 @@
+# title: Automatic farm
+# description: Plants a field, waits for it to grow, harvests, puts the harvest in the chest behind it and starts again.
+# Setup: the robot hovers one block above the first crop square of the field (it needs a
+# Hover Upgrade: crops are in the way of a robot on the ground), facing along the first
+# row. A chest stands right behind it. Soil below the crop squares. Put the seeds in the
+# robot's storage. Change the lines under "settings" to your crop.
+use farming
+use waypoint
+
+# --- settings ---
+set width = 6
+set rows = 4
+set seed = "farming:seed_wheat"
+set crop = "farming:wheat"
+set grow_time = 3000
+
+# harvest a field the way farming.plant_field plants it
+fn harvest_field w d
+  repeat d
+    call farming.harvest_row w
+    if even counter
+      turn right
+      move forward
+      turn right
+    else
+      turn left
+      move forward
+      turn left
+
+fn home
+  call waypoint.go_face "start"
+
+# the start place: where the robot is now
+call waypoint.save "start"
+forever
+  call farming.plant_field width rows seed
+  call home
+  wait grow_time
+  call harvest_field width rows
+  call home
+  # the harvest into the chest behind (the seeds stay)
+  turn around
+  loop contains crop
+    put crop
+  turn around

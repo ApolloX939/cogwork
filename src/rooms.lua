@@ -168,6 +168,7 @@ local SPOTS = {
 	bay = { { 2, 1, 9 } },
 	terminal = { { 13, 1, 7 } },
 	settings = { { 13, 1, 9 } },
+	waypoints = { { 13, 1, 11 } },
 	controller = { { 7, 1, 11 } },
 	camera = { { 9, 1, 11 } },
 	console = { { 6, 1, 11 }, { 8, 1, 11 }, { 10, 1, 11 } },

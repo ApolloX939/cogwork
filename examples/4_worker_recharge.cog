@@ -1,0 +1,35 @@
+# title: Worker that recharges and continues
+# description: Digs a tunnel, and whenever its power gets low it remembers the spot, walks to the charger, recharges, walks back to exactly that spot and carries on.
+# Setup: stand the robot on a charger, facing the rock, and start it. The charger waypoint
+# is where it starts. If the charger is somewhere else, move the robot there and use
+# Save here in the Waypoints tab with the name "charger". The robot needs to find its way
+# back through the tunnel it dug (Hover Upgrade if it hovers).
+use waypoint
+
+# --- settings ---
+set goal = 120
+set low_power = 25
+set full_power = 95
+
+# the charger: save it only when it is not saved yet
+set known = call waypoint.has "charger"
+if not known
+  call waypoint.save "charger"
+
+set done = 0
+loop done < goal
+  if battery_level < low_power
+    # remember where the work stopped and which way I faced
+    call waypoint.save "work"
+    call waypoint.go_face "charger"
+    loop battery_level < full_power
+      wait 100
+    call waypoint.go_face "work"
+  dig front
+  move forward
+  if not ok
+    break
+  add done 1
+
+call waypoint.go_face "charger"
+chat "Finished: " + done + " blocks"

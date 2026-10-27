@@ -16,8 +16,8 @@ local SHEET_W = 10.3
 local MAX_LINES = 200
 local MAX_TEXT = 20000
 
-local TABS = { "program", "text", "storage", "structure", "packages", "settings", "help" }
-local TAB_LABELS = { S("Program"), S("Text"), S("Storage"), S("Structure"), S("Packages"), S("Settings"), S("Help") }
+local TABS = { "program", "text", "storage", "structure", "packages", "waypoints", "examples", "settings", "help" }
+local TAB_LABELS = { S("Program"), S("Text"), S("Storage"), S("Structure"), S("Packages"), S("Waypoints"), S("Examples"), S("Settings"), S("Help") }
 
 local sessions = {}
 
@@ -127,6 +127,8 @@ local function palette_entries (cat, lines, view)
 		add({ "tell_bot", '"name"', '"hello"' }, "line", S("Message a robot that allows this one"))
 		add({ "tell_bots", '"hello"' }, "line", S("Message every robot that allows this one"))
 	elseif cat == "move" then
+		add({ "waypoint_save", '"home"' }, "line", S("Remember this place and the way I face under a name"))
+		add({ "waypoint_forget", '"home"' }, "line", S("Forget a waypoint"))
 		add({ "move", "forward" }, "line", S("Move one block"))
 		add({ "turn", "left" }, "line", S("Turn the robot"))
 		add({ "interact", "front" }, "line", S("Use (right-click) the block"))
@@ -159,7 +161,8 @@ local function palette_entries (cat, lines, view)
 		end
 	elseif cat == "check" then
 		for _, v in ipairs({ "detect", "node", "entity", "contains", "fits", "count", "even", "odd",
-			"pos_x", "pos_y", "pos_z", "facing" }) do
+			"pos_x", "pos_y", "pos_z", "facing", "waypoint_has", "waypoint_x", "waypoint_y", "waypoint_z",
+			"waypoint_facing" }) do
 			add({ v }, "token", S("@1", v))
 		end
 		for _, v in ipairs({ "not", "and", "or", "matches", "=", "!=", "<", ">", "<=", ">=" }) do
@@ -168,7 +171,7 @@ local function palette_entries (cat, lines, view)
 	elseif cat == "machine" then
 		for _, v in ipairs({ "machine_state", "machine_power", "machine_capacity", "machine_level",
 			"machine_supply", "machine_demand", "network_level", "node_timer", "node_stock",
-			"height_limit", "battery_level", "armor_level", "cell_count", "structure_item",
+			"height_limit", "upgrade_count", "battery_level", "armor_level", "cell_count", "structure_item",
 			"listeners", "listener" }) do
 			add({ v }, "token", S("@1", v))
 		end
@@ -812,6 +815,54 @@ local function packages_tab (fs, pos, s)
 	fs[#fs + 1] = ("listring[%s;disk]listring[current_player;main]"):format(spos)
 end
 
+-- the compass word with its axis
+local FACING_TEXT = { north = "north (+Z)", east = "east (+X)", south = "south (-Z)", west = "west (-X)" }
+
+local function waypoints_tab (fs, pos, s)
+	local all = cogwork.waypoints_of(pos)
+	local names = cogwork.waypoint_names(pos)
+	s.wp_names = names
+	local selected = (s.wp_sel and names[s.wp_sel]) and s.wp_sel or 0
+
+	local rows = {}
+	for k, name in ipairs(names) do
+		local w = all[name]
+		rows[k] = esc(("%s   (%d, %d, %d)  %s"):format(name, w.x, w.y, w.z, FACING_TEXT[w.facing] or w.facing))
+	end
+	fs[#fs + 1] = ("label[0.4,1.0;%s]"):format(esc(S("Waypoints of this robot")))
+	fs[#fs + 1] = ("textlist[0.4,1.3;10.4,8.0;wp_list;%s;%d;false]"):format(
+		#rows > 0 and table.concat(rows, ",") or esc(S("(none yet)")), selected)
+
+	local bot = cogwork.Bot.new(pos, core.get_meta(pos):get_string("owner"))
+	fs[#fs + 1] = ("label[11.4,1.0;%s]"):format(esc(S("The robot is at @1, @2, @3 facing @4", pos.x, pos.y, pos.z, FACING_TEXT[bot:facing()])))
+	fs[#fs + 1] = ("field[11.4,2.0;4.4,0.8;wp_name;%s;%s]"):format(esc(S("Name")), esc(s.wp_new or ""))
+	fs[#fs + 1] = "field_close_on_enter[wp_name;false]"
+	fs[#fs + 1] = ("button[15.9,2.0;3.4,0.8;wp_save;%s]"):format(esc(S("Save here")))
+	fs[#fs + 1] = ("button[11.4,3.2;4.4,0.8;wp_remove;%s]"):format(esc(S("Remove selected")))
+	if s.msg ~= "" then fs[#fs + 1] = ("label[11.4,4.5;%s]"):format(esc(s.msg)) end
+
+	fs[#fs + 1] = ("textarea[11.4,5.2;7.9,4.1;;;%s]"):format(esc(S("A waypoint is a place with the way the robot faces there (north is +Z, east +X, south -Z, west -X). \"Save here\" keeps the robot's present place and facing under the name.\n\nPrograms use them with the waypoint package:\n  use waypoint\n  call waypoint.go_face \"home\"\n(walks there around obstacles, then turns), or waypoint.save, waypoint.go, waypoint.face, waypoint.has. Up to 32 per robot.")))
+end
+
+local function examples_tab (fs, pos, s)
+	local list = cogwork.list_examples()
+	local selected = math.max(1, math.min(s.ex_sel or 1, math.max(#list, 1)))
+	s.ex_sel = selected
+	local rows = {}
+	for k, example in ipairs(list) do rows[k] = esc(example.title) end
+
+	fs[#fs + 1] = ("label[0.4,1.0;%s]"):format(esc(S("Examples: pick one to read it")))
+	fs[#fs + 1] = ("textlist[0.4,1.3;6.2,8.4;ex_list;%s;%d;false]"):format(table.concat(rows, ","), selected)
+	local example = list[selected]
+	if example then
+		fs[#fs + 1] = ("textarea[6.9,1.3;12.4,1.6;;;%s]"):format(esc(example.description))
+		fs[#fs + 1] = ("textarea[6.9,3.0;12.4,6.7;;%s;%s]"):format(esc(S("The program (the lines starting with # are notes)")), esc(example.source))
+		fs[#fs + 1] = ("button[6.9,9.9;5.8,0.8;ex_replace;%s]"):format(esc(S("Use as my program")))
+		fs[#fs + 1] = ("button[13.1,9.9;6.2,0.8;ex_add;%s]"):format(esc(S("Add to my program")))
+	end
+	if s.msg ~= "" then fs[#fs + 1] = ("label[6.9,11.0;%s]"):format(esc(s.msg)) end
+end
+
 local function settings_tab (fs, pos, s)
 	local meta = core.get_meta(pos)
 	fs[#fs + 1] = ("field[0.5,1.5;6,0.8;bot_name;%s;%s]"):format(esc(S("Robot name")), esc(meta:get_string("bot_name")))
@@ -884,6 +935,9 @@ local function help_text ()
 	p("<b>" .. esc(S("Packages")) .. "</b>")
 	p(esc(S("'use mining' makes a package's functions available. Names can also be written package.function. Packages are made of functions only; copy yours to a disk and install it in another robot.")))
 	p("")
+	p("<b>" .. esc(S("Waypoints and examples")) .. "</b>")
+	p(esc(S("The Waypoints tab saves the robot's place and facing under a name; a program walks back with use waypoint, call waypoint.go_face \"home\" (or waypoint_save \"name\" to save where it is). The Examples tab holds ready programs (a farm, a crafter, a miner that comes home, a worker that recharges and carries on): read one and copy it into the robot.")))
+	p("")
 	p("<b>" .. esc(S("Events")) .. "</b>")
 	p(esc(S("use events, then call events.register_nodes / register_entities r / register_items r / register_chat / register_whisper / register_bot with the name of one of your functions in quotes, then call events.process. It handles events until a handler calls events.leave. Messages: chat (owner, no limit), say (everyone) and whisper (one player) are limited per player; tell_bot and tell_bots reach robots that allow this one in their Settings tab.")))
 	p("")
@@ -926,6 +980,8 @@ function cogwork.formspec (pos, s)
 	elseif s.tab == "storage" then height = storage_tab(fs, pos, s)
 	elseif s.tab == "structure" then structure_tab(fs, pos, s)
 	elseif s.tab == "packages" then packages_tab(fs, pos, s)
+	elseif s.tab == "waypoints" then waypoints_tab(fs, pos, s)
+	elseif s.tab == "examples" then examples_tab(fs, pos, s)
 	elseif s.tab == "settings" then settings_tab(fs, pos, s)
 	else help_tab(fs) end
 
@@ -1214,6 +1270,57 @@ cogwork.on_editor_fields = function (player, formname, fields)
 			s.msg = S("Removed '@1'.", s.pkg)
 		end
 
+		cogwork.show_editor(pos, player)
+		return true
+	end
+
+	if s.tab == "waypoints" then
+		local names = cogwork.waypoint_names(pos)
+		local sel = fields.wp_list and tonumber(fields.wp_list:match("^%a+:(%d+)$"))
+		if sel then s.wp_sel = sel end
+		if fields.wp_name ~= nil then s.wp_new = fields.wp_name end
+
+		if fields.wp_save or fields.key_enter_field == "wp_name" then
+			local name = cogwork.waypoint_name(fields.wp_name)
+			if not name then
+				s.msg = S("Give it a name (up to 24 letters, no commas or brackets).")
+			else
+				local ok, why = cogwork.waypoint_here(pos, name)
+				s.msg = ok and S("Saved '@1'.", name) or S("Not saved: @1", why)
+				if ok then s.wp_new = "" end
+			end
+		elseif fields.wp_remove and s.wp_sel and names[s.wp_sel] then
+			cogwork.waypoint_remove(pos, names[s.wp_sel])
+			s.msg = S("Removed '@1'.", names[s.wp_sel])
+			s.wp_sel = nil
+		end
+		cogwork.show_editor(pos, player)
+		return true
+	end
+
+	if s.tab == "examples" then
+		local sel = fields.ex_list and tonumber(fields.ex_list:match("^%a+:(%d+)$"))
+		if sel then s.ex_sel = sel end
+		local example = cogwork.list_examples()[s.ex_sel or 1]
+		if example and (fields.ex_replace or fields.ex_add) then
+			if cogwork.is_running(pos) then
+				s.msg = S("Stop the program first.")
+			else
+				local lines = lang.parse_text(example.source)
+				if fields.ex_add then
+					local mine = get_lines(pos)
+					if #mine == 1 and #mine[1].tokens == 0 then mine = {} end
+					for _, line in ipairs(lines) do mine[#mine + 1] = line end
+					lines = mine
+				end
+				if put_lines(pos, lines) then
+					s.tab, s.line, s.tok, s.scroll = "program", 1, 0, 0
+					s.msg = ""
+				else
+					s.msg = S("The program would be too long.")
+				end
+			end
+		end
 		cogwork.show_editor(pos, player)
 		return true
 	end

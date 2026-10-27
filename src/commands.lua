@@ -202,6 +202,8 @@ query("node_stock", "check", { DIR8, OPTVAL }, function (ctx, dir, item)
 	return ctx.bot:node_stock(dir, item)
 end)
 query("height_limit", "check", {}, function (ctx) return ctx.bot:height_limit() end)
+-- how many "combat", "hover", "flight" or "storage" upgrades are installed
+query("upgrade_count", "check", { VAL }, function (ctx, kind) return ctx.bot:upgrade_count(lang.tostr(kind)) end)
 
 -- the robot's structure: power in percent, armor in percent (-1 none), cells, parts
 query("battery_level", "check", {}, function (ctx) return ctx.bot:battery_level() end)
@@ -228,6 +230,33 @@ action("path_cancel", "flow", {}, function (ctx)
 	return true
 end)
 
+-- text (the `strings` package builds on these): positions count from 1, like Lua's
+query("str_sub", "check", { VAL, VAL, OPTVAL }, function (ctx, text, from, to)
+	text = lang.tostr(text)
+	from = intpart(ctx, from, "str_sub")
+	to = to ~= nil and intpart(ctx, to, "str_sub") or -1
+	return text:sub(from, to)
+end)
+-- where a piece of text (not a pattern) is found, from a position; 0 when it is not there
+query("str_find", "check", { VAL, VAL, OPTVAL }, function (ctx, text, needle, from)
+	text, needle = lang.tostr(text), lang.tostr(needle)
+	from = from ~= nil and intpart(ctx, from, "str_find") or 1
+	if needle == "" then return 0 end
+	return text:find(needle, math.max(from, 1), true) or 0
+end)
+query("str_lower", "check", { VAL }, function (ctx, text) return lang.tostr(text):lower() end)
+query("str_upper", "check", { VAL }, function (ctx, text) return lang.tostr(text):upper() end)
+
+-- waypoints (see waypoints.lua; the `waypoint` package wraps these)
+action("waypoint_save", "flow", { VAL }, function (ctx, name) return ctx.bot:waypoint_save(lang.tostr(name)) end)
+action("waypoint_forget", "flow", { VAL }, function (ctx, name) return ctx.bot:waypoint_forget(lang.tostr(name)) end)
+query("waypoint_has", "check", { VAL }, function (ctx, name) return ctx.bot:waypoint_has(lang.tostr(name)) end)
+for _, key in ipairs({ "x", "y", "z", "facing" }) do
+	query("waypoint_" .. key, "check", { VAL }, function (ctx, name)
+		return ctx.bot:waypoint_get(lang.tostr(name), key)
+	end)
+end
+
 query("random", "check", { VAL }, function (ctx, n)
 	n = intpart(ctx, n, "random")
 	if n < 1 then lang.rt_error(ctx, "'random' needs a number above zero") end
@@ -242,6 +271,7 @@ local COSTS = {
 	trash = 0.25, trash_stack = 0.25,
 	chat = 0.2, say = 0.2, whisper = 0.2, tell_bot = 0.2, tell_bots = 0.2,
 	machine_switch = 1, install = 2, uninstall = 2,
+	waypoint_save = 0, waypoint_forget = 0,
 	wait = 0, stop = 0, event_register = 0, event_process = 0, event_leave = 0, path_cancel = 0,
 }
 for name, cost in pairs(COSTS) do
