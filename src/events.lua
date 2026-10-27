@@ -12,6 +12,7 @@
 --   new_player    a player joined for the first time (before join_player)  (player)
 --   leave_player  a player left                               (player, timed_out)
 --   chatcommand   a player ran a chat command (not the hidden ones, nor robots') (player, command, params)
+--   gift      another robot gave items                        (from, item, count, slot, player)
 --
 -- Chat is limited per player (settings.chat_limit messages in
 -- settings.chat_window seconds), robot to robot and robot to owner are not.
@@ -27,7 +28,7 @@ local MIN_INTERVAL = 0.5
 
 cogwork.event_kinds = { nodes = true, entities = true, items = true, chat = true,
 	whisper = true, bot = true, join_player = true, new_player = true, leave_player = true,
-	chatcommand = true }
+	chatcommand = true, gift = true }
 
 local function now () return core.get_us_time() / 1e6 end
 
@@ -96,7 +97,7 @@ function Bot:event_register (ctx, kind, radius, handler)
 	kind = lang.tostr(kind):lower()
 	handler = lang.tostr(handler)
 	if not cogwork.event_kinds[kind] then
-		rt_error(ctx, "unknown event '" .. kind .. "' (nodes, entities, items, chat, whisper, bot, join_player, new_player, leave_player, chatcommand)")
+		rt_error(ctx, "unknown event '" .. kind .. "' (nodes, entities, items, chat, whisper, bot, join_player, new_player, leave_player, chatcommand, gift)")
 	end
 	if not lang.find_fn(ctx.unit, handler) then
 		rt_error(ctx, "unknown function '" .. handler .. "' for the " .. kind .. " event")
@@ -361,7 +362,8 @@ function cogwork.whisper_to_bot (player, botname, message)
 		local pos = r.bot.pos
 		local meta = core.get_meta(pos)
 		if bot_label(pos):lower() == want
-			and (meta:get_string("owner") == player or meta:get_int("public") == 1) then
+			and (meta:get_string("owner") == player or meta:get_int("public") == 1
+			or meta:get_int("public_talk") == 1) then
 			found = found + 1
 			if accept_from(r, "whisper", player) then
 				push(r.ctx, "whisper", { player, message })
@@ -433,11 +435,11 @@ end
 
 -- Running robots that listen for robots and let the one at pos in
 -- (not the one at pos itself); each { pos, ctx, owner, name }.
-local function listeners_of (pos)
+local function listeners_of (pos, kind)
 	local meta = core.get_meta(pos)
 	local owner, name = meta:get_string("owner"), bot_label(pos)
 	local out = {}
-	for _, r in ipairs(listening("bot")) do
+	for _, r in ipairs(listening(kind or "bot")) do
 		local rpos = r.bot.pos
 		if not vector.equals(rpos, pos) and allows(rpos, owner, name) then
 			out[#out + 1] = { pos = rpos, ctx = r.ctx,
@@ -480,4 +482,186 @@ end
 function Bot:tell_bots (text)
 	local n = deliver(self, function () return true end, text)
 	return n > 0, 0
+end
+
+--------------------------------------------------------------------------
+-- items between robots
+--
+-- give_bot / give_slot move one stack at most to a running robot of that name
+-- that registered for "gift" and allows the sender. A receiver with "Keep
+-- received stacks apart" on (Settings tab) puts each gift in an empty slot,
+-- tagged with the player it is for (item meta GIFT_FOR, which also stops the
+-- stacks merging); any other receiver merges it and drops the tag.
+
+local LIST = "main"
+local GIFT_FOR = "cw_for"
+cogwork.GIFT_FOR = GIFT_FOR
+
+-- first empty slot of the list, or nil
+local function empty_slot (inv)
+	for i = 1, inv:get_size(LIST) do
+		if inv:get_stack(LIST, i):is_empty() then return i end
+	end
+end
+
+-- Put the stack into the receiver's storage; the slot it ended up in, or nil
+-- (nothing changed) when it does not fit.
+local function store_gift (rpos, stack, player)
+	local meta = core.get_meta(rpos)
+	local inv = meta:get_inventory()
+	if meta:get_int("keep_apart") == 1 then
+		local slot = empty_slot(inv)
+		if not slot then return nil end
+		stack:get_meta():set_string(GIFT_FOR, player)
+		inv:set_stack(LIST, slot, stack)
+		return slot
+	end
+
+	stack:get_meta():set_string(GIFT_FOR, "")
+	if not inv:room_for_item(LIST, stack) then return nil end
+	inv:add_item(LIST, stack)
+	-- the slot it was added to is not known when it merges: tell the first one holding it
+	for i = 1, inv:get_size(LIST) do
+		if inv:get_stack(LIST, i):get_name() == stack:get_name() then return i end
+	end
+end
+
+-- give `count` of the stack in slot `slot` of this robot's storage
+local function give_from_slot (self, name, slot, count, player)
+	local inv = self:inv()
+	local st = slot >= 1 and slot <= inv:get_size(LIST) and inv:get_stack(LIST, slot)
+	if not st or st:is_empty() then return false, 0 end
+
+	local n = st:get_count()
+	count = count ~= nil and lang.tonum(count)
+	if count then n = math.min(n, math.max(1, math.floor(count))) end
+	n = math.min(n, st:get_stack_max())
+
+	local meta = core.get_meta(self.pos)
+	local owner = meta:get_string("owner")
+	local tag = player and lang.tostr(player) or ""
+	if tag == "" then tag = st:get_meta():get_string(GIFT_FOR) end
+	if tag == "" then tag = owner end
+	local from = owner .. "/" .. bot_label(self.pos)
+
+	local want = lang.tostr(name):lower()
+	for _, l in ipairs(listeners_of(self.pos, "gift")) do
+		local ev = state(l.ctx)
+		if l.name:lower() == want and #ev.queue < QUEUE_MAX then
+			local gift = ItemStack(st)
+			gift:set_count(n)
+			local at = store_gift(l.pos, gift, tag)
+			if at then
+				st:set_count(st:get_count() - n)
+				inv:set_stack(LIST, slot, st)
+				push(l.ctx, "gift", { from, gift:get_name(), n, at, tag })
+				return true, 0
+			end
+		end
+	end
+	return false, 0
+end
+
+function Bot:give_slot (name, slot, count)
+	return give_from_slot(self, name, slot, count, nil)
+end
+
+function Bot:give_bot (name, item, count, player)
+	item = lang.tostr(item)
+	local inv = self:inv()
+	for i = 1, inv:get_size(LIST) do
+		local st = inv:get_stack(LIST, i)
+		if not st:is_empty() and cogwork.item_matches(st:get_name(), item ~= "" and item or nil) then
+			return give_from_slot(self, name, i, count, player)
+		end
+	end
+	return false, 0
+end
+
+function Bot:slot_count ()
+	return self:inv():get_size(LIST)
+end
+
+-- what is in storage slot n: "item", "count" or "for"
+function Bot:slot_info (n, what)
+	local inv = self:inv()
+	local st = n >= 1 and n <= inv:get_size(LIST) and inv:get_stack(LIST, n)
+	if not st or st:is_empty() then return what == "count" and 0 or "" end
+	if what == "item" then return st:get_name() end
+	if what == "count" then return st:get_count() end
+	return st:get_meta():get_string(GIFT_FOR)
+end
+
+-- Remove the tag from the stack in slot n so it merges with stacks that never
+-- had one (it goes into the first stack of the item with room, else the first
+-- empty slot, which can be another slot than n).
+function Bot:untag_slot (n)
+	local inv = self:inv()
+	local st = n >= 1 and n <= inv:get_size(LIST) and inv:get_stack(LIST, n)
+	if not st or st:is_empty() or st:get_meta():get_string(GIFT_FOR) == "" then return false, 0 end
+
+	inv:set_stack(LIST, n, ItemStack(""))
+	st:get_meta():set_string(GIFT_FOR, "")
+	local left = inv:add_item(LIST, st)
+	-- no room: it was not merged, put it back as it was
+	if not left:is_empty() then
+		left:get_meta():set_string(GIFT_FOR, "")
+		inv:set_stack(LIST, n, left)
+	end
+	return true, 0
+end
+
+--------------------------------------------------------------------------
+-- items to a player
+--
+-- give_player / give_player_slot put one stack at most into the inventory of an
+-- online player (all or nothing, the tag is dropped) and tell them, within the
+-- private message limits. cogwork_give_range limits the distance (0: none).
+
+local function give_to_player (self, player, slot, count)
+	player = lang.tostr(player)
+	local obj = core.get_player_by_name(player)
+	local inv = self:inv()
+	local st = obj and slot >= 1 and slot <= inv:get_size(LIST) and inv:get_stack(LIST, slot)
+	if not st or st:is_empty() then return false, 0 end
+	if settings.give_range > 0 and vector.distance(self.pos, obj:get_pos()) > settings.give_range then
+		return false, 0
+	end
+
+	local n = st:get_count()
+	count = count ~= nil and lang.tonum(count)
+	if count then n = math.min(n, math.max(1, math.floor(count))) end
+	n = math.min(n, st:get_stack_max())
+
+	local gift = ItemStack(st)
+	gift:set_count(n)
+	gift:get_meta():set_string(GIFT_FOR, "")
+	local pinv = obj:get_inventory()
+	if not pinv:room_for_item("main", gift) then return false, 0 end
+	pinv:add_item("main", gift)
+
+	st:set_count(st:get_count() - n)
+	inv:set_stack(LIST, slot, st)
+
+	if allow(sent, "priv:" .. (self.owner or "") .. ">" .. player) then
+		core.chat_send_player(player, core.colorize("#c8a0ff", chat_prefix(self.pos)
+			.. S("gave you @1 x @2", n, gift:get_description() ~= "" and gift:get_description() or gift:get_name())))
+	end
+	return true, 0
+end
+
+function Bot:give_player_slot (player, slot, count)
+	return give_to_player(self, player, slot, count)
+end
+
+function Bot:give_player (player, item, count)
+	item = lang.tostr(item)
+	local inv = self:inv()
+	for i = 1, inv:get_size(LIST) do
+		local st = inv:get_stack(LIST, i)
+		if not st:is_empty() and cogwork.item_matches(st:get_name(), item ~= "" and item or nil) then
+			return give_to_player(self, player, i, count)
+		end
+	end
+	return false, 0
 end

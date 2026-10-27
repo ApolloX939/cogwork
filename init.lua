@@ -39,6 +39,8 @@ cogwork.settings = {
 	view_range = math.max(16, tonumber(core.settings:get("cogwork_view_range")) or 96),
 	view_interval = math.max(0.5, tonumber(core.settings:get("cogwork_view_interval")) or 1),
 	rooms = core.settings:get_bool("cogwork_rooms", true),
+	-- how far a robot may be from a player it gives items to (0: any distance)
+	give_range = math.max(0, tonumber(core.settings:get("cogwork_give_range")) or 0),
 	chat_limit = math.max(1, math.floor(tonumber(core.settings:get("cogwork_chat_limit")) or 5)),
 	chat_window = math.max(1, tonumber(core.settings:get("cogwork_chat_window")) or 10),
 	chatcommand_hidden = core.settings:get("cogwork_chatcommand_hidden")

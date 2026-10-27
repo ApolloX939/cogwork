@@ -94,3 +94,5 @@ cogwork_command_denylist (Commands robots may not run) string grant,grantme,revo
 
 # Chat commands the chatcommand event never reports to robots (private or secret ones), separated by commas
 cogwork_chatcommand_hidden (Commands robots do not hear) string bot,password,setpassword,clearpassword,msg,tell,pm,dm,mail,login,register
+# Furthest a robot may be from the player it gives items to, in blocks (0: any distance)
+cogwork_give_range (Give to player range) float 0 0 1000

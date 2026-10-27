@@ -128,6 +128,11 @@ local function palette_entries (cat, lines, view)
 		add({ "tell_bots", '"hello"' }, "line", S("Message every robot that allows this one"))
 		add({ "command", '"time 7000"' }, "line", S("Run a chat command as the owner (switched on in the Settings tab)"))
 		add({ "command_reply" }, "token", S("What the last command answered, or why it was refused"))
+		add({ "give_bot", '"name"', "@stone" }, "line", S("Give one stack of an item to a robot that allows this one (optional: count, player it is for)"))
+		add({ "give_player", '"player"', "@stone" }, "line", S("Give one stack of an item to an online player (optional: count)"))
+		add({ "give_player_slot", '"player"', "1" }, "line", S("Give the stack in a storage slot to an online player"))
+		add({ "untag_slot", "1" }, "line", S("Remove the 'for player' tag of a stack so it merges with other stacks"))
+		add({ "give_slot", '"name"', "1" }, "line", S("Give the stack in a storage slot to a robot that allows this one"))
 	elseif cat == "move" then
 		add({ "waypoint_save", '"home"' }, "line", S("Remember this place and the way I face under a name"))
 		add({ "state_set", '"step"', "1" }, "line", S("Keep a number or text in the robot, to carry on after a restart"))
@@ -176,7 +181,7 @@ local function palette_entries (cat, lines, view)
 		for _, v in ipairs({ "machine_state", "machine_power", "machine_capacity", "machine_level",
 			"machine_supply", "machine_demand", "network_level", "node_timer", "node_stock",
 			"height_limit", "upgrade_count", "battery_level", "armor_level", "cell_count", "structure_item",
-			"listeners", "listener" }) do
+			"listeners", "listener", "slots", "slot_item", "slot_count", "slot_for" }) do
 			add({ v }, "token", S("@1", v))
 		end
 		add({ "machine_switch", "front", '"off"' }, "line", S("Turn the machine in the block on or off"))
@@ -879,8 +884,10 @@ local function settings_tab (fs, pos, s)
 	end
 	fs[#fs + 1] = ("checkbox[0.5,3.1;resume;%s;%s]"):format(esc(S("Resume after a restart (from the first line)")),
 		(meta:get_int("resume") == 1 or cogwork.settings.resume_on_start) and "true" or "false")
-	fs[#fs + 1] = ("label[0.5,4.2;%s]"):format(esc(S("Owner: @1", meta:get_string("owner"))))
-	fs[#fs + 1] = ("label[0.5,5;%s]"):format(esc(S("Position: @1", core.pos_to_string(pos))))
+	fs[#fs + 1] = ("checkbox[0.5,4.1;public_talk;%s;%s]"):format(esc(S("Everyone can talk to this robot (not edit it)")), meta:get_int("public_talk") == 1 and "true" or "false")
+	fs[#fs + 1] = ("checkbox[0.5,4.6;keep_apart;%s;%s]"):format(esc(S("Keep stacks received from robots apart")), meta:get_int("keep_apart") == 1 and "true" or "false")
+	fs[#fs + 1] = ("label[0.5,5.2;%s]"):format(esc(S("Owner: @1", meta:get_string("owner"))))
+	fs[#fs + 1] = ("label[0.5,5.7;%s]"):format(esc(S("Position: @1", core.pos_to_string(pos))))
 	fs[#fs + 1] = ("button[0.5,8.2;4,0.8;pick_up;%s]"):format(esc(S("Pick up this robot")))
 
 	-- who may go into the robot's room (sneak + right-click)
@@ -950,7 +957,7 @@ local function help_text ()
 	p(esc(S("The Waypoints tab saves the robot's place and facing under a name; a program walks back with use waypoint, call waypoint.go_face \"home\" (or waypoint_save \"name\" to save where it is). The Examples tab holds ready programs (a farm, a crafter, a miner that comes home, a worker that recharges and carries on): read one and copy it into the robot.")))
 	p("")
 	p("<b>" .. esc(S("Events")) .. "</b>")
-	p(esc(S("use events, then call events.register_nodes / register_entities r / register_items r / register_chat / register_whisper / register_bot / register_chatcommand / register_join_player / register_new_player / register_leave_player with the name of one of your functions in quotes, then call events.process. It handles events until a handler calls events.leave. Messages: chat (owner, no limit), say (everyone) and whisper (one player) are limited per player; tell_bot and tell_bots reach robots that allow this one in their Settings tab.")))
+	p(esc(S("use events, then call events.register_nodes / register_entities r / register_items r / register_chat / register_whisper / register_bot / register_gift / register_chatcommand / register_join_player / register_new_player / register_leave_player with the name of one of your functions in quotes, then call events.process. It handles events until a handler calls events.leave. Messages: chat (owner, no limit), say (everyone) and whisper (one player) are limited per player; tell_bot, tell_bots, give_bot and give_slot reach robots that allow this one in their Settings tab.")))
 	p("")
 	p("<b>" .. esc(S("Inside the robot")) .. "</b>")
 	p(esc(S("Sneak and right-click a robot to go into it: a room with a viewscreen showing what the robot sees, a chest (its storage), a bay (armor, cells, upgrades), a terminal (the program), a settings panel (name, access and the lock on the entrance) and a controller (move and turn it). The door, or /leave_robot, takes you out.")))
@@ -1360,6 +1367,13 @@ cogwork.on_editor_fields = function (player, formname, fields)
 		end
 		if fields.owner_cmds ~= nil and cogwork.settings.owner_commands and pname == meta:get_string("owner") then
 			meta:set_int("owner_cmds", fields.owner_cmds == "true" and 1 or 0)
+		end
+
+		if fields.public_talk ~= nil then
+			meta:set_int("public_talk", fields.public_talk == "true" and 1 or 0)
+		end
+		if fields.keep_apart ~= nil then
+			meta:set_int("keep_apart", fields.keep_apart == "true" and 1 or 0)
 		end
 
 		if fields.pick_up then

@@ -182,6 +182,43 @@ local function intpart (ctx, v, name)
 	return math.floor(v)
 end
 
+-- items to a robot that allows this one and registered for gifts: one stack
+-- at most, from the first stack of the item (give_bot) or from a slot (give_slot)
+action("give_bot", "flow", { VAL, VAL, OPTVAL, OPTVAL }, function (ctx, name, item, count, player)
+	return ctx.bot:give_bot(name, item, count, player)
+end)
+
+action("give_slot", "flow", { VAL, VAL, OPTVAL }, function (ctx, name, slot, count)
+	return ctx.bot:give_slot(name, intpart(ctx, slot, "give_slot"), count)
+end)
+
+-- items to a player (online, in range of cogwork_give_range), tag dropped
+action("give_player", "flow", { VAL, VAL, OPTVAL }, function (ctx, player, item, count)
+	return ctx.bot:give_player(player, item, count)
+end)
+
+action("give_player_slot", "flow", { VAL, VAL, OPTVAL }, function (ctx, player, slot, count)
+	return ctx.bot:give_player_slot(player, intpart(ctx, slot, "give_player_slot"), count)
+end)
+
+-- merge a tagged stack back with the stacks that never had a tag
+action("untag_slot", "flow", { VAL }, function (ctx, slot)
+	return ctx.bot:untag_slot(intpart(ctx, slot, "untag_slot"))
+end)
+
+-- the robot's storage slots, counted from 1; slot_for is who a stack received
+-- by a robot that keeps stacks apart is for ("" if nobody)
+query("slots", "check", {}, function (ctx) return ctx.bot:slot_count() end)
+query("slot_item", "check", { VAL }, function (ctx, n)
+	return ctx.bot:slot_info(intpart(ctx, n, "slot_item"), "item")
+end)
+query("slot_count", "check", { VAL }, function (ctx, n)
+	return ctx.bot:slot_info(intpart(ctx, n, "slot_count"), "count")
+end)
+query("slot_for", "check", { VAL }, function (ctx, n)
+	return ctx.bot:slot_info(intpart(ctx, n, "slot_for"), "for")
+end)
+
 query("even", "check", { VAL }, function (ctx, v) return intpart(ctx, v, "even") % 2 == 0 end)
 query("odd", "check", { VAL }, function (ctx, v) return intpart(ctx, v, "odd") % 2 == 1 end)
 query("floor", "check", { VAL }, function (ctx, v) return intpart(ctx, v, "floor") end)
@@ -292,6 +329,7 @@ local COSTS = {
 	pull = 0.5, pull_stack = 0.5, put = 0.5, put_stack = 0.5, drop = 0.5, drop_stack = 0.5,
 	trash = 0.25, trash_stack = 0.25,
 	chat = 0.2, say = 0.2, command = 1, whisper = 0.2, tell_bot = 0.2, tell_bots = 0.2,
+	give_bot = 0.5, give_slot = 0.5, give_player = 0.5, give_player_slot = 0.5, untag_slot = 0.25,
 	machine_switch = 1, install = 2, uninstall = 2,
 	waypoint_save = 0, waypoint_forget = 0, state_set = 0, state_forget = 0,
 	wait = 0, stop = 0, event_register = 0, event_process = 0, event_leave = 0, path_cancel = 0,

@@ -321,6 +321,9 @@ run_program("event private message",
 			assert(ok2 and res2 == 1, tostring(res2))
 			-- somebody else's private robot does not listen to strangers
 			assert(cogwork.whisper_to_bot("stranger", "Scout", "hi") == false)
+			-- unless its owner lets everyone talk to it
+			core.get_meta(find_robot()):set_int("public_talk", 1)
+			assert(cogwork.whisper_to_bot("stranger", "Scout", "hi") == true)
 		end)
 	end, function (_, timeout) assert(not timeout and lifted(), "handler did not run") end)
 
@@ -350,6 +353,90 @@ test("event robot message", function (done)
 			and allowed and #allowed == 1 and allowed[1] == "other/Rx" and lifted_rx,
 			("blocked=%s allowed=%s lifted=%s timeout=%s"):format(tostring(blocked),
 				allowed and table.concat(allowed, ",") or "nil", tostring(lifted_rx), tostring(timeout)))
+		done()
+	end)
+end)
+
+-- items between robots: a receiver that keeps stacks apart tags each gift
+test("event robot gift", function (done)
+	clear_area()
+	local sender = make_robot(P(0, 1, 0), "wait 20\ngive_bot \"Bank\" " .. material .. " 5 \"alice\"\n"
+		.. "give_bot \"Bank\" " .. material .. " 5 \"bob\"\ngive_bot \"Nobody\" " .. material .. "\nwait 40",
+		{ material .. " 20" })
+	core.get_meta(sender):set_string("bot_name", "Giver")
+	local rx = make_robot(P(5, 1, 0), "use events\nset got = 0\nfn h from item amount slot who\n  add got amount\n"
+		.. "call events.register_gift \"h\"\ncall events.process", nil)
+	local m = core.get_meta(rx)
+	m:set_string("bot_name", "Bank")
+	m:set_int("keep_apart", 1)
+	assert(cogwork.start(rx))
+	assert(cogwork.start(sender))
+
+	core.after(4.0, function ()
+		local inv = core.get_meta(rx):get_inventory()
+		local a, b = inv:get_stack("main", 1), inv:get_stack("main", 2)
+		local r = cogwork.running[core.hash_node_position(rx)]
+		local got = r and r.ctx.globals.got
+		local left = core.get_meta(sender):get_inventory():get_stack("main", 1):get_count()
+		cogwork.stop(rx); cogwork.stop(sender)
+		report("event robot gift", a:get_count() == 5 and a:get_meta():get_string("cw_for") == "alice"
+			and b:get_count() == 5 and b:get_meta():get_string("cw_for") == "bob"
+			and got == 10 and left == 10,
+			("a=%s b=%s got=%s left=%s"):format(a:to_string(), b:to_string(), tostring(got), tostring(left)))
+		done()
+	end)
+end)
+
+-- a tagged stack loses its tag and merges with the untagged ones
+test("untag a slot", function (done)
+	clear_area()
+	local pos = make_robot(P(0, 1, 0), "untag_slot 2\nset a = ok\nuntag_slot 1\nset b = ok\nwait 80", nil)
+	local inv = core.get_meta(pos):get_inventory()
+	inv:set_stack("main", 1, ItemStack(material .. " 4"))
+	local tagged = ItemStack(material .. " 3")
+	tagged:get_meta():set_string("cw_for", "alice")
+	inv:set_stack("main", 2, tagged)
+	assert(cogwork.start(pos))
+	core.after(2.5, function ()
+		local r = cogwork.running[core.hash_node_position(pos)]
+		local g = r and r.ctx.globals or {}
+		cogwork.stop(pos)
+		local a, b = inv:get_stack("main", 1), inv:get_stack("main", 2)
+		report("untag a slot", a:get_count() == 7 and b:is_empty() and a:get_meta():get_string("cw_for") == ""
+			and g.a == true and g.b == false, ("a=%s b=%s ok=%s,%s"):format(a:to_string(), b:to_string(),
+			tostring(g.a), tostring(g.b)))
+		done()
+	end)
+end)
+
+-- items to an online player: one stack at most, tag dropped, nothing moves when it does not fit
+test("give to a player", function (done)
+	clear_area()
+	local pinv = core.create_detached_inventory("cogwork_test_player", {})
+	pinv:set_size("main", 1)
+	local fake = { get_inventory = function () return pinv end, get_pos = function () return P(2, 1, 0) end }
+	local real = core.get_player_by_name
+	core.get_player_by_name = function (n) if n == "carol" then return fake end return real(n) end
+
+	local pos = make_robot(P(0, 1, 0), "give_player \"carol\" " .. material .. " 5\nset a = ok\n"
+		.. "give_player \"carol\" " .. material .. "\nset b = ok\ngive_player \"nobody\" " .. material
+		.. "\nset c = ok\nwait 80", { material .. " 8" })
+	local rinv = core.get_meta(pos):get_inventory()
+	local st = rinv:get_stack("main", 1)
+	st:get_meta():set_string("cw_for", "carol")
+	rinv:set_stack("main", 1, st)
+	assert(cogwork.start(pos))
+	core.after(2.5, function ()
+		core.get_player_by_name = real
+		local r = cogwork.running[core.hash_node_position(pos)]
+		local g = r and r.ctx.globals or {}
+		cogwork.stop(pos)
+		local got, left = pinv:get_stack("main", 1), rinv:get_stack("main", 1)
+		-- the player's one slot holds 5; a second stack does not fit with a different count? it merges up to the max
+		report("give to a player", g.a == true and got:get_name() == material and got:get_meta():get_string("cw_for") == ""
+			and g.c == false and got:get_count() + left:get_count() == 8,
+			("a=%s b=%s c=%s got=%s left=%s"):format(tostring(g.a), tostring(g.b), tostring(g.c),
+			got:to_string(), left:to_string()))
 		done()
 	end)
 end)

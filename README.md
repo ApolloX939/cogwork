@@ -41,7 +41,7 @@ Craft a robot, place it (it looks the way you look), right-click it.
   set each up.
 - **Packages tab**: browse packages, copy one (or your own functions) to a
   disk, install a disk in the robot.
-- **Settings tab**: name, public/private.
+- **Settings tab**: name, public/private, whether everyone may talk to it (whisper with `/bot`, not edit it), whether it keeps stacks received from robots apart, and which robots may message it.
 - You point at a robot's model: its hitbox is the shape of the robot, hover pad or drone. Right-click opens it. To pick one up, keep punching it (bare hand or a tool that digs it, a progress message shows), or press **Pick up this robot** in its Settings tab.
 - Sneak + right-click a robot to go into it (see Inside a robot); sneak + punch a running one to stop it.
 - **Cassette**: punch a robot with it to copy its program; sneak + right-click
@@ -150,7 +150,7 @@ available; `call mining.tunnel 5` works without `use`. Built in:
 | `players` | `online name`, `seen name`, `total`, `nth n` |
 | `state` | `keep name value`, `has name`, `get name`, `get_or name other`, `forget name`, `bump name` |
 | `pathfind` | `goto x y z`, `goto_entity name`, `start`, `start_entity`, `step`, `left`, `cancel` |
-| `events` | `register_nodes`, `register_entities r`, `register_items r`, `register_chat`, `register_whisper`, `register_bot`, `register_chatcommand`, `register_join_player`, `register_new_player`, `register_leave_player`, `register kind r handler`, `process`, `leave` |
+| `events` | `register_nodes`, `register_entities r`, `register_items r`, `register_chat`, `register_whisper`, `register_bot`, `register_gift`, `register_chatcommand`, `register_join_player`, `register_new_player`, `register_leave_player`, `register kind r handler`, `process`, `leave` |
 
 `/cogwork packages`, `/cogwork package <name>`, `/cogwork items` list them.
 
@@ -189,6 +189,7 @@ call events.process
 | `events.register_join_player h` | `player`: a player joined the server |
 | `events.register_new_player h` | `player`: a player joined for the first time (heard just before `join_player`) |
 | `events.register_leave_player h` | `player timed_out`: a player left; `timed_out` is true when the connection was lost |
+| `events.register_gift h` | `from item amount slot player`: another robot gave items (see Items between robots) |
 
 **What a `nodes` handler hears** (`change`, `detail`; `block` is the node name):
 
@@ -246,6 +247,36 @@ others the owner lists them in the Settings tab: `Player` allows all of that
 player's robots, `Player/RobotName` one. Also in the Settings tab: who is
 listening to this robot right now. In a program, `listeners` is how many and
 `listener n` the name of the nth.
+
+### Items between robots
+
+`give_bot "Name" item [count] [player]` moves one stack at most (the first one of
+that item, at most a full stack) into the storage of a running robot called
+Name that called `events.register_gift` and allows the sender, like
+`tell_bot`. `give_slot "Name" n [count]` does the same for storage slot n
+(counted from 1). `ok` tells if it arrived; it fails when the receiver is not
+listening, does not allow the sender, is out of room or has a full event queue.
+The receiver's handler gets `from item amount slot player`.
+
+A robot with **Keep stacks received from robots apart** on (Settings tab) puts
+each gift in an empty slot and tags it with the player it is for (`player`, else
+the tag the stack already had, else the sender's owner). The tag is item meta,
+so stacks for different players never merge. Without the setting the items merge
+into the storage as usual and lose the tag. In a program, `slots` is the number
+of storage slots, `slot_item n`, `slot_count n` and `slot_for n` read a slot (`""`
+or 0 when empty; `slot_for` is the tag, `""` for none). A storage robot looks
+up what is whose, then hands a stack on with `give_slot`.
+
+`untag_slot n` removes the tag from the stack in slot n, so it merges with
+stacks that never had one (it ends up in the first stack of that item with room,
+else the first empty slot, maybe not slot n). `ok` is false for an empty or
+untagged slot.
+
+`give_player "Player" item [count]` and `give_player_slot "Player" n [count]`
+put one stack at most into the inventory of an online player and tell them
+(within the private message limits). All or nothing: when it does not fit,
+nothing moves. The tag is dropped. `cogwork_give_range` limits how far the
+robot may be from the player (0, the default: any distance).
 
 ### Punching
 

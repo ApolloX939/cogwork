@@ -1,5 +1,5 @@
 # title: Events
-# description: Sit and react: nodes next to the robot, entities, dropped items, chat, private messages, messages from other robots, chat commands and players joining and leaving.
+# description: Sit and react: nodes next to the robot, entities, dropped items, chat, private messages, messages and items from other robots, chat commands and players joining and leaving.
 # Register handlers by function name, then call events.process.
 #
 #   call events.register_nodes "on_node"          on_node dir block change detail
@@ -12,6 +12,7 @@
 #   call events.register_join_player "on_join"    on_join player
 #   call events.register_new_player "on_new"      on_new player (the first time a player joins, just before on_join)
 #   call events.register_leave_player "on_leave"  on_leave player timed_out (true when the connection was lost)
+#   call events.register_gift "on_gift"           on_gift from item amount slot player
 #   call events.process
 #
 # nodes: dir is front back left right up down. change tells what happened to that block:
@@ -24,7 +25,7 @@
 # A handler may take fewer parameters than shown. Radius 1 to the limit in the
 # settings (6): the larger it is, the longer between scans.
 
-# kind: nodes entities items chat whisper bot join_player new_player leave_player chatcommand; radius only matters for entities and items
+# kind: nodes entities items chat whisper bot join_player new_player leave_player chatcommand gift; radius only matters for entities and items
 fn register kind radius handler
   event_register kind radius handler
 
@@ -57,6 +58,8 @@ fn register_new_player handler
 
 fn register_leave_player handler
   event_register "leave_player" 0 handler
+fn register_gift handler
+  event_register "gift" 0 handler
 
 # handle events until events.leave is called from a handler
 fn process

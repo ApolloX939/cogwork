@@ -107,6 +107,7 @@ local function item_matches (name, want)
 	end
 	return name == want
 end
+cogwork.item_matches = item_matches
 
 local function can_fit (inv, item)
 	return inv:room_for_item(LIST, ItemStack(item))
