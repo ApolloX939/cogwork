@@ -397,10 +397,20 @@ local function chat_prefix (pos)
 	return "<" .. bot_label(pos) .. "> "
 end
 
+-- Functions called with (owner, pos, text) before a robot speaks publicly;
+-- one returning true keeps the message from being sent.
+cogwork.registered_on_say = {}
+function cogwork.register_on_say (fn)
+	cogwork.registered_on_say[#cogwork.registered_on_say + 1] = fn
+end
+
 -- to everyone, limited per owner
 function Bot:say (text)
 	if not settings.public_chat then return false, 0 end
 	if not allow(sent, "pub:" .. (self.owner or "")) then return false, 0 end
+	for _, fn in ipairs(cogwork.registered_on_say) do
+		if fn(self.owner, self.pos, text) then return false, 0 end
+	end
 	core.chat_send_all(chat_prefix(self.pos) .. text)
 	return true, 0
 end
