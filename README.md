@@ -185,7 +185,7 @@ call events.process
 | `events.register_chat h` | `player message`: a public chat message |
 | `events.register_whisper h` | `player message`: a private message, sent with `/bot <robot name> <message>` (quote names with spaces) |
 | `events.register_bot h` | `from message`: another robot's message, `from` is `Owner/RobotName` |
-| `events.register_chatcommand h` | `player command params`: a player ran a chat command, `command` without the `/` (not `/bot` and the others in `cogwork_chatcommand_hidden`, not commands robots run as their owner; limited per player like chat) |
+| `events.register_chatcommand h` | `player command params`: a player ran a chat command, `command` without the `/` (not `/bot` and the others in `cogwork_chatcommand_hidden`, not commands robots run as their owner; limited per player like chat; the robot's owner needs the `cogwork_chatcommand_priv` privilege, `server` by default) |
 | `events.register_join_player h` | `player`: a player joined the server |
 | `events.register_new_player h` | `player`: a player joined for the first time (heard just before `join_player`) |
 | `events.register_leave_player h` | `player timed_out`: a player left; `timed_out` is true when the connection was lost |

@@ -45,6 +45,8 @@ cogwork.settings = {
 	chat_window = math.max(1, tonumber(core.settings:get("cogwork_chat_window")) or 10),
 	chatcommand_hidden = core.settings:get("cogwork_chatcommand_hidden")
 		or "bot,password,setpassword,clearpassword,msg,tell,pm,dm,mail,login,register",
+	-- the privilege an owner needs for a robot to hear chat commands ("" : none)
+	chatcommand_priv = (core.settings:get("cogwork_chatcommand_priv") or "server"):gsub("%s", ""),
 	owner_commands = core.settings:get_bool("cogwork_owner_commands", true),
 	command_interval = math.max(0, tonumber(core.settings:get("cogwork_command_interval")) or 1),
 	command_denylist = core.settings:get("cogwork_command_denylist")

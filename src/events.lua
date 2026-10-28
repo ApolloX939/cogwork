@@ -103,6 +103,10 @@ function Bot:event_register (ctx, kind, radius, handler)
 		rt_error(ctx, "unknown function '" .. handler .. "' for the " .. kind .. " event")
 	end
 
+	if kind == "chatcommand" and not cogwork.may_hear_commands(self.owner) then
+		rt_error(ctx, "the chatcommand event needs the '" .. settings.chatcommand_priv .. "' privilege")
+	end
+
 	local reg = { handler = handler }
 	if kind == "entities" or kind == "items" then
 		local r = lang.tonum(radius)
@@ -327,10 +331,18 @@ local hidden = {}
 for name in settings.chatcommand_hidden:gmatch("[^,%s]+") do hidden[name:lower()] = true end
 hidden.bot = true
 
+-- may a robot of this owner hear chat commands (cogwork_chatcommand_priv)?
+function cogwork.may_hear_commands (owner)
+	if settings.chatcommand_priv == "" then return true end
+	return owner ~= nil and owner ~= ""
+		and core.check_player_privs(owner, { [settings.chatcommand_priv] = true })
+end
+
 core.register_on_chatcommand(function (name, command, params)
 	if cogwork.running_owner_command or hidden[command:lower()] then return end
 	for _, r in ipairs(listening("chatcommand")) do
-		if accept_from(r, "chatcommand", name) then push(r.ctx, "chatcommand", { name, command, params }) end
+		-- checked per command: the owner may have lost the privilege since
+		if cogwork.may_hear_commands(r.bot.owner) and accept_from(r, "chatcommand", name) then push(r.ctx, "chatcommand", { name, command, params }) end
 	end
 end)
 

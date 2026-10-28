@@ -2902,6 +2902,7 @@ end)
 
 test("chat command events skip the hidden ones", function (done)
 	clear_area()
+	cogwork.settings.chatcommand_priv = ""
 	local pos = make_robot(P(0, 1, 0), "use events\nset c = 0\nset b = 0\n"
 		.. "fn on_cmd p cmd params\n  add c 1\n  if cmd = \"bot\"\n    add b 1\n"
 		.. "call events.register_chatcommand \"on_cmd\"\ncall events.process", nil)
@@ -2924,6 +2925,26 @@ test("chat command events skip the hidden ones", function (done)
 		cogwork.stop(pos)
 		report("chat command events skip the hidden ones", g.c == 1 and g.b == 0,
 			("c=%s b=%s"):format(tostring(g.c), tostring(g.b)))
+		done()
+	end)
+end)
+
+test("chat command events need the owner's privilege", function (done)
+	clear_area()
+	cogwork.settings.chatcommand_priv = "cwtest_priv"
+	local pos = make_robot(P(0, 1, 0), "use events\nset c = 0\n"
+		.. "fn on_cmd p cmd params\n  add c 1\n"
+		.. "call events.register_chatcommand \"on_cmd\"\ncall events.process", nil)
+	assert(cogwork.start(pos))
+
+	core.after(2.0, function ()
+		local err = core.get_meta(pos):get_string("error")
+		local stopped = not cogwork.is_running(pos)
+		cogwork.stop(pos)
+		cogwork.settings.chatcommand_priv = "server"
+		report("chat command events need the owner's privilege",
+			stopped and err:find("cwtest_priv", 1, true) ~= nil and not cogwork.may_hear_commands("tester"),
+			("stopped=%s error=%s"):format(tostring(stopped), err))
 		done()
 	end)
 end)
