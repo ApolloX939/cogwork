@@ -325,6 +325,11 @@ limit; players with the `server` privilege are not limited); the forceload butto
 another one says so. When the owner has been offline for `cogwork_persist_offline`
 (30) seconds, their robots stop forceloading (the button stays on) and load their
 area again when the owner joins.
+With `cogwork_max_persist = 0` only players with the `server` privilege can forceload:
+at startup (and when `server` is revoked) the robots of everyone else stop forceloading and
+their programs stop (a robot in unloaded land is loaded from disk to do it). `/cogwork_forceloads`
+(`server` privilege) lists the forceloading robots and the engine's forceloaded blocks;
+`/cogwork_forceloads enforce` applies the limit right away.
 
 ### Upgrades
 

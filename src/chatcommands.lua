@@ -52,3 +52,38 @@ core.register_chatcommand("bot", {
 		return true, S("Sent to @1 robot(s).", res)
 	end,
 })
+
+core.register_chatcommand("cogwork_forceloads", {
+	params = "[enforce]",
+	description = S("List the forceloading robots and the forceloaded blocks, and whether each robot's owner may forceload"),
+	privs = { server = true },
+	func = function (name, param)
+		if param == "enforce" then
+			return true, S("Stopped @1 robot(s) from forceloading.", cogwork.persist_enforce())
+		end
+		local out = { ("cogwork_max_persist = %d"):format(cogwork.settings.max_persist) }
+		local registered = {}
+		for _, e in ipairs(cogwork.persist_list()) do
+			local bp = vector.new(math.floor(e.pos.x / 16), math.floor(e.pos.y / 16), math.floor(e.pos.z / 16))
+			registered[core.hash_node_position(bp)] = true
+			local state = e.suspended and "owner away, not loading" or "loading"
+			local verdict = (e.admin and "owner has server")
+				or (e.allowed and "within the limit") or "NOT ALLOWED (no server priv)"
+			out[#out + 1] = ("%s %s block %s: %s, %s, %s"):format(
+				e.owner, core.pos_to_string(e.pos), core.pos_to_string(bp),
+				e.node or "not loaded", state, verdict)
+		end
+		if #out == 1 then out[#out + 1] = "no registered robots" end
+		-- persistent forceloads of the engine (force_loaded.txt) that no robot accounts for
+		local f = io.open(core.get_worldpath() .. "/force_loaded.txt", "r")
+		local saved = f and core.deserialize(f:read("*all") or "") or {}
+		if f then f:close() end
+		for bh, count in pairs(saved) do
+			if not registered[bh] then
+				out[#out + 1] = ("forceloaded block %s x%d: no registered robot"):format(
+					core.pos_to_string(core.get_position_from_hash(bh)), count)
+			end
+		end
+		return true, table.concat(out, "\n")
+	end,
+})

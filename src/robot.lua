@@ -76,10 +76,17 @@ local function suspended_save ()
 end
 local offline_since = {}      -- owner -> time
 
+-- May owner's robots forceload at all? With cogwork_max_persist = 0 only "server" can.
+function cogwork.persist_allowed (owner)
+	local limit = cogwork.settings.max_persist
+	return limit ~= 0 or core.check_player_privs(owner, { server = true })
+end
+
 -- does the robot at pos keep its area loaded now?
 function cogwork.persist_active (pos)
 	local meta = core.get_meta(pos)
-	return meta:get_int("persist") == 1 and not suspended[meta:get_string("owner")]
+	local owner = meta:get_string("owner")
+	return meta:get_int("persist") == 1 and not suspended[owner] and cogwork.persist_allowed(owner)
 end
 
 local function persist_each (owner, fn)
@@ -92,7 +99,9 @@ core.register_on_joinplayer(function (player)
 	if suspended[name] then
 		suspended[name] = nil
 		suspended_save()
-		persist_each(name, function (p) core.forceload_block(p, false) end)
+		if cogwork.persist_allowed(name) then
+			persist_each(name, function (p) core.forceload_block(p, false) end)
+		end
 	end
 end)
 
@@ -148,6 +157,81 @@ local function free_orphan_forceloads ()
 	end
 end
 core.after(8, free_orphan_forceloads)
+
+-- Registered robots of owners who may not keep them (any more) forceloading: the
+-- robot stops forceloading and its program stops. A robot in land that is not
+-- loaded is loaded from disk first. Returns the number of robots handled.
+local function persist_off (owner, key, limit)
+	local why = S("Forceloading robots are limited (@1 per player)", limit)
+	local p = core.get_position_from_hash(key)
+	persist_reg[owner][key] = nil
+	if next(persist_reg[owner]) == nil then persist_reg[owner] = nil end
+	persist_save()
+	if not suspended[owner] then core.forceload_free_block(p, false) end
+
+	local function turn_off ()
+		local node = core.get_node_or_nil(p)
+		if not node then return false end
+		if cogwork.is_robot(node.name) then
+			core.get_meta(p):set_int("persist", 0)
+			cogwork.stop(p, why)
+		end
+		core.log("action", ("[cogwork] robot of %s at %s stopped forceloading (limit %d per player)"):format(
+			owner, core.pos_to_string(p), limit))
+		return true
+	end
+	if turn_off() then return end
+	core.load_area(p)
+	if turn_off() then return end
+	core.emerge_area(p, p, function (_, _, remaining)
+		if remaining == 0 and not turn_off() then
+			core.log("warning", ("[cogwork] could not load %s to stop the robot of %s forceloading"):format(
+				core.pos_to_string(p), owner))
+		end
+	end)
+end
+
+function cogwork.persist_enforce (only)
+	local handled = 0
+	for owner, list in pairs(table.copy(persist_reg)) do
+		if (not only or only == owner) and not core.check_player_privs(owner, { server = true }) then
+			local limit = cogwork.settings.max_persist
+			local keys = {}
+			for key in pairs(list) do keys[#keys + 1] = key end
+			table.sort(keys)
+			for i, key in ipairs(keys) do
+				if limit >= 0 and i > limit then
+					persist_off(owner, key, limit)
+					handled = handled + 1
+				end
+			end
+		end
+	end
+	return handled
+end
+core.after(10, cogwork.persist_enforce)
+core.register_on_priv_revoke(function (name, _, priv)
+	if priv == "server" then cogwork.persist_enforce(name) end
+end)
+
+-- For /cogwork_forceloads: every registered forceloading robot.
+function cogwork.persist_list ()
+	local out = {}
+	for owner, list in pairs(persist_reg) do
+		local admin = core.check_player_privs(owner, { server = true })
+		for key in pairs(list) do
+			local p = core.get_position_from_hash(key)
+			local node = core.get_node_or_nil(p)
+			out[#out + 1] = {
+				owner = owner, pos = p, admin = admin, suspended = suspended[owner] == true,
+				allowed = cogwork.persist_allowed(owner),
+				node = node and node.name or nil,
+			}
+		end
+	end
+	table.sort(out, function (a, b) return a.owner < b.owner or (a.owner == b.owner and core.hash_node_position(a.pos) < core.hash_node_position(b.pos)) end)
+	return out
+end
 
 -- Returns true, or false and why. The limit does not hold for admins ("server" priv).
 function cogwork.set_persist (pos, on)
