@@ -27,6 +27,8 @@ cogwork.settings = {
 	-- robots of one owner that may forceload at a time (-1: no limit)
 	-- seconds the owner may be offline before their robots stop forceloading
 	persist_offline = math.max(0, tonumber(core.settings:get("cogwork_persist_offline")) or 30),
+	-- free forceloads at startup that no registered robot accounts for (other mods' too!)
+	free_orphans = core.settings:get_bool("cogwork_free_orphans", false),
 	max_persist = math.floor(tonumber(core.settings:get("cogwork_max_persist")) or 1),
 	generator_amount = math.max(1, tonumber(core.settings:get("cogwork_generator_amount")) or 3),
 	-- power a second a robot uses while it is above the floor: per Hover Upgrade, flying

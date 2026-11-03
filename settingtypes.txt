@@ -55,6 +55,10 @@ cogwork_generator_amount (Self-Generator power) float 3 1 1000
 # How many robots of one player may keep their area loaded (forceload) at a time; -1: no limit; 0: only players with the "server" privilege
 cogwork_max_persist (Forceloading robots per player) int 1 -1 1000
 
+# At startup, free forceloads that no registered robot accounts for. Off: only log them.
+# Other mods (technic switching stations, jumpdrive anchors) hold forceloads of their own, which this would free too
+cogwork_free_orphans (Free unaccounted forceloads at startup) bool false
+
 # Seconds after its owner went offline that a robot stops keeping its area loaded (it loads again when the owner joins)
 cogwork_persist_offline (Forceload after the owner left) float 30 0 86400
 

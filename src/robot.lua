@@ -128,8 +128,11 @@ core.register_globalstep(function (dt)
 end)
 
 -- Forceloads that no registered robot accounts for (robots that forceloaded before
--- the registry, or lost their registration) would stay loaded forever: free them
--- once at startup, after the engine has restored force_loaded.txt.
+-- the registry, or lost their registration) would stay loaded forever. Other mods
+-- forceload too (technic switching stations, jumpdrive anchors) and look the same
+-- here, so by default they are only logged (see /cogwork_forceloads); with
+-- cogwork_free_orphans = true they are freed once at startup, after the engine has
+-- restored force_loaded.txt.
 local function free_orphan_forceloads ()
 	local f = io.open(core.get_worldpath() .. "/force_loaded.txt", "r")
 	if not f then return end
@@ -150,9 +153,14 @@ local function free_orphan_forceloads ()
 		local extra = count - (expected[bh] or 0)
 		if extra > 0 then
 			local b = core.get_position_from_hash(bh)
-			core.log("action", ("[cogwork] freeing %d orphaned forceload(s) of block %s"):format(
-				extra, core.pos_to_string(b)))
-			for _ = 1, extra do core.forceload_free_block(vector.multiply(b, 16), false) end
+			if cogwork.settings.free_orphans then
+				core.log("action", ("[cogwork] freeing %d orphaned forceload(s) of block %s"):format(
+					extra, core.pos_to_string(b)))
+				for _ = 1, extra do core.forceload_free_block(vector.multiply(b, 16), false) end
+			else
+				core.log("action", ("[cogwork] block %s has %d forceload(s) no registered robot accounts for (left alone; cogwork_free_orphans = false)"):format(
+					core.pos_to_string(b), extra))
+			end
 		end
 	end
 end
