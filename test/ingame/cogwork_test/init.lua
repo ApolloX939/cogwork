@@ -732,6 +732,37 @@ test("pathfind to unloaded terrain with forceload", function (done)
 	end)
 end)
 
+-- Minetest Game seeds: planted onto the soil below the target with their growth timer, and
+-- they stay when the robot moves on (the owner online: a real player runs the seed's on_place)
+if core.registered_nodes["farming:seed_wheat"] and core.registered_nodes["farming:soil_wet"] then
+	test("a robot plants seeds down onto soil and they stay", function (done)
+		clear_area()
+		local realp = {
+			get_player_name = function () return "tester" end, is_player = function () return true end,
+			get_wielded_item = function () return ItemStack("") end, get_inventory = function () return nil end,
+			get_look_dir = function () return { x = 0, y = 0, z = 1 } end, get_pos = function () return { x = 0, y = 0, z = 0 } end,
+			get_player_control = function () return {} end, set_wielded_item = function () end,
+		}
+		local gp = core.get_player_by_name
+		core.get_player_by_name = function (n) if n == "tester" then return realp end return gp(n) end
+		for z = 0, 2 do core.set_node(P(0, 1, z), { name = "farming:soil_wet" }) end
+		local pos = make_robot(P(0, 3, 0), "place down farming:seed_wheat\nmove forward\nplace down farming:seed_wheat\nmove forward\nplace down farming:seed_wheat",
+			{ "farming:seed_wheat 5" })
+		assert(cogwork.start(pos))
+		wait_for(pos, 20, function ()
+			core.get_player_by_name = gp
+			local good = true
+			for z = 0, 2 do
+				local p = P(0, 2, z)
+				local n = core.get_node(p)
+				if n.name ~= "farming:seed_wheat" or n.param2 ~= 1 or not core.get_node_timer(p):is_started() then good = false end
+			end
+			report("a robot plants seeds down onto soil and they stay", good)
+			done()
+		end)
+	end)
+end
+
 -- ---------------------------------------------------------------- upgrades
 
 -- run a program on a robot with the given upgrades, standing on a floor block

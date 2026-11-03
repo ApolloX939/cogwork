@@ -381,6 +381,22 @@ function Bot:place (dir, item)
 	local pt = { type = "node", under = V.new(self.pos), above = V.new(pos) }
 	local placed = false
 
+	-- Minetest Game seeds are signs on the ground: they plant only when clicked from above
+	-- onto soil, and then get their upright orientation and a growth timer. Placing one like
+	-- any other node (attached to the robot, no timer) leaves it hanging from the robot, and it
+	-- pops off as soon as the robot moves. So plant it at the target onto the node below it,
+	-- whichever way the robot places; farming.place_seed checks soil and protection.
+	if def and def.next_plant and rawget(_G, "farming") and farming.place_seed
+		and node_name == item then
+
+		local before = core.get_node(pos).name
+		pcall(farming.place_seed, ItemStack(item), placer,
+			{ type = "node", under = { x = pos.x, y = pos.y - 1, z = pos.z }, above = V.new(pos) }, item)
+		placed = core.get_node(pos).name ~= before
+		if placed then inv:remove_item(LIST, have) end
+		return placed, settings.action_delay
+	end
+
 	if settings.use_on_place and def.on_place and def.on_place ~= core.item_place
 		and node_name == item and not placer.is_fake then
 
